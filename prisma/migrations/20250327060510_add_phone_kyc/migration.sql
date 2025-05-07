@@ -1,0 +1,18 @@
+/*
+  Warnings:
+
+  - A unique constraint covering the columns `[phoneNumber]` on the table `User` will be added. If there are existing duplicate values, this will fail.
+  - Added the required column `phoneNumber` to the `User` table without a default value. This is not possible if the table is not empty.
+
+*/
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN     "aadhaarCardUrl" TEXT,
+ADD COLUMN     "aadhaarNumber" TEXT,
+ADD COLUMN     "isKycVerified" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "panCardNumber" TEXT,
+ADD COLUMN     "panCardUrl" TEXT,
+ADD COLUMN     "phoneNumber" TEXT NOT NULL,
+ALTER COLUMN "email" DROP NOT NULL;
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_phoneNumber_key" ON "User"("phoneNumber");

@@ -1,0 +1,104 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgres://avnadmin:AVNS_4Fk1mBECX-3HyF3z12D@pg-3efa9aaf-wepayx880-3cf7.h.aivencloud.com:14563/defaultdb?sslmode=require"
+}
+
+model User {
+  id        String   @id @default(uuid())  
+  email     String?   @unique
+  phoneNumber String  @unique
+  userType  UserType
+  balance   Decimal  @default(0.00)
+  aadhaarNumber String? // Optional initially, can be required during KYC
+  panCardNumber String? // Optional initially, can be required during KYC
+  aadhaarCardUrl String? // URL to stored Aadhaar card document
+  panCardUrl String? // URL to stored PAN card document
+  isKycVerified Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt @default(now())
+  beneficiaries Beneficiary[] 
+  sentTransactions Transactions[] @relation(name: "SenderTransactions")
+  balanceRequests BalanceRequest[]
+}
+
+enum UserType {
+  ADMIN
+  VERIFIED
+  UNVERIFIED
+}
+
+model Beneficiary {
+  id                 String   @id @default(uuid())
+  userId             String
+  accountNumber      String   @unique
+  accountHolderName  String
+  transactionType    TransactionType
+  isVerified         Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transactions[]
+}
+
+enum TransactionType {
+  NEFT
+  IMPS
+  UPI
+}
+
+model Transactions {
+  id                 String   @id @default(uuid())
+  senderId           String?
+  senderAccount      String
+  beneficiaryId      String?
+  chargesAmount      Decimal
+  amount             Decimal
+  transactionType    TransactionType
+  transactionStatus  TransactionStatus @default(PENDING)
+  transactionTime    DateTime @default(now())
+  createdAt          DateTime @default(now())
+
+  sender      User? @relation(name: "SenderTransactions", fields: [senderId], references: [id])
+  beneficiary Beneficiary? @relation(fields: [beneficiaryId], references: [id])
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model BalanceRequest {
+  id            String   @id @default(uuid())
+  userId        String
+  amount        Decimal
+  UTRnumber     String
+  isConfirmed   Boolean  @default(false)
+  isRejected    Boolean  @default(false)
+  status        BalanceRequestStatus @default(PENDING)
+  requestedAt   DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum BalanceRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model TransactionCharge {
+  id        String   @id @default(uuid())
+  minAmount Decimal
+  maxAmount Decimal
+  charge    Decimal
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt @default(now())
+}
