@@ -1,6 +1,8 @@
 import React from 'react';
 import Link from "next/link";
-
+import logo from "../../Assets/ChatGPT Image May 21, 2025, 05_47_38 AM.png";
+import logo1 from "../../Assets/about2.png";
+import Image from 'next/image';
 // Create a simple Footer component since the original is missing
 const Footer = () => {
   return (
@@ -20,11 +22,11 @@ const About = () => {
         >
           ← Back
         </Link>
-        <div>
+        <div className=''>
           <h1 className="text-4xl font-bold mb-8 text-center text-white">About WePay</h1>
           
-          <div className="bg-gradient-to-r from-purple-50 to-teal-50 rounded-xl p-6 mb-16">
-            <div className="grid md:grid-cols-2 gap-8 items-center">
+          <div className="bg-gradient-to-r from-purple-50 to-teal-50 rounded-xl p-6 mb-16 bg-slate-700">
+            <div className="grid md:grid-cols-2 gap-8 items-center ">
               <div>
                 <h2 className="text-3xl font-bold mb-4 text-gray-800">What is Expense Payout?</h2>
                 <p className="text-gray-600 mb-4">
@@ -39,11 +41,11 @@ const About = () => {
                 </ul>
               </div>
               <div className="flex justify-center">
-                <img 
-                  src="/api/placeholder/500/400" 
-                  alt="Expense Payout Illustration" 
-                  className="w-full max-w-md h-auto"
-                />
+                <Image 
+                src={logo1}
+                alt="WePay Office" 
+                className="w-full h-auto"
+              />
               </div>
             </div>
           </div>
@@ -63,8 +65,8 @@ const About = () => {
               </p>
             </div>
             <div className="rounded-xl overflow-hidden shadow-lg">
-              <img 
-                src="/api/placeholder/1000/600" 
+              <Image 
+                src={logo}
                 alt="WePay Office" 
                 className="w-full h-auto"
               />

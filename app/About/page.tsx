@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from "next/link";
+import logo from "../../Assets/about2.png";
 
 // Create a simple Footer component since the original is missing
 const Footer = () => {
@@ -39,7 +40,7 @@ const About = () => {
             </div>
             <div className="rounded-xl overflow-hidden shadow-lg">
               <img 
-                src="/api/placeholder/1000/600" 
+                src={logo.src}
                 alt="WePay Office" 
                 className="w-full h-auto"
               />
