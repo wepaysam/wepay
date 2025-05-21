@@ -43,16 +43,16 @@ const Footer = () => {
           <div className="mb-8">
             <h3 className="text-lg font-semibold mb-4">Products</h3>
             <ul className="space-y-2">
-              <li><Link href="/payouts" className="text-gray-400 hover:text-white transition-colors">Payouts</Link></li>
-              <li><Link href="/collections" className="text-gray-400 hover:text-white transition-colors">Collections</Link></li>
-              <li><Link href="/card" className="text-gray-400 hover:text-white transition-colors">Card</Link></li>
-              <li><Link href="/insurance" className="text-gray-400 hover:text-white transition-colors">Insurance</Link></li>
-              <li><Link href="/loans" className="text-gray-400 hover:text-white transition-colors">Loans</Link></li>
+              <li className="text-gray-400 hover:text-white transition-colors">Payouts</li>
+              <li className="text-gray-400 hover:text-white transition-colors">Collections</li>
+              <li className="text-gray-400 hover:text-white transition-colors">Card</li>
+              <li className="text-gray-400 hover:text-white transition-colors">Insurance</li>
+              <li className="text-gray-400 hover:text-white transition-colors">Loans</li>
             </ul>
           </div>
 
           {/* Solutions */}
-          <div className="mb-8">
+          {/* <div className="mb-8">
             <h3 className="text-lg font-semibold mb-4">Solutions</h3>
             <ul className="space-y-2">
               <li><Link href="/e-commerce" className="text-gray-400 hover:text-white transition-colors">E-commerce</Link></li>
@@ -60,15 +60,15 @@ const Footer = () => {
               <li><Link href="/insurance" className="text-gray-400 hover:text-white transition-colors">Insurance</Link></li>
               <li><Link href="/lending" className="text-gray-400 hover:text-white transition-colors">Lending</Link></li>
             </ul>
-          </div>
+          </div> */}
 
           {/* Company */}
           <div className="mb-8">
             <h3 className="text-lg font-semibold mb-4">Company</h3>
             <ul className="space-y-2">
-              <li><Link href="/about" className="text-gray-400 hover:text-white transition-colors">About Us</Link></li>
-              <li><Link href="/blog" className="text-gray-400 hover:text-white transition-colors">Blog</Link></li>
-              <li><Link href="/careers" className="text-gray-400 hover:text-white transition-colors">Careers</Link></li>
+              <li><Link href="/aboutus" className="text-gray-400 hover:text-white transition-colors">About Us</Link></li>
+              {/* <li><Link href="/blog" className="text-gray-400 hover:text-white transition-colors">Blog</Link></li> */}
+              {/* <li><Link href="/careers" className="text-gray-400 hover:text-white transition-colors">Careers</Link></li> */}
               <li><Link href="/contact" className="text-gray-400 hover:text-white transition-colors">Contact Us</Link></li>
             </ul>
           </div>
@@ -81,10 +81,10 @@ const Footer = () => {
             © 2025 WePay Pvt Limited. All rights reserved.
           </p>
           <div className="flex flex-wrap gap-4 text-sm text-gray-400">
-            <Link href="/terms" className="hover:text-white transition-colors">Terms & Conditions</Link>
-            <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
-            <Link href="/security" className="hover:text-white transition-colors">Security</Link>
-            <Link href="/compliance" className="hover:text-white transition-colors">Compliance</Link>
+            {/* <Link href="/terms" className="hover:text-white transition-colors">Terms & Conditions</Link> */}
+            <Link href="/aboutus" className="hover:text-white transition-colors">Privacy Policy</Link>
+            {/* <Link href="/security" className="hover:text-white transition-colors">Security</Link>
+            <Link href="/compliance" className="hover:text-white transition-colors">Compliance</Link> */}
           </div>
         </div>
         

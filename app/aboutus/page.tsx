@@ -23,6 +23,31 @@ const About = () => {
         <div>
           <h1 className="text-4xl font-bold mb-8 text-center text-white">About WePay</h1>
           
+          <div className="bg-gradient-to-r from-purple-50 to-teal-50 rounded-xl p-6 mb-16">
+            <div className="grid md:grid-cols-2 gap-8 items-center">
+              <div>
+                <h2 className="text-3xl font-bold mb-4 text-gray-800">What is Expense Payout?</h2>
+                <p className="text-gray-600 mb-4">
+                  Expense payout systems streamline the process of reimbursing employees or other stakeholders for business-related expenditures, 
+                  ensuring accuracy, speed, and transparency.
+                </p>
+                <ul className="space-y-2 text-gray-700">
+                  <li>Ease of Access</li>
+                  <li>Secure Transactions</li>
+                  <li>Wide Acceptance</li>
+                  <li>Biometric Authentication</li>
+                </ul>
+              </div>
+              <div className="flex justify-center">
+                <img 
+                  src="/api/placeholder/500/400" 
+                  alt="Expense Payout Illustration" 
+                  className="w-full max-w-md h-auto"
+                />
+              </div>
+            </div>
+          </div>
+          
           <div className="grid md:grid-cols-2 gap-12 items-center mb-16">
             <div>
               <h2 className="text-2xl font-semibold mb-4 text-white">Our Mission</h2>
@@ -87,6 +112,36 @@ const About = () => {
           </div>
         </div>
       </div>
+      
+      <div className="bg-white py-12">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl font-bold text-center text-gray-800 mb-12">We Trust You And Value Your Money</h2>
+          <p className="text-gray-600 text-center max-w-3xl mx-auto mb-12">
+            The fastest, most convenient way to accept payments is here. With PayU, you can accept payments via popular
+            UPI Apps right at checkout. Choose from multiple transaction flows as per your business needs.
+          </p>
+          
+          <div className="grid md:grid-cols-2 gap-10 max-w-4xl mx-auto">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">Key Features</h3>
+              <ul className="space-y-2 text-teal-600">
+                <li>Salary Payments</li>
+                <li>Vendor Payments</li>
+                <li>Expense Payout</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">Services Offered</h3>
+              <ul className="space-y-2 text-teal-600">
+                <li>Mobile & DTH Recharge</li>
+                <li>Bill Payment</li>
+                <li>And More...</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       <Footer />
     </div>
   );
