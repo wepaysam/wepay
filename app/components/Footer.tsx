@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import logo from "../../Assets/logo.png";
-import { Facebook, Twitter, Instagram, Linkedin, Youtube } from "lucide-react";
+import { Facebook, Twitter, Instagram, Linkedin, Youtube, MapPin, Mail, Phone } from "lucide-react";
 
 const Footer = () => {
   return (
@@ -19,6 +19,8 @@ const Footer = () => {
             <p className="text-gray-400 mb-4">
               WePay is a modern digital banking and payment platform for businesses.
               It offers a unified dashboard for managing accounts, payments, and more.
+              Your security is our top priority with advanced encryption and fraud protection.
+              We ensure seamless transactions while maintaining the highest security standards.
             </p>
             <div className="flex space-x-4">
               <a href="#" className="text-gray-400 hover:text-white transition-colors">
@@ -39,36 +41,56 @@ const Footer = () => {
             </div>
           </div>
 
+          {/* Contact Us */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-4">Contact Us</h3>
+            <div className="space-y-3">
+              <div className="flex items-start space-x-2">
+                <MapPin size={16} className="text-gray-400 mt-1 flex-shrink-0" />
+                <p className="text-gray-400 text-sm">
+                  Shop no 12, Second Floor, Lata Circle,<br />
+                  Apna Bazar, Jhotwara, Jaipur,<br />
+                  Rajasthan 302013
+                </p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Mail size={16} className="text-gray-400" />
+                <div className="text-gray-400 text-sm">
+                  <a href="mailto:vishubh043@gmail.com" className="hover:text-white transition-colors">
+                    vishubh043@gmail.com
+                  </a>
+                  <br />
+                  <a href="mailto:support@wepay.in" className="hover:text-white transition-colors">
+                    support@wepay.in
+                  </a>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Phone size={16} className="text-gray-400" />
+                <a href="tel:9001770984" className="text-gray-400 text-sm hover:text-white transition-colors">
+                  +91 9001770984
+                </a>
+              </div>
+            </div>
+          </div>
+
           {/* Products */}
           <div className="mb-8">
             <h3 className="text-lg font-semibold mb-4">Products</h3>
             <ul className="space-y-2">
-              <li className="text-gray-400 hover:text-white transition-colors">Payouts</li>
-              <li className="text-gray-400 hover:text-white transition-colors">Collections</li>
-              <li className="text-gray-400 hover:text-white transition-colors">Card</li>
-              <li className="text-gray-400 hover:text-white transition-colors">Insurance</li>
-              <li className="text-gray-400 hover:text-white transition-colors">Loans</li>
+              <li className="text-gray-400 hover:text-white transition-colors cursor-pointer">Payouts</li>
+              <li className="text-gray-400 hover:text-white transition-colors cursor-pointer">Collections</li>
+              <li className="text-gray-400 hover:text-white transition-colors cursor-pointer">Card</li>
+              <li className="text-gray-400 hover:text-white transition-colors cursor-pointer">Insurance</li>
+              <li className="text-gray-400 hover:text-white transition-colors cursor-pointer">Loans</li>
             </ul>
           </div>
-
-          {/* Solutions */}
-          {/* <div className="mb-8">
-            <h3 className="text-lg font-semibold mb-4">Solutions</h3>
-            <ul className="space-y-2">
-              <li><Link href="/e-commerce" className="text-gray-400 hover:text-white transition-colors">E-commerce</Link></li>
-              <li><Link href="/logistics" className="text-gray-400 hover:text-white transition-colors">Logistics</Link></li>
-              <li><Link href="/insurance" className="text-gray-400 hover:text-white transition-colors">Insurance</Link></li>
-              <li><Link href="/lending" className="text-gray-400 hover:text-white transition-colors">Lending</Link></li>
-            </ul>
-          </div> */}
 
           {/* Company */}
           <div className="mb-8">
             <h3 className="text-lg font-semibold mb-4">Company</h3>
             <ul className="space-y-2">
               <li><Link href="/aboutus" className="text-gray-400 hover:text-white transition-colors">About Us</Link></li>
-              {/* <li><Link href="/blog" className="text-gray-400 hover:text-white transition-colors">Blog</Link></li> */}
-              {/* <li><Link href="/careers" className="text-gray-400 hover:text-white transition-colors">Careers</Link></li> */}
               <li><Link href="/contactUs" className="text-gray-400 hover:text-white transition-colors">Contact Us</Link></li>
             </ul>
           </div>
@@ -81,10 +103,7 @@ const Footer = () => {
             © 2025 WePay Pvt Limited. All rights reserved.
           </p>
           <div className="flex flex-wrap gap-4 text-sm text-gray-400">
-            {/* <Link href="/terms" className="hover:text-white transition-colors">Terms & Conditions</Link> */}
             <Link href="/aboutus" className="hover:text-white transition-colors">Privacy Policy</Link>
-            {/* <Link href="/security" className="hover:text-white transition-colors">Security</Link>
-            <Link href="/compliance" className="hover:text-white transition-colors">Compliance</Link> */}
           </div>
         </div>
         
