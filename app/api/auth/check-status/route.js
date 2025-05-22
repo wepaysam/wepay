@@ -3,6 +3,9 @@ import prisma from '../../../lib/prisma';
 
 export async function GET(request) {
   try {
+
+    console.log("DATABASE_URL =>", process.env.DATABASE_URL);
+
     // Get the phone number from the query parameters
     const { searchParams } = new URL(request.url);
     const phoneNumber = searchParams.get('phoneNumber');
