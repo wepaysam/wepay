@@ -11,6 +11,7 @@ import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
 import { useToast } from "../../hooks/use-toast";
 
+// Schemas for individual KYC fields (used in Step 2 validation)
 const aadhaarFieldSchema = z.string()
   .min(12, "Aadhaar number must be 12 digits")
   .max(12, "Aadhaar number must be 12 digits")
@@ -21,6 +22,7 @@ const panFieldSchema = z.string()
   .max(10, "PAN card number must be 10 characters")
   .regex(/^[A-Z0-9]+$/, "PAN card number must contain only uppercase letters and numbers");
 
+// Main Zod schema for react-hook-form (only Step 1 fields for now)
 const signupSchema = z.object({
   email: z.string().email("Please provide a valid email address").optional(),
   name: z.string().min(1, "Name is required"),
@@ -49,10 +51,10 @@ const Signup = () => {
     resolver: zodResolver(signupSchema),
     defaultValues: {
       email: "",
-      name: "",
+      name: "", // Added name
       phoneNumber: "",
-      aadhaarNumber: "",
-      panCardNumber: "",
+      aadhaarNumber: "", // Will be handled in step 2, but provide default
+      panCardNumber: "",   // Will be handled in step 2, but provide default
     },
   });
 
@@ -81,99 +83,72 @@ const Signup = () => {
   }, [aadhaarOtp, toast]);
 
   const onSubmit = async (data: SignupFormValues) => {
-    setIsLoading(true); // Set loading at the beginning
+    setIsLoading(true);
 
     if (currentStep === 1) {
       if (isMobileVerified) {
         setCurrentStep(2);
-        setIsLoading(false); // Reset loading as we are just changing step
+        setIsLoading(false);
       } else {
         toast({
           title: "Verification Required",
           description: "Please verify your mobile number before proceeding.",
           variant: "destructive",
         });
-        setIsLoading(false); // Reset loading
+        setIsLoading(false);
       }
-      return; // Prevent further execution for Step 1
-    }
-
-    // The following code will only execute if currentStep is not 1
-    // (e.g., when currentStep is 2 and the form is submitted for account creation)
-    if (currentStep === 2) {
-      // Validate KYC verification status
-      if (!isAadhaarVerified) {
-        toast({ title: "Aadhaar Not Verified", description: "Please verify your Aadhaar number.", variant: "destructive" });
-        setIsLoading(false); return;
-      }
-      if (!isPanVerified) {
-        toast({ title: "PAN Not Verified", description: "Please verify your PAN card number.", variant: "destructive" });
-        setIsLoading(false); return;
-      }
-
-      // Validate Aadhaar Number format from form data
-      // Assuming data.aadhaarNumber is available as it's a registered FormField with defaultValues
-      const parsedAadhaar = aadhaarFieldSchema.safeParse((data as any).aadhaarNumber);
-      if (!parsedAadhaar.success) {
-        toast({ title: "Invalid Aadhaar Number", description: parsedAadhaar.error.errors[0]?.message || "Invalid format.", variant: "destructive" });
-        setIsLoading(false); return;
-      }
-
-      // Validate PAN Card Number format from form data
-      // Assuming data.panCardNumber is available
-      const parsedPan = panFieldSchema.safeParse((data as any).panCardNumber);
-      if (!parsedPan.success) {
-        toast({ title: "Invalid PAN Card Number", description: parsedPan.error.errors[0]?.message || "Invalid format.", variant: "destructive" });
-        setIsLoading(false); return;
-      }
-    }
-    
-    // Re-check mobile verification before final submission (this check is good to keep)
-    if (!isMobileVerified) {
-      toast({
-        title: "Mobile Verification Required",
-        description: "Your mobile number is not verified.",
-        variant: "destructive",
-      });
-      setIsLoading(false);
       return;
     }
 
+    // currentStep === 2 (Final submission logic)
+    if (!isMobileVerified) { // Should always be true if currentStep is 2, but a good check
+      toast({ title: "Mobile Verification Required", description: "Your mobile number is not verified.", variant: "destructive" });
+      setIsLoading(false); return;
+    }
+    if (!isAadhaarVerified) {
+      toast({ title: "Aadhaar Not Verified", description: "Please verify your Aadhaar number.", variant: "destructive" });
+      setIsLoading(false); return;
+    }
+    if (!isPanVerified) {
+      toast({ title: "PAN Not Verified", description: "Please verify your PAN card number.", variant: "destructive" });
+      setIsLoading(false); return;
+    }
+    
+    // Validate Aadhaar and PAN numbers from form data (accessed via data as any due to schema mismatch)
+    const currentFormData = form.getValues(); // Or use data directly if types were aligned
+    const parsedAadhaar = aadhaarFieldSchema.safeParse(currentFormData.aadhaarNumber);
+    if (!parsedAadhaar.success) {
+      toast({ title: "Invalid Aadhaar Number", description: parsedAadhaar.error.errors[0]?.message || "Invalid format.", variant: "destructive" });
+      setIsLoading(false); return;
+    }
+    const parsedPan = panFieldSchema.safeParse(currentFormData.panCardNumber);
+    if (!parsedPan.success) {
+      toast({ title: "Invalid PAN Card Number", description: parsedPan.error.errors[0]?.message || "Invalid format.", variant: "destructive" });
+      setIsLoading(false); return;
+    }
+
     try {
-      // First check if a user with this phone number already exists
-      const checkResponse = await fetch(`/api/auth/check-user?phoneNumber=${data.phoneNumber}`, {
-        method: 'GET',
-      });
-      
+      const checkResponse = await fetch(`/api/auth/check-user?phoneNumber=${data.phoneNumber}`);
       const checkResult = await checkResponse.json();
-      
       if (checkResult.exists) {
         throw new Error('A user with this phone number already exists');
       }
       
-      // Then register the user
-      // Document upload related code is removed as per instructions.
-      // aadhaarCardUrl and panCardUrl are no longer included.
       const userData = {
         name: data.name,
         email: data.email,
         phoneNumber: data.phoneNumber,
-        aadhaarNumber: (data as any).aadhaarNumber, 
-        panCardNumber: (data as any).panCardNumber,
-        // aadhaarCardUrl: "", // Removed
-        // panCardUrl: "",    // Removed
+        aadhaarNumber: currentFormData.aadhaarNumber,
+        panCardNumber: currentFormData.panCardNumber,
       };
       
       const response = await fetch('/api/auth/register', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData),
       });
       
       const result = await response.json();
-      
       if (!response.ok) {
         throw new Error(result.message || 'Registration failed');
       }
@@ -183,12 +158,9 @@ const Signup = () => {
         description: "Your account has been created.",
       });
       
-      // Store token in cookie
       if (typeof document !== 'undefined') {
         document.cookie = `token=${result.token}; path=/; max-age=31536000`;
       }
-      
-      // Navigate to dashboard
       setTimeout(() => router.push("/dashboard"), 1500);
     } catch (error: any) {
       toast({
@@ -212,7 +184,7 @@ const Signup = () => {
         <div className="text-center mb-6">
           <h1 className="text-3xl font-bold text-white mb-2">Create Account</h1>
           <p className="text-sm text-gray-300">
-            Enter your details to create your account.
+            {currentStep === 1 ? "Enter your details to get started." : "Complete KYC Verification."}
           </p>
         </div>
 
@@ -220,144 +192,110 @@ const Signup = () => {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {currentStep === 1 && (
             <>
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-white">Full Name</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                      <Input
-                        placeholder="Enter your full name"
-                        className="pl-10 bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-primary focus:ring-primary"
-                        {...field}
-                      />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="phoneNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-white">Phone Number</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                      <Input
-                        placeholder="Enter your phone number"
-                        maxLength={10}
-                        className="pl-10 bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-primary focus:ring-primary"
-                        {...field}
-                      />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="flex items-center space-x-2">
-              <Button 
-                type="button" 
-                onClick={() => {
-                  setShowMobileOtpInput(true);
-                  setIsMobileVerified(false);
-                  setMobileOtp("");
-                }} 
-                className={`w-full mt-2 py-3 rounded-lg transition-colors ${isMobileVerified ? "bg-green-600 hover:bg-green-700" : "bg-gray-600 hover:bg-gray-700"} text-white`}
-                disabled={isMobileVerified}
-              >
-                {isMobileVerified ? "✓ Verified" : "Verify Number"}
-              </Button>
-              {isMobileVerified && <CheckCircle className="h-6 w-6 text-green-500 mt-2" />}
-            </div>
-
-            {showMobileOtpInput && !isMobileVerified && (
-              <div className="mt-4 space-y-2">
-                <Input
-                  type="text"
-                  value={mobileOtp}
-                  onChange={(e) => setMobileOtp(e.target.value)}
-                  placeholder="Enter 4-digit OTP"
-                  maxLength={4}
-                  className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-primary focus:ring-primary"
-                />
-                <p className="text-xs text-gray-400">Enter "0000" for testing.</p>
-              </div>
-            )}
-
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-white">Email (Optional)</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                      <Input
-                        placeholder="Your email address (optional)"
-                        className="pl-10 bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-primary focus:ring-primary"
-                        {...field}
-                      />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <Button 
-              type="submit" 
-              className="w-full bg-primary hover:bg-primary-700 text-white py-3 rounded-lg transition-colors"
-              disabled={currentStep === 1 ? (isLoading || !isMobileVerified) : (isLoading || !isAadhaarVerified || !isPanVerified)}
-            >
-              {isLoading ? (currentStep === 1 ? "Processing..." : "Submitting...") : (currentStep === 1 ? "Next" : "Submit")}
-            </Button>
-
-            <div className="text-center">
-              <p className="text-sm text-gray-300">
-                Already have an account?{" "}
-                <button
-                  type="button"
-                  className="text-primary hover:underline focus:outline-none"
-                  onClick={() => router.push("/Auth/login")}
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-white">Full Name</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                        <Input
+                          placeholder="Enter your full name"
+                          className="pl-10 bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-primary focus:ring-primary"
+                          {...field}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="phoneNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-white">Phone Number</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                        <Input
+                          placeholder="Enter your phone number"
+                          maxLength={10}
+                          className="pl-10 bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-primary focus:ring-primary"
+                          {...field}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex items-center space-x-2">
+                <Button 
+                  type="button" 
+                  onClick={() => {
+                    setShowMobileOtpInput(true);
+                    setIsMobileVerified(false);
+                    setMobileOtp("");
+                  }} 
+                  className={`w-full mt-2 py-3 rounded-lg transition-colors ${isMobileVerified ? "bg-green-600 hover:bg-green-700" : "bg-gray-600 hover:bg-gray-700"} text-white`}
+                  disabled={isMobileVerified}
                 >
-                  Log in
-                </button>
-              </p>
-            </div>
+                  {isMobileVerified ? "✓ Verified" : "Verify Number"}
+                </Button>
+                {isMobileVerified && <CheckCircle className="h-6 w-6 text-green-500 mt-2" />}
+              </div>
+
+              {showMobileOtpInput && !isMobileVerified && (
+                <div className="mt-4 space-y-2">
+                  <Input
+                    type="text"
+                    value={mobileOtp}
+                    onChange={(e) => setMobileOtp(e.target.value)}
+                    placeholder="Enter 4-digit OTP"
+                    maxLength={4}
+                    className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-primary focus:ring-primary"
+                  />
+                  <p className="text-xs text-gray-400">Enter "0000" for testing.</p>
+                </div>
+              )}
+
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-white">Email (Optional)</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                        <Input
+                          placeholder="Your email address (optional)"
+                          className="pl-10 bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-primary focus:ring-primary"
+                          {...field}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </>
             )}
 
             {currentStep === 2 && (
               <div className="space-y-6">
                 <h3 className="text-xl font-semibold text-white text-center">KYC Verification</h3>
-                
                 <FormField
                   control={form.control}
-                  name="aadhaarNumber"
+                  name="aadhaarNumber" 
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-white">Aadhaar Number</FormLabel>
                       <div className="flex items-center space-x-2">
-                        <FormControl>
-                          <div className="relative w-full">
-                            <CreditCard className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                            <Input
-                              placeholder="Enter 12-digit Aadhaar number"
-                              className="pl-10 bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-primary focus:ring-primary"
-                              maxLength={12}
-                              {...field}
-                            />
-                          </div>
-                        </FormControl>
                         <FormControl>
                           <div className="relative w-full">
                             <CreditCard className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
@@ -405,7 +343,7 @@ const Signup = () => {
 
                 <FormField
                   control={form.control}
-                  name="panCardNumber"
+                  name="panCardNumber" 
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-white">PAN Card Number</FormLabel>
@@ -447,17 +385,32 @@ const Signup = () => {
                     </FormItem>
                   )}
                 />
-
-                <FileUploadComponent
-                  id="aadhaarFile"
-                  label="Aadhaar Card Document"
-                  file={aadhaarFile}
-                  setFile={setAadhaarFile}
-                  icon={<Upload className="h-5 w-5 text-gray-400 group-hover:text-primary" />} // This line will be removed by the JSX change
-                /> 
-                {/* PAN FileUploadComponent was here */}
+                {/* FileUploadComponent was here and is now removed */}
               </div>
             )}
+
+            {/* Common elements START - MOVED HERE */}
+            <Button 
+              type="submit" 
+              className="w-full bg-primary hover:bg-primary-700 text-white py-3 rounded-lg transition-colors"
+              disabled={currentStep === 1 ? (isLoading || !isMobileVerified) : (isLoading || !isAadhaarVerified || !isPanVerified)}
+            >
+              {isLoading ? (currentStep === 1 ? "Processing..." : "Submitting...") : (currentStep === 1 ? "Next" : "Submit")}
+            </Button>
+
+            <div className="text-center">
+              <p className="text-sm text-gray-300">
+                Already have an account?{" "}
+                <button
+                  type="button"
+                  className="text-primary hover:underline focus:outline-none"
+                  onClick={() => router.push("/Auth/login")}
+                >
+                  Log in
+                </button>
+              </p>
+            </div>
+            {/* Common elements END */}
           </form>
         </Form>
       </motion.div>
