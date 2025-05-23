@@ -5,12 +5,11 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
-import { User, Mail, Phone, Lock, CheckCircle, Upload, CreditCard, FileText } from "lucide-react";
+import { User, Mail, Phone, Lock, CheckCircle, CreditCard, FileText } from "lucide-react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../../components/ui/form";
 import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
 import { useToast } from "../../hooks/use-toast";
-import { uploadKycDocuments } from "../../utils/storage";
 
 const aadhaarFieldSchema = z.string()
   .min(12, "Aadhaar number must be 12 digits")
@@ -41,8 +40,6 @@ const Signup = () => {
   const [mobileOtp, setMobileOtp] = useState("");
   const [showMobileOtpInput, setShowMobileOtpInput] = useState(false);
   const [isMobileVerified, setIsMobileVerified] = useState(false);
-  const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
-  const [panFile, setPanFile] = useState<File | null>(null);
   const [aadhaarOtp, setAadhaarOtp] = useState("");
   const [showAadhaarOtpInput, setShowAadhaarOtpInput] = useState(false);
   const [isAadhaarVerified, setIsAadhaarVerified] = useState(false);
@@ -58,58 +55,6 @@ const Signup = () => {
       panCardNumber: "",
     },
   });
-
-  // FileUploadComponent definition (re-added)
-  const FileUploadComponent = ({ 
-    id, 
-    label, 
-    file, 
-    setFile,
-    icon
-  }: { 
-    id: string, 
-    label: string, 
-    file: File | null, 
-    setFile: (file: File | null) => void,
-    icon: React.ReactNode
-  }) => {
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const selectedFile = e.target.files?.[0];
-      setFile(selectedFile || null);
-    };
-
-    return (
-      <div className="space-y-2">
-        <label htmlFor={id} className="block text-sm font-medium text-white">
-          {label}
-        </label>
-        <div className="relative">
-          <input
-            type="file"
-            id={id}
-            name={id}
-            className="hidden"
-            onChange={handleFileChange}
-            accept=".pdf,.jpg,.jpeg,.png"
-          />
-          <label 
-            htmlFor={id} 
-            className="flex items-center justify-between w-full px-4 py-3 text-sm 
-              border border-dashed border-gray-300 rounded-lg cursor-pointer 
-              hover:border-primary transition-colors group"
-          >
-            <div className="flex items-center space-x-2">
-              {icon}
-              <span className="text-gray-500 group-hover:text-primary">
-                {file ? file.name : `Upload ${label}`}
-              </span>
-            </div>
-            {file && <CheckCircle className="h-5 w-5 text-green-500" />}
-          </label>
-        </div>
-      </div>
-    );
-  };
 
   useEffect(() => {
     if (mobileOtp === "0000") {
@@ -166,16 +111,6 @@ const Signup = () => {
         setIsLoading(false); return;
       }
 
-      // Validate file uploads
-      if (!aadhaarFile) {
-        toast({ title: "Missing Aadhaar Document", description: "Please upload your Aadhaar card document.", variant: "destructive" });
-        setIsLoading(false); return;
-      }
-      if (!panFile) {
-        toast({ title: "Missing PAN Document", description: "Please upload your PAN card document.", variant: "destructive" });
-        setIsLoading(false); return;
-      }
-
       // Validate Aadhaar Number format from form data
       // Assuming data.aadhaarNumber is available as it's a registered FormField with defaultValues
       const parsedAadhaar = aadhaarFieldSchema.safeParse((data as any).aadhaarNumber);
@@ -215,23 +150,18 @@ const Signup = () => {
       if (checkResult.exists) {
         throw new Error('A user with this phone number already exists');
       }
-
-      // Upload files to Firebase Storage (only if in step 2 and all validations passed)
-      const { aadhaarCardUrl, panCardUrl } = await uploadKycDocuments(
-        aadhaarFile!, // aadhaarFile and panFile are checked above for currentStep === 2
-        panFile!,
-        data.phoneNumber
-      );
       
       // Then register the user
+      // Document upload related code is removed as per instructions.
+      // aadhaarCardUrl and panCardUrl are no longer included.
       const userData = {
         name: data.name,
         email: data.email,
         phoneNumber: data.phoneNumber,
         aadhaarNumber: (data as any).aadhaarNumber, 
         panCardNumber: (data as any).panCardNumber,
-        aadhaarCardUrl,
-        panCardUrl,
+        // aadhaarCardUrl: "", // Removed
+        // panCardUrl: "",    // Removed
       };
       
       const response = await fetch('/api/auth/register', {
@@ -386,7 +316,7 @@ const Signup = () => {
             <Button 
               type="submit" 
               className="w-full bg-primary hover:bg-primary-700 text-white py-3 rounded-lg transition-colors"
-              disabled={currentStep === 1 ? (isLoading || !isMobileVerified) : (isLoading || !isAadhaarVerified || !isPanVerified || !aadhaarFile || !panFile)}
+              disabled={currentStep === 1 ? (isLoading || !isMobileVerified) : (isLoading || !isAadhaarVerified || !isPanVerified)}
             >
               {isLoading ? (currentStep === 1 ? "Processing..." : "Submitting...") : (currentStep === 1 ? "Next" : "Submit")}
             </Button>
@@ -523,16 +453,9 @@ const Signup = () => {
                   label="Aadhaar Card Document"
                   file={aadhaarFile}
                   setFile={setAadhaarFile}
-                  icon={<Upload className="h-5 w-5 text-gray-400 group-hover:text-primary" />}
-                />
-
-                <FileUploadComponent
-                  id="panFile"
-                  label="PAN Card Document"
-                  file={panFile}
-                  setFile={setPanFile}
-                  icon={<Upload className="h-5 w-5 text-gray-400 group-hover:text-primary" />}
-                />
+                  icon={<Upload className="h-5 w-5 text-gray-400 group-hover:text-primary" />} // This line will be removed by the JSX change
+                /> 
+                {/* PAN FileUploadComponent was here */}
               </div>
             )}
           </form>
