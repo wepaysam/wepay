@@ -358,7 +358,7 @@ const Signup = () => {
                   maxLength={4}
                   className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-primary focus:ring-primary"
                 />
-                <p className="text-xs text-gray-400">Enter "0000" for testing.</p>
+                <p className="text-xs text-gray-400">Enter  0000 for testing.</p>
               </div>
             )}
 
@@ -469,7 +469,7 @@ const Signup = () => {
                       maxLength={4}
                       className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-primary focus:ring-primary"
                     />
-                    <p className="text-xs text-gray-400">Enter "0000" for testing.</p>
+                    <p className="text-xs text-gray-400">Enter 0000 for testing.</p>
                   </div>
                 )}
 
