@@ -22,8 +22,8 @@ import logo from "../../Assets/logo.png";
 
 const Logo = () => (
   <Link href="/" className="flex items-center gap-2">
-    <Image src={logo} alt="Logo" width={32} height={32} />
-    <span className="font-bold text-lg">WePay</span>
+    <Image src={logo} alt="Logo" width={140} height={140} />
+    {/* <span className="font-bold text-lg">WePay</span> */}
   </Link>
 );
 
@@ -37,9 +37,11 @@ const Sidebar: React.FC<SidebarProps> = () => {
   const links = [
     { href: "/", icon: <Home />, label: "Home" },
     { href: "/payouts", icon: <ArrowLeftRight />, label: "Payouts" },
+    { href: "/statement", icon: <Receipt />, label: "Statement" },
+    { href: "/balancerequest", icon: <FileText />, label: "Balance Request" },
     // { href: "/account-statement", icon: <FileText />, label: "Account Statement" },
     // { href: "/contacts", icon: <Users />, label: "Contacts" },
-    { href: "/recharge", icon: <Gift />, label: "Recharge/Gift Cards" },
+    { href: "/recharge", icon: <Gift />, label: "Gift Cards" },
     // { href: "/tax-payments", icon: <Receipt />, label: "Tax Payments" },
     // { href: "/payout-links", icon: <LinkIcon />, label: "Payout Links" },
     // { href: "/payroll", icon: <DollarSign />, label: "Payroll" },
@@ -60,7 +62,7 @@ const Sidebar: React.FC<SidebarProps> = () => {
 
   return (
     <div className="fixed top-0 left-0 h-screen w-64 bg-background dark:bg-background-dark border-r dark:border-r-dark flex flex-col shadow-2xl shadow-gray-800 dark:shadow-white">
-      <div className="p-4 border-b">
+      <div className="h-24 border-b flex items-center justify-center flex-shrink-0">
         <Logo />
       </div>
       <nav className="flex-1 p-2">

@@ -18,8 +18,8 @@ interface HeroSectionProps {
 
 const Logo = () => (
   <div className="flex items-center ml-10 mb-4">
-    <Image src={logo} alt="wepay logo" width={80} height={80} />
-    <span className="ml-2 text-2xl font-semibold">WePay</span>
+    <Image src={logo} alt="wepay logo" width={200} height={200} />
+    {/* <span className="ml-2 text-2xl font-semibold">WePay</span> */}
   </div>
 );
 
@@ -112,10 +112,10 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                 transition={{ duration: 0.5, delay: 0.3 }}
               >
                 <Link
-                  href="/Auth/signup"
+                  href="/Auth/login"
                   className="inline-flex items-center justify-center px-6 py-3 border border-transparent rounded-md font-medium text-white bg-primary hover:bg-primary/90 transition-colors duration-200 gap-2"
                 >
-                  Create Account
+                  Login
                 </Link>
               </motion.div>
             </div>

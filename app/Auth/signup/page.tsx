@@ -5,12 +5,12 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
-import { User, Mail, Phone, Lock, CheckCircle, Upload, CreditCard, FileText } from "lucide-react";
+import { User, Mail, Phone, CheckCircle, CreditCard, FileText } from "lucide-react"; // Removed Upload
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../../components/ui/form";
 import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
 import { useToast } from "../../hooks/use-toast";
-import { uploadKycDocuments } from "../../utils/storage";
+// import { uploadKycDocuments } from "../../utils/storage"; // Removed as document upload is removed
 
 const aadhaarFieldSchema = z.string()
   .min(12, "Aadhaar number must be 12 digits")
@@ -29,6 +29,8 @@ const signupSchema = z.object({
     .min(10, "Phone number must be at least 10 digits")
     .max(15, "Phone number must not exceed 15 digits")
     .regex(/^\d+$/, "Phone number must contain only digits"),
+  // aadhaarNumber and panCardNumber are handled by FormFields and defaultValues,
+  // but not strictly part of this initial schema. Validation is done manually in onSubmit.
 });
 
 type SignupFormValues = z.infer<typeof signupSchema>;
@@ -41,14 +43,14 @@ const Signup = () => {
   const [mobileOtp, setMobileOtp] = useState("");
   const [showMobileOtpInput, setShowMobileOtpInput] = useState(false);
   const [isMobileVerified, setIsMobileVerified] = useState(false);
-  const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
-  const [panFile, setPanFile] = useState<File | null>(null);
+  // Removed aadhaarFile and panFile states
   const [aadhaarOtp, setAadhaarOtp] = useState("");
   const [showAadhaarOtpInput, setShowAadhaarOtpInput] = useState(false);
   const [isAadhaarVerified, setIsAadhaarVerified] = useState(false);
   const [isPanVerified, setIsPanVerified] = useState(false);
-  
-  const form = useForm<SignupFormValues>({
+  const [isRequestSubmitted, setIsRequestSubmitted] = useState(false); // To track if request is sent
+
+  const form = useForm<SignupFormValues & { aadhaarNumber?: string, panCardNumber?: string }>({ // Added types for RHF
     resolver: zodResolver(signupSchema),
     defaultValues: {
       email: "",
@@ -59,57 +61,7 @@ const Signup = () => {
     },
   });
 
-  // FileUploadComponent definition (re-added)
-  const FileUploadComponent = ({ 
-    id, 
-    label, 
-    file, 
-    setFile,
-    icon
-  }: { 
-    id: string, 
-    label: string, 
-    file: File | null, 
-    setFile: (file: File | null) => void,
-    icon: React.ReactNode
-  }) => {
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const selectedFile = e.target.files?.[0];
-      setFile(selectedFile || null);
-    };
-
-    return (
-      <div className="space-y-2">
-        <label htmlFor={id} className="block text-sm font-medium text-white">
-          {label}
-        </label>
-        <div className="relative">
-          <input
-            type="file"
-            id={id}
-            name={id}
-            className="hidden"
-            onChange={handleFileChange}
-            accept=".pdf,.jpg,.jpeg,.png"
-          />
-          <label 
-            htmlFor={id} 
-            className="flex items-center justify-between w-full px-4 py-3 text-sm 
-              border border-dashed border-gray-300 rounded-lg cursor-pointer 
-              hover:border-primary transition-colors group"
-          >
-            <div className="flex items-center space-x-2">
-              {icon}
-              <span className="text-gray-500 group-hover:text-primary">
-                {file ? file.name : `Upload ${label}`}
-              </span>
-            </div>
-            {file && <CheckCircle className="h-5 w-5 text-green-500" />}
-          </label>
-        </div>
-      </div>
-    );
-  };
+  // FileUploadComponent removed
 
   useEffect(() => {
     if (mobileOtp === "0000") {
@@ -135,28 +87,25 @@ const Signup = () => {
     }
   }, [aadhaarOtp, toast]);
 
-  const onSubmit = async (data: SignupFormValues) => {
-    setIsLoading(true); // Set loading at the beginning
+  const onSubmit = async (data: SignupFormValues & { aadhaarNumber?: string, panCardNumber?: string }) => {
+    setIsLoading(true);
 
     if (currentStep === 1) {
       if (isMobileVerified) {
         setCurrentStep(2);
-        setIsLoading(false); // Reset loading as we are just changing step
+        setIsLoading(false); 
       } else {
         toast({
           title: "Verification Required",
           description: "Please verify your mobile number before proceeding.",
           variant: "destructive",
         });
-        setIsLoading(false); // Reset loading
+        setIsLoading(false);
       }
-      return; // Prevent further execution for Step 1
+      return; 
     }
 
-    // The following code will only execute if currentStep is not 1
-    // (e.g., when currentStep is 2 and the form is submitted for account creation)
     if (currentStep === 2) {
-      // Validate KYC verification status
       if (!isAadhaarVerified) {
         toast({ title: "Aadhaar Not Verified", description: "Please verify your Aadhaar number.", variant: "destructive" });
         setIsLoading(false); return;
@@ -166,34 +115,21 @@ const Signup = () => {
         setIsLoading(false); return;
       }
 
-      // Validate file uploads
-      if (!aadhaarFile) {
-        toast({ title: "Missing Aadhaar Document", description: "Please upload your Aadhaar card document.", variant: "destructive" });
-        setIsLoading(false); return;
-      }
-      if (!panFile) {
-        toast({ title: "Missing PAN Document", description: "Please upload your PAN card document.", variant: "destructive" });
-        setIsLoading(false); return;
-      }
-
       // Validate Aadhaar Number format from form data
-      // Assuming data.aadhaarNumber is available as it's a registered FormField with defaultValues
-      const parsedAadhaar = aadhaarFieldSchema.safeParse((data as any).aadhaarNumber);
+      const parsedAadhaar = aadhaarFieldSchema.safeParse(data.aadhaarNumber);
       if (!parsedAadhaar.success) {
         toast({ title: "Invalid Aadhaar Number", description: parsedAadhaar.error.errors[0]?.message || "Invalid format.", variant: "destructive" });
         setIsLoading(false); return;
       }
 
       // Validate PAN Card Number format from form data
-      // Assuming data.panCardNumber is available
-      const parsedPan = panFieldSchema.safeParse((data as any).panCardNumber);
+      const parsedPan = panFieldSchema.safeParse(data.panCardNumber);
       if (!parsedPan.success) {
         toast({ title: "Invalid PAN Card Number", description: parsedPan.error.errors[0]?.message || "Invalid format.", variant: "destructive" });
         setIsLoading(false); return;
       }
     }
     
-    // Re-check mobile verification before final submission (this check is good to keep)
     if (!isMobileVerified) {
       toast({
         title: "Mobile Verification Required",
@@ -205,7 +141,6 @@ const Signup = () => {
     }
 
     try {
-      // First check if a user with this phone number already exists
       const checkResponse = await fetch(`/api/auth/check-user?phoneNumber=${data.phoneNumber}`, {
         method: 'GET',
       });
@@ -216,22 +151,15 @@ const Signup = () => {
         throw new Error('A user with this phone number already exists');
       }
 
-      // Upload files to Firebase Storage (only if in step 2 and all validations passed)
-      const { aadhaarCardUrl, panCardUrl } = await uploadKycDocuments(
-        aadhaarFile!, // aadhaarFile and panFile are checked above for currentStep === 2
-        panFile!,
-        data.phoneNumber
-      );
+      // Document upload logic removed
       
-      // Then register the user
       const userData = {
         name: data.name,
         email: data.email,
         phoneNumber: data.phoneNumber,
-        aadhaarNumber: (data as any).aadhaarNumber, 
-        panCardNumber: (data as any).panCardNumber,
-        aadhaarCardUrl,
-        panCardUrl,
+        aadhaarNumber: data.aadhaarNumber, 
+        panCardNumber: data.panCardNumber,
+        // aadhaarCardUrl and panCardUrl removed
       };
       
       const response = await fetch('/api/auth/register', {
@@ -249,17 +177,18 @@ const Signup = () => {
       }
       
       toast({
-        title: "Registration successful",
-        description: "Your account has been created.",
+        title: "Account Request Sent",
+        description: "Your account request has been sent and will be approved after admin approval.",
+        variant: "default",
       });
+      setIsRequestSubmitted(true); // Mark request as submitted
       
-      // Store token in cookie
-      if (typeof document !== 'undefined') {
-        document.cookie = `token=${result.token}; path=/; max-age=31536000`;
-      }
-      
-      // Navigate to dashboard
-      setTimeout(() => router.push("/dashboard"), 1500);
+      // Token storage and navigation removed
+      // if (typeof document !== 'undefined') {
+      //   document.cookie = `token=${result.token}; path=/; max-age=31536000`;
+      // }
+      // setTimeout(() => router.push("/dashboard"), 1500);
+
     } catch (error: any) {
       toast({
         title: "Registration failed",
@@ -282,7 +211,7 @@ const Signup = () => {
         <div className="text-center mb-6">
           <h1 className="text-3xl font-bold text-white mb-2">Create Account</h1>
           <p className="text-sm text-gray-300">
-            Enter your details to create your account.
+            {currentStep === 1 ? "Enter your details to create your account." : "Complete KYC Verification."}
           </p>
         </div>
 
@@ -358,7 +287,7 @@ const Signup = () => {
                   maxLength={4}
                   className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-primary focus:ring-primary"
                 />
-                <p className="text-xs text-gray-400">Enter "0000" for testing.</p>
+                <p className="text-xs text-gray-400">Enter 0000 for testing.</p>
               </div>
             )}
 
@@ -386,9 +315,9 @@ const Signup = () => {
             <Button 
               type="submit" 
               className="w-full bg-primary hover:bg-primary-700 text-white py-3 rounded-lg transition-colors"
-              disabled={currentStep === 1 ? (isLoading || !isMobileVerified) : (isLoading || !isAadhaarVerified || !isPanVerified || !aadhaarFile || !panFile)}
+              disabled={isLoading || !isMobileVerified}
             >
-              {isLoading ? (currentStep === 1 ? "Processing..." : "Submitting...") : (currentStep === 1 ? "Next" : "Submit")}
+              {isLoading ? "Processing..." : "Next"}
             </Button>
 
             <div className="text-center">
@@ -425,18 +354,7 @@ const Signup = () => {
                               className="pl-10 bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-primary focus:ring-primary"
                               maxLength={12}
                               {...field}
-                            />
-                          </div>
-                        </FormControl>
-                        <FormControl>
-                          <div className="relative w-full">
-                            <CreditCard className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                            <Input
-                              placeholder="Enter 12-digit Aadhaar number"
-                              className="pl-10 bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-primary focus:ring-primary"
-                              maxLength={12}
-                              {...field}
-                              disabled={isAadhaarVerified || showAadhaarOtpInput}
+                              disabled={isAadhaarVerified || showAadhaarOtpInput || isRequestSubmitted}
                             />
                           </div>
                         </FormControl>
@@ -448,7 +366,7 @@ const Signup = () => {
                             setAadhaarOtp("");
                           }} 
                           className={`py-3 px-4 rounded-lg transition-colors whitespace-nowrap ${isAadhaarVerified ? "bg-green-600 hover:bg-green-700" : "bg-gray-600 hover:bg-gray-700"} text-white`}
-                          disabled={isAadhaarVerified}
+                          disabled={isAadhaarVerified || isRequestSubmitted}
                         >
                           {isAadhaarVerified ? "✓ Verified" : "Verify"}
                         </Button>
@@ -468,8 +386,9 @@ const Signup = () => {
                       placeholder="Enter 4-digit OTP for Aadhaar"
                       maxLength={4}
                       className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-primary focus:ring-primary"
+                      disabled={isRequestSubmitted}
                     />
-                    <p className="text-xs text-gray-400">Enter "0000" for testing.</p>
+                    <p className="text-xs text-gray-400">Enter 0000 for testing.</p>
                   </div>
                 )}
 
@@ -492,22 +411,34 @@ const Signup = () => {
                                 e.target.value = e.target.value.toUpperCase();
                                 field.onChange(e);
                               }}
-                              disabled={isPanVerified}
+                              disabled={isPanVerified || isRequestSubmitted}
                             />
                           </div>
                         </FormControl>
                         <Button 
                           type="button" 
                           onClick={() => {
-                            setIsPanVerified(true);
-                            toast({
-                              title: "Success",
-                              description: "PAN card verified successfully!",
-                              variant: "default",
-                            });
+                            // Basic PAN format check could be added here before setting verified
+                            // For now, direct verification as in original code
+                            const panValue = form.getValues("panCardNumber");
+                            const parsedPan = panFieldSchema.safeParse(panValue);
+                            if(parsedPan.success){
+                                setIsPanVerified(true);
+                                toast({
+                                  title: "Success",
+                                  description: "PAN card verified successfully!", // Mock verification
+                                  variant: "default",
+                                });
+                            } else {
+                                toast({
+                                  title: "Invalid PAN",
+                                  description: parsedPan.error.errors[0]?.message || "Invalid PAN card format.",
+                                  variant: "destructive",
+                                });
+                            }
                           }} 
                           className={`py-3 px-4 rounded-lg transition-colors whitespace-nowrap ${isPanVerified ? "bg-green-600 hover:bg-green-700" : "bg-gray-600 hover:bg-gray-700"} text-white`}
-                          disabled={isPanVerified}
+                          disabled={isPanVerified || isRequestSubmitted}
                         >
                           {isPanVerified ? "✓ Verified" : "Verify"}
                         </Button>
@@ -518,21 +449,34 @@ const Signup = () => {
                   )}
                 />
 
-                <FileUploadComponent
-                  id="aadhaarFile"
-                  label="Aadhaar Card Document"
-                  file={aadhaarFile}
-                  setFile={setAadhaarFile}
-                  icon={<Upload className="h-5 w-5 text-gray-400 group-hover:text-primary" />}
-                />
+                {/* Document upload components removed */}
+                
+                {!isRequestSubmitted ? (
+                  <>
+                    <Button
+                      type="submit"
+                      className="w-full bg-primary hover:bg-primary-700 text-white py-3 rounded-lg transition-colors mt-4"
+                      disabled={isLoading || !isAadhaarVerified || !isPanVerified || isRequestSubmitted}
+                    >
+                      {isLoading ? "Submitting Request..." : "Submit Account Request"}
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => setCurrentStep(1)}
+                      className="w-full bg-gray-700 hover:bg-gray-800 text-white py-3 rounded-lg transition-colors"
+                      disabled={isLoading || isRequestSubmitted}
+                    >
+                      Back
+                    </Button>
+                  </>
+                ) : (
+                  <div className="text-center text-green-400 mt-6 p-4 border border-green-500 rounded-md bg-green-900/30">
+                    <CheckCircle className="h-8 w-8 mx-auto mb-2" />
+                    <p className="font-semibold">Account Request Submitted!</p>
+                    <p className="text-sm">Your request will be reviewed by an admin.</p>
+                  </div>
+                )}
 
-                <FileUploadComponent
-                  id="panFile"
-                  label="PAN Card Document"
-                  file={panFile}
-                  setFile={setPanFile}
-                  icon={<Upload className="h-5 w-5 text-gray-400 group-hover:text-primary" />}
-                />
               </div>
             )}
           </form>
