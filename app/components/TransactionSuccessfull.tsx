@@ -2,32 +2,32 @@ import React from "react";
 import { motion } from "framer-motion";
 import { CheckCircle, X } from "lucide-react";
 
-// Define the expected props interface
-interface TransactionDetailsForModal {
+// This interface defines what this modal component *expects* to receive
+// It should match the structure of the `transactionDetails` state in ServicesPage
+interface TransactionDetailsFromParent {
   amount: number;
   beneficiaryName: string;
-  recipientIdentifier: string;
-  recipientIdentifierType: string;
+  accountNumber: string; // This field will hold account no. OR UPI ID
   transactionId: string;
-  transactionType: string;
+  transactionType: 'NEFT' | 'IMPS' | 'UPI' | string; // Be flexible for future types
   timestamp: string;
 }
 
 interface TransactionSuccessModalProps {
   isOpen: boolean;
   onClose: () => void;
-  transactionDetails: TransactionDetailsForModal; // Prop type
+  transactionDetails: TransactionDetailsFromParent; // Use the defined interface
 }
 
 const TransactionSuccessModal: React.FC<TransactionSuccessModalProps> = ({
   isOpen,
   onClose,
-  // Provide a default value that matches the new structure
-  transactionDetails = {
+  // The default value here is a fallback if the prop is made optional,
+  // but since it's required, the parent (ServicesPage) must always pass a valid object.
+  transactionDetails = { 
     amount: 0,
     beneficiaryName: "N/A",
-    recipientIdentifier: "N/A",
-    recipientIdentifierType: "Identifier",
+    accountNumber: "N/A",
     transactionId: "N/A",
     transactionType: "UNKNOWN",
     timestamp: new Date().toISOString()
@@ -38,8 +38,19 @@ const TransactionSuccessModal: React.FC<TransactionSuccessModalProps> = ({
   const formattedDate = new Date(transactionDetails.timestamp).toLocaleDateString();
   const formattedTime = new Date(transactionDetails.timestamp).toLocaleTimeString();
 
+  // Determine the label for the account/UPI ID based on transactionType
+  const getIdentifierLabel = () => {
+    const type = transactionDetails.transactionType?.toUpperCase();
+    if (type === 'UPI') {
+      return "UPI ID";
+    }
+    // Add more conditions if other services use the 'accountNumber' field for different things
+    // e.g., if (type === 'RECHARGE') return "Mobile Number";
+    return "Account No."; // Default for IMPS, NEFT, etc.
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"> {/* Added backdrop-blur */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -55,7 +66,6 @@ const TransactionSuccessModal: React.FC<TransactionSuccessModalProps> = ({
         </button>
 
         <div className="flex flex-col items-center justify-center mb-6">
-          {/* Updated success icon styling for better theme compatibility */}
           <div className="bg-green-500/10 dark:bg-green-500/20 p-3 rounded-full mb-3">
             <CheckCircle className="h-12 w-12 text-green-600 dark:text-green-400" />
           </div>
@@ -72,10 +82,10 @@ const TransactionSuccessModal: React.FC<TransactionSuccessModalProps> = ({
             <span className="text-muted-foreground text-sm">To</span>
             <span className="font-medium text-foreground text-sm">{transactionDetails.beneficiaryName}</span>
           </div>
-          {/* UPDATED SECTION FOR DYNAMIC IDENTIFIER */}
+          {/* UPDATED SECTION FOR DYNAMIC IDENTIFIER LABEL */}
           <div className="flex justify-between">
-            <span className="text-muted-foreground text-sm">{transactionDetails.recipientIdentifierType}</span>
-            <span className="font-medium text-foreground text-sm">{transactionDetails.recipientIdentifier}</span>
+            <span className="text-muted-foreground text-sm">{getIdentifierLabel()}</span>
+            <span className="font-medium text-foreground text-sm">{transactionDetails.accountNumber}</span> {/* Value comes from accountNumber */}
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground text-sm">Transaction ID</span>
@@ -93,13 +103,13 @@ const TransactionSuccessModal: React.FC<TransactionSuccessModalProps> = ({
 
         <div className="mt-6 flex gap-3">
           <button
-            onClick={onClose} // Assuming Button component handles theming
+            onClick={onClose}
             className="flex-1 px-4 py-2 text-sm font-medium border border-border rounded-lg text-foreground bg-card hover:bg-muted/50 dark:hover:bg-secondary/40 transition-colors"
           >
             Close
           </button>
           <button
-            onClick={() => alert("View Receipt functionality to be implemented.")} // Placeholder
+            onClick={() => alert("View Receipt functionality to be implemented.")}
             className="flex-1 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
           >
             View Receipt
