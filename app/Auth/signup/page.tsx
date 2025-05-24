@@ -448,13 +448,13 @@ const Signup = () => {
                   )}
                 />
 
-                <FileUploadComponent
+                {/* <FileUploadComponent
                   id="aadhaarFile"
                   label="Aadhaar Card Document"
                   file={aadhaarFile}
                   setFile={setAadhaarFile}
                   icon={<Upload className="h-5 w-5 text-gray-400 group-hover:text-primary" />} // This line will be removed by the JSX change
-                /> 
+                />  */}
                 {/* PAN FileUploadComponent was here */}
               </div>
             )}
