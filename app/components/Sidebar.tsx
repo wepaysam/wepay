@@ -36,7 +36,7 @@ const Sidebar: React.FC<SidebarProps> = () => {
 
   const links = [
     { href: "/", icon: <Home />, label: "Home" },
-    { href: "/payouts", icon: <ArrowLeftRight />, label: "Payouts" },
+    { href: "/payouts", icon: <ArrowLeftRight />, label: "Services" },
     { href: "/statement", icon: <Receipt />, label: "Statement" },
     { href: "/balancerequest", icon: <FileText />, label: "Balance Request" },
     // { href: "/account-statement", icon: <FileText />, label: "Account Statement" },
