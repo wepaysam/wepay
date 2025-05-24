@@ -8,6 +8,8 @@ export default {
   theme: {
     extend: {
       colors: {
+        'border-light-blue': '#A5D8FF',
+        'border-light-purple': '#D8B4FE', 
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

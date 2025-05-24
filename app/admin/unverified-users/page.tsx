@@ -5,18 +5,21 @@ import { useRouter } from 'next/navigation';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
-import { useToast } from '../../hooks/use-toast';
-import { 
-  CreditCard, 
-  FileText, 
+import { useToast } from '../../hooks/use-toast'; // You'll use this later
+import {
+  CreditCard,
+  FileText,
   User,
   CheckCircle,
-  XCircle,
+  XCircle, // For a potential reject button in future
   Eye,
-  Search
+  Search,
+  Trash2, // Icon for delete button
+  Loader2 // For loading state on buttons
 } from "lucide-react";
-import Link from "next/link";
-import Image from "next/image";
+// Link and Image are not used currently, can be removed if not planned
+// import Link from "next/link";
+// import Image from "next/image";
 
 interface User {
   id: string;
@@ -29,136 +32,140 @@ interface User {
 }
 
 export default function UnverifiedUsers() {
-  const { toast } = useToast();
+  const { toast } = useToast(); // Prepare for future use
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  
+  const [actionLoading, setActionLoading] = useState<{ [key: string]: 'verify' | 'delete' | null }>({});
+
 
   useEffect(() => {
     const fetchUnverifiedUsers = async () => {
+      setIsLoading(true); // Set loading at the start of the fetch
       try {
-        // Get token from document.cookie
-       // Get token from cookies
-       const token = typeof document !== 'undefined' 
-       ? document.cookie.replace(/(?:(?:^|.*;\s*)token\s*\=\s*([^;]*).*$)|^.*$/, "$1")
-       : null;
+        const token = typeof document !== 'undefined'
+          ? document.cookie.replace(/(?:(?:^|.*;\s*)token\s*\=\s*([^;]*).*$)|^.*$/, "$1")
+          : null;
         if (!token) {
-          toast({
-            title: "Authentication Error",
-            description: "You're not logged in. Please log in and try again.",
-            variant: "destructive",
-          });
+          // toast({ title: "Authentication Error", description: "Please log in.", variant: "destructive" }); // For next update
+          console.error("Authentication Error: Please log in.");
           router.push('/Auth/login');
           return;
         }
-        
+
         const response = await fetch('/api/admin/unverified-users', {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+          headers: { Authorization: `Bearer ${token}` }
         });
 
-        console.log("Unverified users API Response status:", response);
-
         if (!response.ok) {
-          if (response.status === 401) {
-            console.error("Dashboard API returned 401 Unauthorized");
-            // Let the global context handle the logout
-            // await refreshUserData(); // This will check auth and logout if needed
-            return;
-          }
-          
-          // For other errors, just show an error message
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(`Failed to fetch dashboard data: ${errorData.message || response.statusText}`);
-
+          throw new Error(`Failed to fetch unverified users: ${errorData.message || response.statusText}`);
         }
 
         const data = await response.json();
         setUsers(data);
         setFilteredUsers(data);
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to load unverified users",
-          variant: "destructive",
-        });
-        console.error(error);
+      } catch (error: any) {
+        // toast({ title: "Error", description: error.message || "Failed to load users.", variant: "destructive" }); // For next update
+        console.error("Fetch Unverified Users Error:", error.message);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchUnverifiedUsers();
-  }, [toast, router]);
+  }, [router]); // Removed toast from dependency for now
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value.toLowerCase();
     setSearchQuery(query);
-    
     if (!query) {
       setFilteredUsers(users);
       return;
     }
-    
-    const filtered = users.filter(
-      user => 
-        user.phoneNumber.includes(query) ||
-        (user.email && user.email.toLowerCase().includes(query)) ||
-        user.aadhaarNumber.includes(query) ||
-        user.panCardNumber.toLowerCase().includes(query)
+    const filtered = users.filter(user =>
+      user.phoneNumber.includes(query) ||
+      (user.email && user.email.toLowerCase().includes(query)) ||
+      user.aadhaarNumber.includes(query) ||
+      user.panCardNumber.toLowerCase().includes(query)
     );
-    
     setFilteredUsers(filtered);
   };
 
   const handleVerifyUser = async (userId: string) => {
+    setActionLoading(prev => ({ ...prev, [userId]: 'verify' }));
     try {
-      // Get token from document.cookie
-      const token = typeof document !== 'undefined' 
-       ? document.cookie.replace(/(?:(?:^|.*;\s*)token\s*\=\s*([^;]*).*$)|^.*$/, "$1")
-       : null;
-      
+      const token = typeof document !== 'undefined' ? document.cookie.replace(/(?:(?:^|.*;\s*)token\s*\=\s*([^;]*).*$)|^.*$/, "$1") : null;
       if (!token) {
-        toast({
-          title: "Authentication Error",
-          description: "You're not logged in. Please log in and try again.",
-          variant: "destructive",
-        });
+        // toast({ title: "Authentication Error", description: "Please log in.", variant: "destructive" });
+        console.error("Authentication Error: Please log in.");
         router.push('/Auth/login');
         return;
       }
-      
+
       const response = await fetch(`/api/admin/verify-user/${userId}`, {
         method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
 
       if (!response.ok) {
-        throw new Error('Failed to verify user');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to verify user');
       }
 
-      toast({
-        title: "Success",
-        description: "User has been verified successfully",
+      // toast({ title: "Success", description: "User verified successfully." }); // For next update
+      console.log("User verified successfully.");
+      setUsers(prevUsers => prevUsers.filter(user => user.id !== userId));
+      setFilteredUsers(prevFiltered => prevFiltered.filter(user => user.id !== userId));
+
+    } catch (error: any) {
+      // toast({ title: "Error", description: error.message || "Failed to verify user.", variant: "destructive" }); // For next update
+      console.error("Verify User Error:", error.message);
+    } finally {
+      setActionLoading(prev => ({ ...prev, [userId]: null }));
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    // Confirmation dialog
+    if (!window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
+      return;
+    }
+
+    setActionLoading(prev => ({ ...prev, [userId]: 'delete' }));
+    try {
+      const token = typeof document !== 'undefined' ? document.cookie.replace(/(?:(?:^|.*;\s*)token\s*\=\s*([^;]*).*$)|^.*$/, "$1") : null;
+      if (!token) {
+        // toast({ title: "Authentication Error", description: "Please log in.", variant: "destructive" });
+        console.error("Authentication Error: Please log in.");
+        router.push('/Auth/login');
+        return;
+      }
+
+      // Make sure your API endpoint is `/api/admin/delete-user/${userId}` or similar
+      // And it expects a DELETE request.
+      const response = await fetch(`/api/admin/delete-user/${userId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
       });
 
-      // Remove the verified user from the list
-      setUsers(users.filter(user => user.id !== userId));
-      setFilteredUsers(filteredUsers.filter(user => user.id !== userId));
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to verify user",
-        variant: "destructive",
-      });
-      console.error(error);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to delete user');
+      }
+
+      // toast({ title: "Success", description: "User deleted successfully." }); // For next update
+      console.log("User deleted successfully.");
+      setUsers(prevUsers => prevUsers.filter(user => user.id !== userId));
+      setFilteredUsers(prevFiltered => prevFiltered.filter(user => user.id !== userId));
+
+    } catch (error: any) {
+      // toast({ title: "Error", description: error.message || "Failed to delete user.", variant: "destructive" }); // For next update
+      console.error("Delete User Error:", error.message);
+    } finally {
+      setActionLoading(prev => ({ ...prev, [userId]: null }));
     }
   };
 
@@ -169,23 +176,23 @@ export default function UnverifiedUsers() {
   if (isLoading) {
     return (
       <div className="container mx-auto p-6">
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <div className="flex items-center justify-center min-h-[calc(100vh-10rem)]"> {/* Adjusted height for better centering */}
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="container mx-auto p-4 sm:p-6">
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Unverified Users</h1>
-          <div className="relative w-64">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h1 className="text-2xl sm:text-3xl font-bold">Unverified Users</h1>
+          <div className="relative w-full sm:w-72"> {/* Adjusted width */}
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search users..."
-              className="pl-8"
+              placeholder="Search by phone, email, Aadhaar, PAN..."
+              className="pl-10" // Increased padding for icon
               value={searchQuery}
               onChange={handleSearch}
             />
@@ -193,68 +200,87 @@ export default function UnverifiedUsers() {
         </div>
 
         {filteredUsers?.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">No unverified users found</p>
+          <div className="text-center py-16"> {/* Increased padding */}
+            <User className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+            <p className="text-xl text-muted-foreground">
+              {searchQuery ? "No users match your search." : "No unverified users found."}
+            </p>
           </div>
         ) : (
-          <div className="grid gap-4">
+          <div className="grid gap-4 sm:gap-6">
             {filteredUsers?.map(user => (
-              <Card key={user.id} className="overflow-hidden">
-                <CardContent className="p-6">
-                  <div className="flex flex-col md:flex-row gap-4 justify-between">
-                    <div className="space-y-2 flex-1">
-                      <h3 className="font-semibold">User Information</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground">Phone:</span>
-                          <span className="font-medium">{user.phoneNumber}</span>
+              <Card key={user.id} className="overflow-hidden shadow-md hover:shadow-lg transition-shadow">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+                    {/* User & KYC Info Section */}
+                    <div className="flex-grow space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Phone Number</p>
+                          <p className="font-medium">{user.phoneNumber}</p>
                         </div>
                         {user.email && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground">Email:</span>
-                            <span className="font-medium">{user.email}</span>
+                          <div className="space-y-1">
+                            <p className="text-xs text-muted-foreground">Email Address</p>
+                            <p className="font-medium break-all">{user.email}</p>
                           </div>
                         )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 flex-1">
-                      <h3 className="font-semibold">KYC Information</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground">Aadhaar:</span>
-                          <span className="font-medium">{user.aadhaarNumber}</span>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={() => openDocumentInNewTab(user.aadhaarCardUrl)}
-                            title="View Aadhaar Card"
-                          >
-                            <FileText className="h-4 w-4 text-primary" />
-                          </Button>
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Aadhaar Number</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{user.aadhaarNumber}</p>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => openDocumentInNewTab(user.aadhaarCardUrl)}
+                              title="View Aadhaar Card"
+                            > <FileText className="h-4 w-4 text-primary" /> </Button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground">PAN:</span>
-                          <span className="font-medium">{user.panCardNumber}</span>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={() => openDocumentInNewTab(user.panCardUrl)}
-                            title="View PAN Card"
-                          >
-                            <CreditCard className="h-4 w-4 text-primary" />
-                          </Button>
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">PAN Number</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{user.panCardNumber}</p>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => openDocumentInNewTab(user.panCardUrl)}
+                              title="View PAN Card"
+                            > <CreditCard className="h-4 w-4 text-primary" /> </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-end">
-                      <Button 
+                    {/* Actions Section */}
+                    <div className="flex flex-col sm:flex-row lg:flex-col items-stretch sm:items-center lg:items-end justify-center gap-2 lg:w-auto shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 lg:border-l border-border pt-4 lg:pl-6">
+                      <Button
                         onClick={() => handleVerifyUser(user.id)}
-                        className="flex gap-2 items-center"
+                        disabled={actionLoading[user.id] === 'verify' || actionLoading[user.id] === 'delete'}
+                        className="w-full sm:w-auto lg:w-full"
+                        variant="default"
                       >
-                        <CheckCircle className="h-4 w-4" />
-                        Verify User
+                        {actionLoading[user.id] === 'verify' ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : (
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                        )}
+                        Verify
+                      </Button>
+                      <Button
+                        onClick={() => handleDeleteUser(user.id)}
+                        disabled={actionLoading[user.id] === 'delete' || actionLoading[user.id] === 'verify'}
+                        variant="destructive"
+                        className="w-full sm:w-auto lg:w-full"
+                      >
+                        {actionLoading[user.id] === 'delete' ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : (
+                          <Trash2 className="h-4 w-4 mr-2" />
+                        )}
+                        Delete
                       </Button>
                     </div>
                   </div>

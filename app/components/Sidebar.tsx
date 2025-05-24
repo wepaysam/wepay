@@ -41,7 +41,7 @@ const Sidebar: React.FC<SidebarProps> = () => {
     { href: "/balancerequest", icon: <FileText />, label: "Balance Request" },
     // { href: "/account-statement", icon: <FileText />, label: "Account Statement" },
     // { href: "/contacts", icon: <Users />, label: "Contacts" },
-    { href: "/recharge", icon: <Gift />, label: "Gift Cards" },
+    { href: "/giftcard", icon: <Gift />, label: "Gift Cards" },
     // { href: "/tax-payments", icon: <Receipt />, label: "Tax Payments" },
     // { href: "/payout-links", icon: <LinkIcon />, label: "Payout Links" },
     // { href: "/payroll", icon: <DollarSign />, label: "Payroll" },
