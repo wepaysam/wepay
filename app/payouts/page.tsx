@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import TransactionSuccessModal from "../components/TransactionSuccessfull";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
 
 // --- Interface Definitions (same as before) ---
 interface BankBeneficiary { 
@@ -123,6 +124,54 @@ const ServicesPage = () => {
     accountHolderName: "" 
   });
   const [isUpiVerifiedSim, setIsUpiVerifiedSim] = useState<boolean | null>(null);
+
+  const [isVerificationPopupOpen, setIsVerificationPopupOpen] = useState(false);
+  const [beneficiaryToVerify, setBeneficiaryToVerify] = useState<BankBeneficiary | null>(null);
+
+  const handleVerificationClick = (beneficiary: BankBeneficiary) => {
+    setBeneficiaryToVerify(beneficiary);
+    setIsVerificationPopupOpen(true);
+  };
+
+  const handleConfirmVerification = async () => {
+    if (!beneficiaryToVerify) return;
+
+    setFormLoading(true);
+    try {
+      const response = await fetch('/api/verify-account', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          accountNumber: beneficiaryToVerify.accountNumber,
+          ifsc: beneficiaryToVerify.ifscCode,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: result.message,
+        });
+        fetchBankBeneficiaries(false);
+      } else {
+        throw new Error(result.message || 'Failed to verify account');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to verify account.",
+        variant: "destructive",
+      });
+    } finally {
+      setFormLoading(false);
+      setIsVerificationPopupOpen(false);
+      setBeneficiaryToVerify(null);
+    }
+  };
 
   const setRowLoading = (id: string, isLoading: boolean) => setActionLoading(prev => ({ ...prev, [id]: isLoading }));
 
@@ -372,44 +421,6 @@ const ServicesPage = () => {
   const handlePay = async (beneficiaryId: string, type: 'BANK' | 'UPI') => { 
     const amountStr = payoutAmounts[beneficiaryId] || ""; 
     const amount = parseFloat(amountStr); 
-    let beneficiaryDetails: BankBeneficiary | UpiBeneficiary | undefined; 
-    let modalAccountNumberForDisplay: string = ""; 
-    let modalBeneficiaryName: string = "N/A"; 
-    let apiTransactionType: 'IMPS' | 'NEFT' | 'UPI' = 'IMPS'; 
-
-    if (type === 'BANK') { 
-      beneficiaryDetails = bankBeneficiaries.find(b => b.id === beneficiaryId); 
-      if (beneficiaryDetails) { 
-        modalAccountNumberForDisplay = (beneficiaryDetails as BankBeneficiary).accountNumber; 
-        modalBeneficiaryName = beneficiaryDetails.accountHolderName; 
-        apiTransactionType = (beneficiaryDetails as BankBeneficiary).transactionType; 
-      } 
-    } else { 
-      beneficiaryDetails = upiBeneficiaries.find(b => b.id === beneficiaryId); 
-      if (beneficiaryDetails) { 
-        modalAccountNumberForDisplay = (beneficiaryDetails as UpiBeneficiary).upiId; 
-        modalBeneficiaryName = beneficiaryDetails.accountHolderName || (beneficiaryDetails as UpiBeneficiary).upiId; 
-        apiTransactionType = 'UPI'; 
-      } 
-    } 
-
-    if (!beneficiaryDetails) { 
-      toast({ 
-        title: "Error", 
-        description: "Beneficiary not found.", 
-        variant: "destructive" 
-      }); 
-      return; 
-    } 
-
-    if (!beneficiaryDetails.isVerified) { 
-      toast({ 
-        title: "Error", 
-        description: "Beneficiary must be verified.", 
-        variant: "destructive" 
-      }); 
-      return; 
-    } 
 
     if (isNaN(amount) || amount <= 0) { 
       toast({ 
@@ -421,23 +432,39 @@ const ServicesPage = () => {
     } 
 
     setRowLoading(beneficiaryId, true); 
-    await new Promise(resolve => setTimeout(resolve, 1500)); 
-    setTransactionDetails({ 
-      amount: amount, 
-      beneficiaryName: modalBeneficiaryName, 
-      accountNumber: modalAccountNumberForDisplay, 
-      transactionId: "TXN_SIM_" + Date.now(), 
-      transactionType: apiTransactionType, 
-      timestamp: new Date().toISOString() 
-    }); 
-    toast({ 
-      title: "Success (Simulated)", 
-      description: `Payment of ₹${amount} to ${modalBeneficiaryName} initiated.` 
-    }); 
-    setIsSuccessModalOpen(true); 
-    setPayoutAmounts(prev => ({ ...prev, [beneficiaryId]: "" })); 
-    setRowLoading(beneficiaryId, false); 
-    if(selectedService === "Transactions") fetchTransactions(); 
+    try {
+      const response = await fetch('/api/payout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: amount,
+          beneficiaryId: beneficiaryId,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Payout initiated successfully.",
+        });
+        fetchBankBeneficiaries(false);
+        setPayoutAmounts(prev => ({ ...prev, [beneficiaryId]: "" }));
+      } else {
+        throw new Error(result.message || 'Failed to initiate payout');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to initiate payout.",
+        variant: "destructive",
+      });
+    } finally {
+      setRowLoading(beneficiaryId, false);
+    }
   };
 
   interface SubTabButtonProps { 
@@ -475,6 +502,23 @@ const ServicesPage = () => {
 
   return (
     <MainLayout location="/Payouts">
+      <AlertDialog open={isVerificationPopupOpen} onOpenChange={setIsVerificationPopupOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to verify this account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will trigger a verification process for the account number: {beneficiaryToVerify?.accountNumber}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmVerification} disabled={formLoading}>
+              {formLoading ? 'Verifying...' : 'Verify'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <TransactionSuccessModal
         isOpen={isSuccessModalOpen}
         onClose={() => setIsSuccessModalOpen(false)}
@@ -494,7 +538,7 @@ const ServicesPage = () => {
             <motion.button
               initial={{ opacity: 0, x: 20 }} 
               animate={{ opacity: 1, x: 0 }} 
-              exit={{ opacity: 0, x: 20 }}
+              exit={{ opacity: 0, x: 20 }} 
               onClick={handleGoBackToGrid}
               className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium text-primary hover:bg-primary/10 rounded-lg transition-colors"
             > 
@@ -636,9 +680,12 @@ const ServicesPage = () => {
                                   <CheckCircle className="h-3 w-3" /> Verified
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400">
+                                <button
+                                  onClick={() => handleVerificationClick(row)}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-500/30"
+                                >
                                   <XCircle className="h-3 w-3" /> Not Verified
-                                </span>
+                                </button>
                               )
                             },
                             { 
@@ -726,12 +773,12 @@ const ServicesPage = () => {
                                 value={newBankBeneficiaryData.confirmAccountNumber} 
                                 onChange={handleBankInputChange} 
                                 required 
-                                className={`pl-10 pr-4 py-2 w-full bg-background border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary ${ 
+                                className={`pl-10 pr-4 py-2 w-full bg-background border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary ${
                                   newBankBeneficiaryData.accountNumber && 
                                   newBankBeneficiaryData.confirmAccountNumber && 
                                   newBankBeneficiaryData.accountNumber !== newBankBeneficiaryData.confirmAccountNumber ? 
                                   'border-destructive ring-destructive' : 'border-border' 
-                                }`} 
+                                }`}
                                 placeholder="Confirm Account Number" 
                               />
                             </div>
@@ -748,7 +795,7 @@ const ServicesPage = () => {
                               <input 
                                 type="text" 
                                 id="ifscCode" 
-                                name="ifscCode" 
+                                name="ifsc_code" 
                                 value={newBankBeneficiaryData.ifscCode} 
                                 onChange={handleBankInputChange} 
                                 required 
@@ -766,7 +813,7 @@ const ServicesPage = () => {
                               <input 
                                 type="text" 
                                 id="accountHolderName" 
-                                name="accountHolderName" 
+                                name="account_holder_name" 
                                 value={newBankBeneficiaryData.accountHolderName} 
                                 onChange={handleBankInputChange} 
                                 required 
@@ -1074,7 +1121,7 @@ const ServicesPage = () => {
                           key: "transactionStatus", 
                           header: "Status", 
                           render: (row: Transaction) => (
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${ 
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
                               row.transactionStatus === 'COMPLETED' ? 
                               'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400' : 
                               row.transactionStatus === 'PENDING' ? 
