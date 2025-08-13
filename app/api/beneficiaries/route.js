@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { 
   createBeneficiary, 
+  createUpiBeneficiary,
   getBeneficiaries,
   verifyBeneficiaryWithCharge
 } from '../../controllers/beneficiaryController';
@@ -16,16 +17,25 @@ export async function POST(request) {
     const userId = request.user.id;
     
     // Validate required fields
-    if (!data.accountNumber || !data.accountHolderName || !data.transactionType) {
-      return NextResponse.json(
-        { message: 'Account number, account holder name, and transaction type are required' },
-        { status: 400 }
-      );
+    if (data.transactionType === 'UPI') {
+      if (!data.upiId || !data.accountHolderName) {
+        return NextResponse.json(
+          { message: 'UPI ID and account holder name are required for UPI beneficiary' },
+          { status: 400 }
+        );
+      }
+      const beneficiary = await createUpiBeneficiary(data, userId);
+      return NextResponse.json(beneficiary, { status: 201 });
+    } else {
+      if (!data.accountNumber || !data.accountHolderName || !data.transactionType) {
+        return NextResponse.json(
+          { message: 'Account number, account holder name, and transaction type are required' },
+          { status: 400 }
+        );
+      }
+      const beneficiary = await createBeneficiary(data, userId);
+      return NextResponse.json(beneficiary, { status: 201 });
     }
-    
-    const beneficiary = await createBeneficiary(data, userId);
-    
-    return NextResponse.json(beneficiary, { status: 201 });
   } catch (error) {
     return NextResponse.json(
       { message: error.message || 'Failed to create beneficiary' },
@@ -41,9 +51,9 @@ export async function GET(request) {
     if (authResult) return authResult;
     
     const userId = request.user.id;
-    const beneficiaries = await getBeneficiaries(userId);
+    const { bankBeneficiaries, upiBeneficiaries } = await getBeneficiaries(userId);
     
-    return NextResponse.json(beneficiaries);
+    return NextResponse.json({ bankBeneficiaries, upiBeneficiaries });
   } catch (error) {
     return NextResponse.json(
       { message: error.message || 'Failed to get beneficiaries' },

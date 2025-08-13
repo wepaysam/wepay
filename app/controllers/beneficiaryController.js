@@ -19,6 +19,7 @@ export async function createBeneficiary(data, userId) {
         userId,
         accountNumber: data.accountNumber,
         accountHolderName: data.accountHolderName,
+        ifscCode: data.ifscCode, // Add this line
         transactionType: data.transactionType,
       },
     });
@@ -29,9 +30,57 @@ export async function createBeneficiary(data, userId) {
   }
 }
 
+
+  export async function createUpiBeneficiary(data, userId) {
+  try {
+    // Check if UPI beneficiary already exists with the same upiId
+    const existingUpiBeneficiary = await prisma.upiBeneficiary.findUnique({
+      where: {
+        upiId: data.upiId,
+      },
+    });
+
+    if (existingUpiBeneficiary) {
+      throw new Error('UPI Beneficiary with this UPI ID already exists');
+    }
+
+    // Create new UPI beneficiary
+    const newUpiBeneficiary = await prisma.upiBeneficiary.create({
+      data: {
+        userId,
+        upiId: data.upiId,
+        accountHolderName: data.accountHolderName,
+      },
+    });
+
+    return newUpiBeneficiary;
+  } catch (error) {
+    throw new Error(`Failed to create UPI beneficiary: ${error.message}`);
+  }
+}
+
 export async function getBeneficiaries(userId) {
   try {
-    const beneficiaries = await prisma.beneficiary.findMany({
+    const bankBeneficiaries = await prisma.beneficiary.findMany({
+      where: {
+        userId,
+      },
+      select: {
+        id: true,
+        accountNumber: true,
+        accountHolderName: true,
+        ifscCode: true,
+        isVerified: true,
+        createdAt: true,
+        userId: true,
+        transactionType: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    const upiBeneficiaries = await prisma.upiBeneficiary.findMany({
       where: {
         userId,
       },
@@ -40,7 +89,7 @@ export async function getBeneficiaries(userId) {
       },
     });
 
-    return beneficiaries;
+    return { bankBeneficiaries, upiBeneficiaries };
   } catch (error) {
     throw new Error(`Failed to get beneficiaries: ${error.message}`);
   }

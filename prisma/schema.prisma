@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
   binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-3.0.x"]
@@ -7,7 +6,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = "postgres://avnadmin:AVNS_4Fk1mBECX-3HyF3z12D@pg-3efa9aaf-wepayx880-3cf7.h.aivencloud.com:14563/defaultdb?sslmode=require"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -24,6 +23,7 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt @default(now())
   beneficiaries Beneficiary[] 
+  upiBeneficiaries UpiBeneficiary[] // New relation for UPI beneficiaries
   sentTransactions Transactions[] @relation(name: "SenderTransactions")
   balanceRequests BalanceRequest[]
 }
@@ -39,12 +39,24 @@ model Beneficiary {
   userId             String
   accountNumber      String   @unique
   accountHolderName  String
+  ifscCode           String?
   transactionType    TransactionType
   isVerified         Boolean  @default(false)
   createdAt          DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transactions[]
+}
+
+model UpiBeneficiary {
+  id                 String   @id @default(uuid())
+  userId             String
+  upiId              String   @unique
+  accountHolderName  String
+  isVerified         Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum TransactionType {
