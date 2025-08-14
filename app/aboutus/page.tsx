@@ -115,17 +115,17 @@ const About = () => {
         </div>
       </div>
       
-      <div className="bg-white py-12">
+      <div className="bg-white dark:bg-slate-900 py-12">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center text-gray-800 mb-12">We Trust You And Value Your Money</h2>
-          <p className="text-gray-600 text-center max-w-3xl mx-auto mb-12">
+          <h2 className="text-3xl font-bold text-center text-gray-800 dark:text-white mb-12">We Trust You And Value Your Money</h2>
+          <p className="text-gray-600 dark:text-gray-300 text-center max-w-3xl mx-auto mb-12">
             The fastest, most convenient way to accept payments is here. With PayU, you can accept payments via popular
             UPI Apps right at checkout. Choose from multiple transaction flows as per your business needs.
           </p>
           
           <div className="grid md:grid-cols-2 gap-10 max-w-4xl mx-auto">
             <div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Key Features</h3>
+              <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">Key Features</h3>
               <ul className="space-y-2 text-teal-600">
                 <li>Salary Payments</li>
                 <li>Vendor Payments</li>
@@ -133,7 +133,7 @@ const About = () => {
               </ul>
             </div>
             <div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Services Offered</h3>
+              <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">Services Offered</h3>
               <ul className="space-y-2 text-teal-600">
                 <li>Mobile & DTH Recharge</li>
                 <li>Bill Payment</li>

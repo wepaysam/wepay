@@ -503,7 +503,7 @@ const ServicesPage = () => {
   return (
     <MainLayout location="/Payouts">
       <AlertDialog open={isVerificationPopupOpen} onOpenChange={setIsVerificationPopupOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="dark:text-black">
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure you want to verify this account?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -700,8 +700,8 @@ const ServicesPage = () => {
                                     inputMode="decimal" 
                                     value={payoutAmounts[row.id] || ""} 
                                     onChange={(e) => handleAmountChange(row.id, e.target.value)} 
-                                    disabled={!row.isVerified || actionLoading[row.id]} 
-                                    className="pl-6 pr-2 py-1 w-full bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed text-sm" 
+                                    disabled={ actionLoading[row.id]} 
+                                    className="pl-6 pr-2 py-1 w-full bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed text-sm dark:text-black" 
                                     placeholder="0.00"
                                   />
                                 </div>
@@ -714,7 +714,7 @@ const ServicesPage = () => {
                               render: (row: BankBeneficiary) => (
                                 <button 
                                   onClick={() => handlePay(row.id, 'BANK')} 
-                                  disabled={!row.isVerified || !(parseFloat(payoutAmounts[row.id] || "0") > 0) || actionLoading[row.id]} 
+                                  disabled={ !(parseFloat(payoutAmounts[row.id] || "0") > 0) || actionLoading[row.id]} 
                                   className="inline-flex items-center justify-center gap-1 px-3 py-1 bg-primary text-primary-foreground rounded text-xs font-medium hover:bg-primary/90 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   {actionLoading[row.id] ? (
@@ -755,7 +755,7 @@ const ServicesPage = () => {
                                 value={newBankBeneficiaryData.accountNumber} 
                                 onChange={handleBankInputChange} 
                                 required 
-                                className="pl-10 pr-4 py-2 w-full bg-background border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary" 
+                                className="pl-10 pr-4 py-2 w-full bg-background border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-400" 
                                 placeholder="Enter Account Number" 
                               />
                             </div>
@@ -773,7 +773,7 @@ const ServicesPage = () => {
                                 value={newBankBeneficiaryData.confirmAccountNumber} 
                                 onChange={handleBankInputChange} 
                                 required 
-                                className={`pl-10 pr-4 py-2 w-full bg-background border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary ${
+                                className={`pl-10 pr-4 py-2 w-full bg-background border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-400 ${
                                   newBankBeneficiaryData.accountNumber && 
                                   newBankBeneficiaryData.confirmAccountNumber && 
                                   newBankBeneficiaryData.accountNumber !== newBankBeneficiaryData.confirmAccountNumber ? 
@@ -795,11 +795,11 @@ const ServicesPage = () => {
                               <input 
                                 type="text" 
                                 id="ifscCode" 
-                                name="ifsc_code" 
+                                name="ifscCode" 
                                 value={newBankBeneficiaryData.ifscCode} 
                                 onChange={handleBankInputChange} 
                                 required 
-                                className="uppercase pl-10 pr-4 py-2 w-full bg-background border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary" 
+                                className="uppercase pl-10 pr-4 py-2 w-full bg-background border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-400" 
                                 placeholder="Enter IFSC Code" 
                               />
                             </div>
@@ -813,11 +813,11 @@ const ServicesPage = () => {
                               <input 
                                 type="text" 
                                 id="accountHolderName" 
-                                name="account_holder_name" 
+                                name="accountHolderName" 
                                 value={newBankBeneficiaryData.accountHolderName} 
                                 onChange={handleBankInputChange} 
                                 required 
-                                className="pl-10 pr-4 py-2 w-full bg-background border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary" 
+                                className="pl-10 pr-4 py-2 w-full bg-background border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-400" 
                                 placeholder="As per bank records" 
                               />
                             </div>
@@ -828,7 +828,8 @@ const ServicesPage = () => {
                           <Button 
                             type="button" 
                             variant="outline" 
-                            onClick={() => setActiveImpsSubTab("ViewBankBeneficiaries")} 
+                            onClick={() => setActiveImpsSubTab("ViewBankBeneficiaries")}
+                            className="dark:text-black" 
                             disabled={formLoading}
                           >
                             Cancel

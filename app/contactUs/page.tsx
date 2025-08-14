@@ -58,7 +58,7 @@ const ContactUs = () => {
         
         <h1 className="text-4xl font-bold mb-8 text-center text-white">Contact Us</h1>
         
-        <div className="bg-white rounded-lg shadow-xl overflow-hidden mb-16">
+        <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl overflow-hidden mb-16">
           <div className="grid md:grid-cols-2">
             {/* Contact Information */}
             <div className="bg-blue-600 p-8 text-white">
@@ -109,54 +109,54 @@ const ContactUs = () => {
             
             {/* Contact Form */}
             <div className="p-8">
-              <h2 className="text-2xl font-semibold text-gray-800 mb-6">Send Us a Message</h2>
+              <h2 className="text-2xl font-semibold text-gray-800 dark:text-white mb-6">Send Us a Message</h2>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label htmlFor="name" className="block text-gray-700 mb-1">Full Name</label>
+                  <label htmlFor="name" className="block text-gray-700 dark:text-white mb-1">Full Name</label>
                   <input
                     type="text"
                     id="name"
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                     required
                   />
                 </div>
                 
                 <div>
-                  <label htmlFor="email" className="block text-gray-700 mb-1">Email Address</label>
+                  <label htmlFor="email" className="block text-gray-700 dark:text-white mb-1">Email Address</label>
                   <input
                     type="email"
                     id="email"
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                     required
                   />
                 </div>
                 
                 <div>
-                  <label htmlFor="phone" className="block text-gray-700 mb-1">Phone Number</label>
+                  <label htmlFor="phone" className="block text-gray-700 dark:text-white mb-1">Phone Number</label>
                   <input
                     type="tel"
                     id="phone"
                     name="phone"
                     value={formData.phone}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                   />
                 </div>
                 
                 <div>
-                  <label htmlFor="subject" className="block text-gray-700 mb-1">Subject</label>
+                  <label htmlFor="subject" className="block text-gray-700 dark:text-white mb-1">Subject</label>
                   <select
                     id="subject"
                     name="subject"
                     value={formData.subject}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                     required
                   >
                     <option value="">Select a subject</option>
@@ -169,14 +169,14 @@ const ContactUs = () => {
                 </div>
                 
                 <div>
-                  <label htmlFor="message" className="block text-gray-700 mb-1">Your Message</label>
+                  <label htmlFor="message" className="block text-gray-700 dark:text-white mb-1">Your Message</label>
                   <textarea
                     id="message"
                     name="message"
                     value={formData.message}
                     onChange={handleChange}
                     rows={5}
-                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                     required
                   ></textarea>
                 </div>
