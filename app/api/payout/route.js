@@ -3,7 +3,6 @@ import { verifiedUserMiddleware } from '../../middleware/authMiddleware';
 import prisma from '../../lib/prisma';
 
 export async function POST(request) {
-  // Use a unique identifier for the request for easier log tracing
   const requestId = `payout-${Date.now()}`;
   console.log(`[${requestId}] Payout request received.`);
 
@@ -17,7 +16,6 @@ export async function POST(request) {
     const { amount, beneficiaryId } = await request.json();
     const userId = request.user.id;
     
-    // Log the initial request details
     console.log(`[${requestId}] Processing payout. UserID: ${userId}, BeneficiaryID: ${beneficiaryId}, Amount: ${amount}`);
 
     if (!amount || !beneficiaryId) {
@@ -57,27 +55,32 @@ export async function POST(request) {
     try {
       console.log(`[${requestId}] Preparing payload for Aeronpay.`);
       
+      // --- FIX STARTS HERE ---
+      // Sanitize the account number to ensure it's a pure string of digits.
+      // This removes any spaces, dashes, or other non-numeric characters.
+      const cleanAccountNumber = String(beneficiary.accountNumber).replace(/\D/g, '');
+
       const payload = {
         amount: amount,
         client_referenceId: `TXN_${requestId}`,
         transferMode: 'imps',
         beneDetails: {
-          // FIX: Ensure account number is a string as required.
-          bankAccount: String(beneficiary.accountNumber),
+          bankAccount: cleanAccountNumber,
           ifsc: beneficiary.ifscCode,
-          // FIX: Changed back to 'accountHolderName'. Double-check your Prisma model for this field name.
           name: beneficiary.accountHolderName,
           email: user.email,
           phone: user.phoneNumber,
-          address1: 'Mumbai', // This should be collected from the user eventually
+          address1: 'Mumbai',
         },
-        // FIX: API expects a numeric value, not a string.
         bankProfileId: 1, 
+        // FIX: Re-added the top-level `accountNumber` as the API requires it.
+        // We use the same sanitized variable to ensure consistency.
+        accountNumber: cleanAccountNumber,
         latitude: '20.1236',
         longitude: '78.1228',
         remarks: 'IMPS Payout',
-        // FIX: Removed redundant root-level `accountNumber` which caused validation errors.
       };
+      // --- FIX ENDS HERE ---
 
       console.log(`[${requestId}] Sending payload to Aeronpay:`, JSON.stringify(payload, null, 2));
 
