@@ -68,10 +68,11 @@ export async function POST(request) {
           amount: amount,
           client_referenceId: `TXN_${Date.now()}`, // Using a unique reference
           transferMode: 'imps',
+          remarks: "imps",
           beneDetails: {
             bankAccount: beneficiary.accountNumber,
             ifsc: beneficiary.ifscCode,
-            name: beneficiary.beneficiaryName,
+            name: beneficiary.accountHolderName,
             email: user.email,
             phone: user.phoneNumber,
             address1: 'Mumbai', // This should be collected from the user
