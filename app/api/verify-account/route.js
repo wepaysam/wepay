@@ -90,8 +90,8 @@ export async function POST(request) {
       }
 
       const updateData = { isVerified: true };
-      if ((beneficiary.beneficiaryName ?? '').toLowerCase() !== verifiedName.toLowerCase()) {
-        updateData.beneficiaryName = verifiedName;
+      if ((beneficiary.accountHolderName ?? '').toLowerCase() !== verifiedName.toLowerCase()) {
+        updateData.accountHolderName = verifiedName;
       }
 
       await prisma.beneficiary.updateMany({
