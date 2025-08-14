@@ -258,6 +258,7 @@ export default function TransactionChargesPage() {
                     <TableCell>
                       <Button
                         variant="outline"
+                        className='dark:text-black'
                         onClick={() => handleUpdate(charge.id, {
                           charge: charge.charge
                         })}
@@ -275,7 +276,7 @@ export default function TransactionChargesPage() {
       
       {/* Add Charge Dialog */}
       <Dialog open={addDialog} onOpenChange={setAddDialog}>
-        <DialogContent>
+        <DialogContent className="dark:text-black">
           <DialogHeader>
             <DialogTitle>Add Transaction Charge</DialogTitle>
             <DialogDescription>
