@@ -36,7 +36,6 @@ export async function POST(request) {
 
       user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user) {
-        // This should theoretically never happen if auth middleware passed, but good to have.
         console.error(`[${requestId}] CRITICAL: Authenticated UserID: ${userId} not found in database.`);
         return NextResponse.json({ message: 'User not found' }, { status: 404 });
       }
@@ -45,7 +44,7 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Database error while fetching details.' }, { status: 500 });
     }
     
-    console.log(`[${requestId}] Successfully fetched details for User: ${user.email} and Beneficiary: ${beneficiary.beneficiaryName}`);
+    console.log(`[${requestId}] Successfully fetched details for User: ${user.email} and Beneficiary: ${beneficiary.accountHolderName}`);
 
     // --- Step 2: Validate User Balance ---
     if (user.balance < amount) {
@@ -56,7 +55,32 @@ export async function POST(request) {
     // --- Step 3: Call External Payout API ---
     let payoutResult;
     try {
-      console.log(`[${requestId}] Calling Aeronpay Payout API.`);
+      console.log(`[${requestId}] Preparing payload for Aeronpay.`);
+      
+      const payload = {
+        amount: amount,
+        client_referenceId: `TXN_${requestId}`,
+        transferMode: 'imps',
+        beneDetails: {
+          // FIX: Ensure account number is a string as required.
+          bankAccount: String(beneficiary.accountNumber),
+          ifsc: beneficiary.ifscCode,
+          // FIX: Changed back to 'accountHolderName'. Double-check your Prisma model for this field name.
+          name: beneficiary.accountHolderName,
+          email: user.email,
+          phone: user.phoneNumber,
+          address1: 'Mumbai', // This should be collected from the user eventually
+        },
+        // FIX: API expects a numeric value, not a string.
+        bankProfileId: 1, 
+        latitude: '20.1236',
+        longitude: '78.1228',
+        remarks: 'IMPS Payout',
+        // FIX: Removed redundant root-level `accountNumber` which caused validation errors.
+      };
+
+      console.log(`[${requestId}] Sending payload to Aeronpay:`, JSON.stringify(payload, null, 2));
+
       const response = await fetch('https://api.aeronpay.in/api/serviceapi-prod/api/payout/imps', {
         method: 'POST',
         headers: {
@@ -64,20 +88,7 @@ export async function POST(request) {
           'client-id': process.env.AERONPAY_CLIENT_ID,
           'client-secret': process.env.AERONPAY_CLIENT_SECRET,
         },
-        body: JSON.stringify({
-          amount: amount,
-          client_referenceId: `TXN_${Date.now()}`, // Using a unique reference
-          transferMode: 'imps',
-          remarks: "imps",
-          beneDetails: {
-            bankAccount: beneficiary.accountNumber,
-            ifsc: beneficiary.ifscCode,
-            name: beneficiary.accountHolderName,
-            email: user.email,
-            phone: user.phoneNumber,
-            address1: 'Mumbai', // This should be collected from the user
-          },
-        }),
+        body: JSON.stringify(payload),
       });
 
       payoutResult = await response.json();
@@ -85,36 +96,33 @@ export async function POST(request) {
 
       if (!response.ok || payoutResult.status !== 'SUCCESS') {
         console.warn(`[${requestId}] Aeronpay payout failed or returned non-success status.`);
-        // Return the actual error from the provider
         return NextResponse.json(payoutResult, { status: response.status >= 400 ? response.status : 400 });
       }
 
     } catch (apiError) {
       console.error(`[${requestId}] Network or fetch error calling Aeronpay API:`, apiError);
-      return NextResponse.json({ message: 'Failed to connect to payout service.' }, { status: 503 }); // 503 Service Unavailable
+      return NextResponse.json({ message: 'Failed to connect to payout service.' }, { status: 503 });
     }
 
     // --- Step 4: Process Successful Payout (Database Transaction) ---
     try {
       console.log(`[${requestId}] Aeronpay reported SUCCESS. Starting database transaction.`);
       await prisma.$transaction(async (tx) => {
-        // Decrement user balance
         await tx.user.update({
           where: { id: userId },
           data: { balance: { decrement: amount } },
         });
 
-        // Create transaction record
         await tx.transactions.create({
           data: {
             senderId: userId,
             beneficiaryId: beneficiaryId,
             amount: amount,
-            chargesAmount: 0, // Placeholder for charges
+            chargesAmount: 0, 
             transactionType: 'IMPS_PAYOUT',
             transactionStatus: 'COMPLETED',
-            referenceId: payoutResult.referenceId || `TXN_${requestId}`, // Use provider's ref ID if available
-            senderAccount: user.email, // Or another user identifier
+            referenceId: payoutResult.referenceId || `TXN_${requestId}`, 
+            senderAccount: user.email,
             receiverAccount: beneficiary.accountNumber,
           },
         });
@@ -124,16 +132,13 @@ export async function POST(request) {
 
     } catch (txError) {
       console.error(`[${requestId}] CRITICAL: DB transaction failed after successful payout from Aeronpay! Manual intervention required.`, txError);
-      // This is a critical state. The money left the system, but you failed to record it.
-      // Return a specific error to the client.
       return NextResponse.json({ 
         message: 'Payout successful, but failed to update records. Please contact support.',
-        payoutData: payoutResult // Include payout data for support ticket
+        payoutData: payoutResult 
       }, { status: 500 });
     }
 
   } catch (error) {
-    // This is the final catch-all for any unexpected errors.
     console.error(`[${requestId}] --- UNHANDLED GLOBAL ERROR IN PAYOUT HANDLER ---`, error);
     return NextResponse.json({ message: error.message || 'An unexpected error occurred.' }, { status: 500 });
   }
