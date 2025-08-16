@@ -28,7 +28,7 @@
     ".next/types/**/*.ts",
     "**/*.ts",
     "**/*.tsx"
-  ],
+, "app/api/verify-account/route.ts"  ],
   "exclude": [
     "node_modules"
   ]

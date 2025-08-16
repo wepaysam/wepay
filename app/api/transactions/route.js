@@ -12,13 +12,9 @@ export async function GET(request) {
     // At this point, request.user contains the decoded token data
     const userId = request.user.id;
 
-    // console.log('Transactions API: Processing request for user', userId);
-    
     // Get the user's transactions
     const transactions = await getUserTransactions(userId);
 
-    // console.log('Transactions API: Fetched transactions for user', userId, transactions);
-    
     return NextResponse.json( transactions );
   } catch (error) {
     console.error('Transactions API error:', error);
@@ -47,8 +43,6 @@ export async function POST(request) {
       },
     });
     
-    console.log("Min Amount:", result._min.minAmount);
-    console.log("Max Amount:", result._max.maxAmount);
 
     if (amount < result._min.minAmount || amount > result._max.maxAmount) {
       return NextResponse.json(

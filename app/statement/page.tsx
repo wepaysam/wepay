@@ -38,6 +38,7 @@ interface TransactionData {
   type: TransactionDirection | 'FAILED' | 'PENDING';
   status: TransactionStatus;
   charges?: number;
+  referenceNo?: string;
 }
 
 const StatementPage = () => {
@@ -76,6 +77,7 @@ const StatementPage = () => {
               type: type,
               status: txn.transactionStatus,
               charges: txn.transactionStatus === 'COMPLETED' ? parseFloat(txn.chargesAmount) : undefined,
+              referenceNo: txn.referenceNo,
             };
           });
 
@@ -111,6 +113,8 @@ const StatementPage = () => {
         }
       } catch (error) {
         console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -118,7 +122,7 @@ const StatementPage = () => {
   }, []);
 
   const filteredTransactions = useMemo(() => {
-    return transactions.filter(txn => {
+    const filtered = transactions.filter(txn => {
       const transactionDate = new Date(txn.date);
       const start = startDate ? new Date(startDate) : null;
       const end = endDate ? new Date(endDate) : null;
@@ -133,10 +137,108 @@ const StatementPage = () => {
       const matchesType = typeFilter === "ALL" || txn.type === typeFilter;
       return matchesType;
     });
+    return filtered;
   }, [transactions, startDate, endDate, typeFilter]);
 
   const handleDownload = () => {
     console.log("Download statement clicked. Implement CSV/PDF generation here.");
+  };
+
+  const handleCheckStatus = async (transaction: TransactionData) => {
+    if (!transaction.referenceNo) return;
+
+    try {
+      const response = await fetch('/api/sevapay/status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          unique_id: transaction.referenceNo,
+          id: transaction.id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        // refetch transactions
+        const fetchAllData = async () => {
+      try {
+        setLoading(true);
+        const [transactionsResponse, balanceRequestsResponse] = await Promise.all([
+          fetch('/api/transactions'),
+          fetch('/api/balance-requests'),
+        ]);
+
+        const transactionsData = await transactionsResponse.json();
+        const balanceRequestsData = await balanceRequestsResponse.json();
+
+        if (transactionsResponse.ok && balanceRequestsResponse.ok) {
+          const formattedTransactions = transactionsData.map((txn: any) => {
+            let type: TransactionDirection | 'FAILED' | 'PENDING' = 'DEBIT';
+            if (txn.transactionStatus === 'FAILED') {
+              type = 'FAILED';
+            } else if (txn.transactionStatus === 'PENDING') {
+              type = 'PENDING';
+            }
+
+            return {
+              id: txn.id,
+              date: txn.transactionTime,
+              description: txn.beneficiary ? txn.beneficiary.accountHolderName : 'N/A',
+              amount: parseFloat(txn.amount),
+              type: type,
+              status: txn.transactionStatus,
+              charges: txn.transactionStatus === 'COMPLETED' ? parseFloat(txn.chargesAmount) : undefined,
+              referenceNo: txn.referenceNo,
+            };
+          });
+
+          const formattedBalanceRequests = balanceRequestsData.map((req: any) => {
+            let type: TransactionDirection | 'FAILED' | 'PENDING' = 'PENDING';
+            let status: TransactionStatus = 'PENDING';
+
+            if (req.status === 'APPROVED') {
+              type = 'CREDIT';
+              status = 'COMPLETED';
+            } else if (req.status === 'REJECTED') {
+              type = 'FAILED';
+              status = 'FAILED';
+            }
+
+            return {
+              id: req.id,
+              date: req.requestedAt,
+              description: 'Balance Request',
+              amount: parseFloat(req.amount),
+              type: type,
+              status: status,
+            };
+          });
+
+          const combinedData = [...formattedTransactions, ...formattedBalanceRequests].sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
+
+          setTransactions(combinedData);
+        } else {
+          console.error('Failed to fetch data');
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAllData();
+      } else {
+        throw new Error(result.message || 'Failed to update transaction status');
+      }
+    } catch (error: any) {
+      console.log(error)
+    }
   };
 
 
@@ -184,6 +286,11 @@ const StatementPage = () => {
   return (
     <MainLayout location="/statement">
         <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 py-8">
+            {loading ? (
+                <div className="flex items-center justify-center">
+                    <p>Loading...</p>
+                </div>
+            ) : (
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -264,6 +371,7 @@ const StatementPage = () => {
                             <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Amount</th>
                             <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Type</th>
                             <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
+<th scope="col" className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
                         </tr>
                         </thead>
                         <tbody className="bg-card divide-y divide-border">
@@ -287,6 +395,11 @@ const StatementPage = () => {
                                 {/* Call the updated function here */}
                                 {getTransactionStatusIcon(txn.status)}
                             </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
+                                {txn.status === 'PENDING' && txn.referenceNo && (
+                                    <Button onClick={() => handleCheckStatus(txn)}>Check Status</Button>
+                                )}
+                            </td>
                             </tr>
                         ))}
                         </tbody>
@@ -302,6 +415,7 @@ const StatementPage = () => {
                     Showing {filteredTransactions.length} of {transactions.length} transactions.
                 </p>
                 </motion.div>
+            )}
         </div>
     </MainLayout>
   );

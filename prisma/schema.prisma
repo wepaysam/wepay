@@ -57,6 +57,7 @@ model UpiBeneficiary {
   createdAt          DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transactions[]
 }
 
 enum TransactionType {
@@ -70,15 +71,18 @@ model Transactions {
   senderId           String?
   senderAccount      String
   beneficiaryId      String?
+  upiBeneficiaryId   String?
   chargesAmount      Decimal
   amount             Decimal
   transactionType    TransactionType
   transactionStatus  TransactionStatus @default(PENDING)
   transactionTime    DateTime @default(now())
+  referenceNo        String?
   createdAt          DateTime @default(now())
 
-  sender      User? @relation(name: "SenderTransactions", fields: [senderId], references: [id])
-  beneficiary Beneficiary? @relation(fields: [beneficiaryId], references: [id])
+  sender          User? @relation(name: "SenderTransactions", fields: [senderId], references: [id])
+  beneficiary     Beneficiary? @relation(fields: [beneficiaryId], references: [id])
+  upiBeneficiary  UpiBeneficiary? @relation(fields: [upiBeneficiaryId], references: [id])
 }
 
 enum TransactionStatus {

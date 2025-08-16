@@ -111,13 +111,12 @@ export async function getUserTransactions(userId) {
         transactionTime: true,
         transactionStatus: true,
         beneficiary: true,
+        referenceNo: true,
       },
       orderBy: {
         transactionTime: 'desc',
       },
     });
-
-    console.log('User transactions:', transactions);
 
     return transactions;
   } catch (error) {

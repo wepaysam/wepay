@@ -15,6 +15,8 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
 
+import PaymentGatewayPopup from "../components/PaymentGatewayPopup";
+
 // --- Interface Definitions (same as before) ---
 interface BankBeneficiary { 
   id: string; 
@@ -95,6 +97,8 @@ const ServicesPage = () => {
   const [loading, setLoading] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [isGatewayPopupOpen, setIsGatewayPopupOpen] = useState(false);
+  const [selectedBeneficiary, setSelectedBeneficiary] = useState<BankBeneficiary | UpiBeneficiary | null>(null);
 
   const [transactionDetails, setTransactionDetails] = useState<TransactionDetailsForModal>({
     amount: 0, 
@@ -418,31 +422,109 @@ const ServicesPage = () => {
     if (validAmount) setPayoutAmounts(prev => ({ ...prev, [id]: amount })); 
   };
 
-  const handlePay = async (beneficiaryId: string, type: 'BANK' | 'UPI') => { 
-    const amountStr = payoutAmounts[beneficiaryId] || ""; 
-    const amount = parseFloat(amountStr); 
-
-    if (isNaN(amount) || amount <= 0) { 
-      toast({ 
-        title: "Error", 
-        description: "Please enter a valid amount.", 
-        variant: "destructive" 
-      }); 
-      return; 
-    } 
-
-    setRowLoading(beneficiaryId, true); 
+  const initiateUpiPayment = async (beneficiary: UpiBeneficiary, amount: number) => {
+    setRowLoading(beneficiary.id, true);
     try {
-      const response = await fetch('/api/payout', {
+      const response = await fetch('/api/upi/payout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          vpa: beneficiary.upiId,
           amount: amount,
-          beneficiaryId: beneficiaryId,
+          name: beneficiary.accountHolderName,
         }),
       });
+
+      const result = await response.json();
+
+      if (response.ok && result.data.status === 'SUCCESS') {
+        setTransactionDetails({
+          amount: amount,
+          beneficiaryName: beneficiary.accountHolderName,
+          accountNumber: beneficiary.upiId,
+          transactionId: result.data.transaction_no || new Date().getTime().toString(),
+          transactionType: 'UPI',
+          timestamp: new Date().toISOString(),
+        });
+        setIsSuccessModalOpen(true);
+        fetchUpiBeneficiaries(false); // Refresh UPI beneficiaries
+        setPayoutAmounts(prev => ({ ...prev, [beneficiary.id]: "" }));
+      } else {
+        throw new Error(result.message || result.msg || 'Failed to initiate UPI payout');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to initiate UPI payout.",
+        variant: "destructive",
+      });
+    } finally {
+      setRowLoading(beneficiary.id, false);
+      setSelectedBeneficiary(null);
+    }
+  };
+
+  const handlePay = async (beneficiary: BankBeneficiary | UpiBeneficiary) => {
+    const amountStr = payoutAmounts[beneficiary.id] || "";
+    const amount = parseFloat(amountStr);
+
+    if (isNaN(amount) || amount <= 0) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid amount.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check if it's a UPI beneficiary
+    if ('upiId' in beneficiary) {
+      await initiateUpiPayment(beneficiary as UpiBeneficiary, amount);
+    } else {
+      // Existing logic for bank beneficiaries
+      setSelectedBeneficiary(beneficiary);
+      setIsGatewayPopupOpen(true);
+    }
+  };
+
+  const handleGatewaySelect = async (gateway: 'sevapay_weshubh' | 'sevapay_kelta') => {
+    setIsGatewayPopupOpen(false);
+    if (!selectedBeneficiary) return;
+
+    const amountStr = payoutAmounts[selectedBeneficiary.id] || "";
+    const amount = parseFloat(amountStr);
+
+    setRowLoading(selectedBeneficiary.id, true);
+    try {
+      let response;
+      // if (gateway === 'aeronpay') {
+      //   response = await fetch('/api/payout', {
+      //     method: 'POST',
+      //     headers: {
+      //       'Content-Type': 'application/json',
+      //     },
+      //     body: JSON.stringify({
+      //       amount: amount,
+      //       beneficiaryId: selectedBeneficiary.id,
+      //     }),
+      //   });
+      // } else {
+        // This part will now only be for Sevapay bank transfers, not UPI
+        // UPI is handled directly in handlePay
+        response = await fetch('/api/sevapay/payment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            amount: amount,
+            beneficiary: selectedBeneficiary,
+            gateway: gateway,
+          }),
+        });
+      // }
 
       const result = await response.json();
 
@@ -451,8 +533,9 @@ const ServicesPage = () => {
           title: "Success",
           description: "Payout initiated successfully.",
         });
+        // This should be fetchBankBeneficiaries for bank transfers
         fetchBankBeneficiaries(false);
-        setPayoutAmounts(prev => ({ ...prev, [beneficiaryId]: "" }));
+        setPayoutAmounts(prev => ({ ...prev, [selectedBeneficiary.id]: "" }));
       } else {
         throw new Error(result.message || 'Failed to initiate payout');
       }
@@ -463,7 +546,8 @@ const ServicesPage = () => {
         variant: "destructive",
       });
     } finally {
-      setRowLoading(beneficiaryId, false);
+      setRowLoading(selectedBeneficiary.id, false);
+      setSelectedBeneficiary(null);
     }
   };
 
@@ -502,6 +586,11 @@ const ServicesPage = () => {
 
   return (
     <MainLayout location="/Payouts">
+      <PaymentGatewayPopup
+        open={isGatewayPopupOpen}
+        onClose={() => setIsGatewayPopupOpen(false)}
+        onSelect={handleGatewaySelect}
+      />
       <AlertDialog open={isVerificationPopupOpen} onOpenChange={setIsVerificationPopupOpen}>
         <AlertDialogContent className="dark:text-black">
           <AlertDialogHeader>
@@ -713,7 +802,7 @@ const ServicesPage = () => {
                               className: "min-w-[100px]", 
                               render: (row: BankBeneficiary) => (
                                 <button 
-                                  onClick={() => handlePay(row.id, 'BANK')} 
+                                  onClick={() => handlePay(row)} 
                                   disabled={ !(parseFloat(payoutAmounts[row.id] || "0") > 0) || actionLoading[row.id]} 
                                   className="inline-flex items-center justify-center gap-1 px-3 py-1 bg-primary text-primary-foreground rounded text-xs font-medium hover:bg-primary/90 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
@@ -938,7 +1027,7 @@ const ServicesPage = () => {
                                     inputMode="decimal" 
                                     value={payoutAmounts[row.id] || ""} 
                                     onChange={(e) => handleAmountChange(row.id, e.target.value)} 
-                                    disabled={!row.isVerified || actionLoading[row.id]} 
+                                    disabled={actionLoading[row.id]} 
                                     className="pl-6 pr-2 py-1 w-full bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed text-sm" 
                                     placeholder="0.00"
                                   />
@@ -951,8 +1040,8 @@ const ServicesPage = () => {
                               className: "min-w-[100px]", 
                               render: (row: UpiBeneficiary) => (
                                 <button 
-                                  onClick={() => handlePay(row.id, 'UPI')} 
-                                  disabled={!row.isVerified || !(parseFloat(payoutAmounts[row.id] || "0") > 0) || actionLoading[row.id]} 
+                                  onClick={() => handlePay(row)} 
+                                  disabled={!(parseFloat(payoutAmounts[row.id] || "0") > 0) || actionLoading[row.id]} 
                                   className="inline-flex items-center justify-center gap-1 px-3 py-1 bg-primary text-primary-foreground rounded text-xs font-medium hover:bg-primary/90 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   {actionLoading[row.id] ? (
