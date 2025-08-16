@@ -489,9 +489,20 @@ const ServicesPage = () => {
     }
   };
 
-  const handleGatewaySelect = async (gateway: 'sevapay_weshubh' | 'sevapay_kelta') => {
+  const handleGatewaySelect = async (gatewayDetails: { gateway: 'sevapay_weshubh' | 'sevapay_kelta', websiteUrl: string, transactionId: string }) => {
     setIsGatewayPopupOpen(false);
     if (!selectedBeneficiary) return;
+
+    const { gateway, websiteUrl, transactionId } = gatewayDetails;
+
+    if (!websiteUrl.endsWith(transactionId)) {
+        toast({
+            title: "Error",
+            description: "Wrong transaction ID. Please check the website URL and transaction ID.",
+            variant: "destructive",
+        });
+        return;
+    }
 
     const amountStr = payoutAmounts[selectedBeneficiary.id] || "";
     const amount = parseFloat(amountStr);
@@ -522,6 +533,8 @@ const ServicesPage = () => {
             amount: amount,
             beneficiary: selectedBeneficiary,
             gateway: gateway,
+            websiteUrl: websiteUrl,
+            transactionId: transactionId,
           }),
         });
       // }
@@ -590,6 +603,8 @@ const ServicesPage = () => {
         open={isGatewayPopupOpen}
         onClose={() => setIsGatewayPopupOpen(false)}
         onSelect={handleGatewaySelect}
+        beneficiary={selectedBeneficiary}
+        amount={payoutAmounts[selectedBeneficiary?.id]}
       />
       <AlertDialog open={isVerificationPopupOpen} onOpenChange={setIsVerificationPopupOpen}>
         <AlertDialogContent className="dark:text-black">

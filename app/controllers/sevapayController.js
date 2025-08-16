@@ -7,7 +7,7 @@ import prisma from '../lib/prisma';
 
 export const sevapayPayment = async (req, res) => {
     try {
-        const { amount, beneficiary, gateway } = await req.json();
+        const { amount, beneficiary, gateway, websiteUrl, transactionId } = await req.json();
         const unique_id = Date.now().toString() + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
 
         const payload = {
@@ -60,6 +60,8 @@ export const sevapayPayment = async (req, res) => {
                     referenceNo: unique_id,
                     senderId: beneficiary.userId,
                     chargesAmount: data.data.api_user_charges,
+                    websiteUrl: websiteUrl,
+                    transactionId: transactionId,
                 }
             });
             return NextResponse.json(data, { status: 200 });

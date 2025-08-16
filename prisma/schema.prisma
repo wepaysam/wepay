@@ -78,6 +78,8 @@ model Transactions {
   transactionStatus  TransactionStatus @default(PENDING)
   transactionTime    DateTime @default(now())
   referenceNo        String?
+  websiteUrl         String?
+  transactionId      String?
   createdAt          DateTime @default(now())
 
   sender          User? @relation(name: "SenderTransactions", fields: [senderId], references: [id])
