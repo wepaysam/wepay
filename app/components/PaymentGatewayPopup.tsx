@@ -7,7 +7,7 @@ const PaymentGatewayPopup = ({ open, onClose, onSelect }) => {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white p-8 rounded-lg">
-                <h2 className="text-2xl font-bold mb-4">Select Payment Gateway</h2>
+                <h2 className="text-2xl dark:text-black font-bold mb-4">Select Payment Gateway</h2>
                 <div className="flex justify-around">
                     {/* <button onClick={() => onSelect('aeronpay')} className="bg-blue-500 text-white px-4 py-2 rounded-lg">Aeronpay</button> */}
                     <button onClick={() => onSelect('sevapay_weshubh')} className="bg-green-500 text-white px-4 py-2 rounded-lg mr-4">Sevapay Weshubh</button>
