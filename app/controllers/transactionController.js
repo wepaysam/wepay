@@ -112,6 +112,8 @@ export async function getUserTransactions(userId) {
         transactionStatus: true,
         beneficiary: true,
         referenceNo: true,
+        utr: true,
+        transaction_no: true,
       },
       orderBy: {
         transactionTime: 'desc',

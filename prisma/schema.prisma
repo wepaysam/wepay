@@ -80,6 +80,9 @@ model Transactions {
   referenceNo        String?
   websiteUrl         String?
   transactionId      String?
+  utr                String?
+  transaction_no     String?
+  gateway            String?
   createdAt          DateTime @default(now())
 
   sender          User? @relation(name: "SenderTransactions", fields: [senderId], references: [id])
@@ -121,4 +124,12 @@ model TransactionCharge {
   charge    Decimal
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt @default(now())
+}
+
+model Balance {
+  id              String   @id @default(uuid())
+  vishubhBalance  Decimal  @default(0.00)
+  kotalBalance    Decimal  @default(0.00)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }

@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import DataTable from "../components/DataTable";
 import { useToast } from "../hooks/use-toast";
 import { useRouter } from "next/navigation";
+import { generateReceiptPDF } from "../utils/pdfGenerator";
 import TransactionSuccessModal from "../components/TransactionSuccessfull";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -100,14 +101,7 @@ const ServicesPage = () => {
   const [isGatewayPopupOpen, setIsGatewayPopupOpen] = useState(false);
   const [selectedBeneficiary, setSelectedBeneficiary] = useState<BankBeneficiary | UpiBeneficiary | null>(null);
 
-  const [transactionDetails, setTransactionDetails] = useState<TransactionDetailsForModal>({
-    amount: 0, 
-    beneficiaryName: "", 
-    accountNumber: "", 
-    transactionId: "",
-    transactionType: "IMPS", 
-    timestamp: new Date().toISOString()
-  });
+  const [successfulTransactionData, setSuccessfulTransactionData] = useState<any>(null);
 
   const [payoutAmounts, setPayoutAmounts] = useState<{ [key: string]: string }>({});
   const [actionLoading, setActionLoading] = useState<{ [key: string]: boolean }>({});
@@ -439,20 +433,28 @@ const ServicesPage = () => {
 
       const result = await response.json();
 
-      if (response.ok && result.data.status === 'SUCCESS') {
-        setTransactionDetails({
+      if (response.ok && result.data && (result.data.status === 'SUCCESS' || result.data.status === 'PENDING')) {
+        setSuccessfulTransactionData({
+          ...result,
           amount: amount,
-          beneficiaryName: beneficiary.accountHolderName,
-          accountNumber: beneficiary.upiId,
-          transactionId: result.data.transaction_no || new Date().getTime().toString(),
+          beneficiary: beneficiary,
           transactionType: 'UPI',
           timestamp: new Date().toISOString(),
         });
         setIsSuccessModalOpen(true);
         fetchUpiBeneficiaries(false); // Refresh UPI beneficiaries
         setPayoutAmounts(prev => ({ ...prev, [beneficiary.id]: "" }));
-      } else {
-        throw new Error(result.message || result.msg || 'Failed to initiate UPI payout');
+      } else if (!response.ok || (result.original && result.original.msg === "Sorry Insufficient wallet Balance")) {
+        console.log("Error result in initiateUpiPayment:", result);
+        if (result.original && result.original.msg === "Sorry Insufficient wallet Balance") {
+          toast({
+            title: "Error",
+            description: "Insufficient wallet balance. Please add funds.",
+            variant: "destructive",
+          });
+        } else {
+          throw new Error(result.message || result.msg || 'Failed to initiate UPI payout');
+        }
       }
     } catch (error: any) {
       toast({
@@ -479,11 +481,28 @@ const ServicesPage = () => {
       return;
     }
 
-    // Check if it's a UPI beneficiary
+    const IMPS_LIMIT = 200000;
+    const UPI_LIMIT = 100000;
+
     if ('upiId' in beneficiary) {
+      if (amount > UPI_LIMIT) {
+        toast({
+          title: "Error",
+          description: `UPI transaction limit is ₹${UPI_LIMIT.toLocaleString()}.`,
+          variant: "destructive"
+        });
+        return;
+      }
       await initiateUpiPayment(beneficiary as UpiBeneficiary, amount);
     } else {
-      // Existing logic for bank beneficiaries
+      if (amount > IMPS_LIMIT) {
+        toast({
+          title: "Error",
+          description: `Bank transfer (IMPS/NEFT) limit is ₹${IMPS_LIMIT.toLocaleString()}.`,
+          variant: "destructive"
+        });
+        return;
+      }
       setSelectedBeneficiary(beneficiary);
       setIsGatewayPopupOpen(true);
     }
@@ -540,17 +559,30 @@ const ServicesPage = () => {
       // }
 
       const result = await response.json();
+      console.log("Sevapay response:", response);
 
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Payout initiated successfully.",
+      if (response.ok && result.data ) {
+        setSuccessfulTransactionData({
+          ...result,
+          amount: amount,
+          beneficiary: selectedBeneficiary,
+          transactionType: 'IMPS',
+          timestamp: new Date().toISOString(),
         });
-        // This should be fetchBankBeneficiaries for bank transfers
+        setIsSuccessModalOpen(true);
         fetchBankBeneficiaries(false);
         setPayoutAmounts(prev => ({ ...prev, [selectedBeneficiary.id]: "" }));
-      } else {
-        throw new Error(result.message || 'Failed to initiate payout');
+      } else if (!response.ok || (result.original && result.original.msg === "Sorry Insufficient wallet Balance")) {
+        console.log("Error result in handleGatewaySelect:", result);
+        if (result.original && result.original.msg === "Sorry Insufficient wallet Balance") {
+          toast({
+            title: "Error",
+            description: "Insufficient wallet balance. Please add funds.",
+            variant: "destructive",
+          });
+        } else {
+          throw new Error(result.message || 'Failed to initiate payout');
+        }
       }
     } catch (error: any) {
       toast({
@@ -562,6 +594,28 @@ const ServicesPage = () => {
       setRowLoading(selectedBeneficiary.id, false);
       setSelectedBeneficiary(null);
     }
+  };
+
+  const handleViewReceipt = () => {
+    if (!successfulTransactionData) return;
+
+    const receiptData = {
+      beneficiaryName: successfulTransactionData.beneficiary.accountHolderName,
+      bankName: "STATE BANK OF INDIA -SBI", // Example data
+      ifscCode: successfulTransactionData.beneficiary.ifscCode,
+      accountNo: successfulTransactionData.beneficiary.accountNumber,
+      transferType: successfulTransactionData.transactionType,
+      serviceType: "Mini Payout",
+      transactionTime: new Date(successfulTransactionData.timestamp).toLocaleTimeString(),
+      transactionDate: new Date(successfulTransactionData.timestamp).toLocaleDateString(),
+      transactionId: successfulTransactionData.transaction_no,
+      rrnNo: successfulTransactionData.data?.transaction_no, // UTR/RRN might be here
+      orderId: successfulTransactionData.data?.unique_id, // Reference No might be here
+      payoutPurpose: "",
+      amountRemitted: successfulTransactionData.amount,
+      transactionStatus: successfulTransactionData.data?.status,
+    };
+    generateReceiptPDF(receiptData);
   };
 
   interface SubTabButtonProps { 
@@ -625,8 +679,21 @@ const ServicesPage = () => {
 
       <TransactionSuccessModal
         isOpen={isSuccessModalOpen}
-        onClose={() => setIsSuccessModalOpen(false)}
-        transactionDetails={transactionDetails}
+        onClose={() => {
+          setIsSuccessModalOpen(false);
+          setSuccessfulTransactionData(null);
+        }}
+        onViewReceipt={handleViewReceipt}
+        transactionDetails={{
+          amount: successfulTransactionData?.amount || 0,
+          beneficiaryName: successfulTransactionData?.beneficiary?.accountHolderName || 'N/A',
+          accountNumber: successfulTransactionData?.beneficiary?.accountNumber || successfulTransactionData?.beneficiary?.upiId || 'N/A',
+          transactionId: successfulTransactionData?.transaction_no || successfulTransactionData?.data?.transaction_no || 'N/A',
+          transactionType: successfulTransactionData?.transactionType || 'N/A',
+          timestamp: successfulTransactionData?.timestamp 
+            ? new Date(successfulTransactionData.timestamp).toISOString() 
+            : new Date().toISOString(),
+        }}
       />
       <div className="space-y-6">
         <div className="flex items-center justify-between">

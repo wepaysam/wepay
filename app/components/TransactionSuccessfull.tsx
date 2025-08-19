@@ -16,12 +16,14 @@ interface TransactionDetailsFromParent {
 interface TransactionSuccessModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onViewReceipt: () => void;
   transactionDetails: TransactionDetailsFromParent; // Use the defined interface
 }
 
 const TransactionSuccessModal: React.FC<TransactionSuccessModalProps> = ({
   isOpen,
   onClose,
+  onViewReceipt,
   // The default value here is a fallback if the prop is made optional,
   // but since it's required, the parent (ServicesPage) must always pass a valid object.
   transactionDetails = { 
@@ -109,7 +111,7 @@ const TransactionSuccessModal: React.FC<TransactionSuccessModalProps> = ({
             Close
           </button>
           <button
-            onClick={() => alert("View Receipt functionality to be implemented.")}
+            onClick={onViewReceipt}
             className="flex-1 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
           >
             View Receipt

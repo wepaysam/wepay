@@ -1,7 +1,7 @@
 "use client"
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, ArrowUpRight, DollarSign, Wallet, RefreshCw, Users, Printer } from "lucide-react";
+import { ArrowRight, ArrowUpRight, DollarSign, Wallet, RefreshCw, Users, Printer, Wallet2 } from "lucide-react";
 import Link from "next/link";
 import StatCard from "../components/StatCard";
 import DataTable from "../components/DataTable";
@@ -10,6 +10,20 @@ import MainLayout from "../components/MainLayout";
 import BalanceRequestPopup from "../components/BalanceRequestPopup";
 import { useGlobalContext } from "../context/GlobalContext";
 import { generateReceiptPDF } from "../utils/pdfGenerator"; // We'll create this utility
+
+interface Transaction {
+  txnId: string;
+  receiverName: string;
+  chargesAmount: string;
+  amount: string;
+  totalAmount: string;
+  status: string;
+  date: string;
+  time: string;
+  utr?: string;
+  transaction_no?: string;
+  referenceNo?: string;
+}
 
 interface DashboardData {
   user: {
@@ -22,16 +36,7 @@ interface DashboardData {
     beneficiaryCount: number;
     monthlyTransfer: string;
   };
-  transactions: Array<{
-    txnId: string;
-    receiverName: string;
-    chargesAmount: string;
-    amount: string;
-    totalAmount: string;
-    status: string;
-    date: string;
-    time: string;
-  }>;
+  transactions: Array<Transaction>;
 }
 
 const Dashboard = () => {
@@ -39,79 +44,77 @@ const Dashboard = () => {
   const { user, isLogged, loading: globalLoading, refreshUserData } = useGlobalContext();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isBalanceRequestOpen, setIsBalanceRequestOpen] = useState(false);
+  const [balances, setBalances] = useState({ vishubhBalance: 0, kotalBalance: 0 });
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setIsLoading(true);
-        
-        // Check if user is logged in via global context
-        if (!isLogged || !user) {
-          console.log("User not logged in according to global context, waiting for auth check to complete...");
-          // Don't redirect immediately, wait for global loading to complete
-          if (!globalLoading) {
-            console.error("Auth check complete, but user still not logged in. Redirecting to login");
-            if (typeof window !== 'undefined') {
-              window.location.href = '/Auth/login';
-            }
-          }
-          return;
-        }
-        
-        console.log("User is logged in, fetching dashboard data...");
-        
-        // Get token from cookies
-        const token = typeof document !== 'undefined' 
-          ? document.cookie.replace(/(?:(?:^|.*;\s*)token\s*\=\s*([^;]*).*$)|^.*$/, "$1")
-          : null;
-        
-        if (!token) {
-          console.error("No auth token found in cookies, but user is logged in. This is unexpected.");
-          // Don't redirect immediately, let the global context handle this
-          return;
-        }
-        
-        // Fetch dashboard data
-        const response = await fetch('/api/user/dashboard', {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          // Handle specific error cases
-          if (response.status === 401) {
-            console.error("Dashboard API returned 401 Unauthorized");
-            // Let the global context handle the logout
-            await refreshUserData(); // This will check auth and logout if needed
-            return;
-          }
-          
-          // For other errors, just show an error message
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(`Failed to fetch dashboard data: ${errorData.message || response.statusText}`);
-        }
-
-        const data = await response.json();
-        console.log("Dashboard data received successfully", data);
-        setDashboardData(data);
-        setError(null);
-      } catch (err) {
-        console.error('Dashboard fetch error:', err);
-        // Don't redirect for general errors, just show the error message
-        setError(err.message || 'Could not load dashboard data');
-      } finally {
-        setIsLoading(false);
+  const fetchBalances = async () => {
+    try {
+      const response = await fetch('/api/balance');
+      const data = await response.json();
+      if (response.ok) {
+        setBalances(data);
       }
-    };
+    } catch (error) {
+      console.error("Failed to fetch balances", error);
+    }
+  };
 
-    // Only fetch data if not in global loading state
-    if (!globalLoading) {
-      fetchDashboardData();
+  const fetchDashboardData = useCallback(async () => {
+    if (globalLoading) return;
+
+    try {
+      setIsFetching(true);
+      
+      if (!isLogged || !user) {
+        if (!globalLoading) {
+          if (typeof window !== 'undefined') {
+            window.location.href = '/Auth/login';
+          }
+        }
+        return;
+      }
+      
+      const token = typeof document !== 'undefined' 
+        ? document.cookie.replace(/(?:(?:^|.*;\s*)token\s*\=\s*([^;]*).*$)|^.*$/, "$1")
+        : null;
+      
+      if (!token) {
+        return;
+      }
+      
+      const response = await fetch('/api/user/dashboard', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          await refreshUserData();
+          return;
+        }
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Failed to fetch dashboard data: ${errorData.message || response.statusText}`);
+      }
+
+      const data = await response.json();
+      setDashboardData(data);
+      setError(null);
+    } catch (err) {
+      console.error('Dashboard fetch error:', err);
+      setError(err.message || 'Could not load dashboard data');
+    } finally {
+      setIsFetching(false);
+      setIsLoading(false);
     }
   }, [isLogged, user, globalLoading, refreshUserData]);
+
+  useEffect(() => {
+    fetchDashboardData();
+    fetchBalances();
+  }, [fetchDashboardData]);
 
   // Show loading state while global context is loading
   if (globalLoading || isLoading) {
@@ -129,7 +132,7 @@ const Dashboard = () => {
         <div className="text-xl text-red-500">Something went wrong</div>
         <div className="text-muted-foreground">{error}</div>
         <button 
-          onClick={() => window.location.reload()}
+          onClick={() => fetchDashboardData()}
           className="px-4 py-2 bg-primary text-white rounded-md"
         >
           Retry
@@ -147,33 +150,24 @@ const Dashboard = () => {
   };
 
   // Handle Receipt Generation
-  const handlePrintReceipt = (transaction) => {
-    // Create receipt data using the transaction and adding missing fields from the image example
+  const handlePrintReceipt = (transaction: Transaction) => {
     const receiptData = {
-      // Sender Details
-      senderName: "VISHUBHITSOLUTIONPRIVATELIMITED",
-      senderMobile: "9001770984",
-      
-      // Beneficiary Details
       beneficiaryName: transaction.receiverName,
       bankName: "STATE BANK OF INDIA -SBI", // Example data
       ifscCode: "SBIN0013369", // Example data
       accountNo: "31032678604", // Example data
       transferType: "IMPS",
       serviceType: "Mini Payout",
-      
-      // Transaction Details
       transactionTime: transaction.time,
       transactionDate: transaction.date,
-      transactionId: transaction.txnId,
-      rrnNo: "509223697147", // Example data
-      orderId: "10229107518715", // Example data
-      payoutPurpose: "", // Left empty as in the example
+      transactionId: transaction.transaction_no,
+      rrnNo: transaction.utr,
+      orderId: transaction.referenceNo,
+      payoutPurpose: "",
       amountRemitted: transaction.amount,
       transactionStatus: transaction.status
     };
     
-    // Generate and download PDF
     generateReceiptPDF(receiptData);
   };
 
@@ -272,19 +266,39 @@ const Dashboard = () => {
           value="₹50,000"
           icon={<Wallet className="h-5 w-5" />}
         />
+        <StatCard
+          title="Vishubh Balance"
+          value={formatCurrency(balances.vishubhBalance.toString())}
+          icon={<Wallet2 className="h-5 w-5" />}
+        />
+        <StatCard
+          title="Kotal Balance"
+          value={formatCurrency(balances.kotalBalance.toString())}
+          icon={<Wallet2 className="h-5 w-5" />}
+        />
       </div>
       
       {/* Recent Transactions */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold">Recent Transactions</h2>
-          <Link
-            href="/transactions"
-            className="text-primary text-sm flex items-center hover:underline"
-          >
-            View all
-            <ArrowRight className="h-3 w-3 ml-1" />
-          </Link>
+            <div className="flex items-center gap-4">
+                <button
+                    onClick={fetchDashboardData}
+                    disabled={isFetching}
+                    className="flex items-center justify-center p-2 bg-card hover:bg-muted/50 text-muted-foreground rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Refresh Transactions"
+                    >
+                    <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+                </button>
+                <Link
+                    href="/statement"
+                    className="text-primary text-sm flex items-center hover:underline"
+                >
+                    View all
+                    <ArrowRight className="h-3 w-3 ml-1" />
+                </Link>
+            </div>
         </div>
         
         <div className="bg-card border border-border/40 rounded-xl overflow-hidden shadow-sm">

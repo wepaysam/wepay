@@ -11,10 +11,13 @@ import {
   CheckCircle,
   AlertCircle,
   XOctagon,
+  Printer,
+  Loader2
 } from "lucide-react";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import MainLayout from "../components/MainLayout";
+import { generateReceiptPDF } from "../utils/pdfGenerator";
 
 // 1. IMPORT YOUR TOOLTIP COMPONENTS
 //    Adjust the path if your tooltip components are located elsewhere.
@@ -30,6 +33,12 @@ import {
 type TransactionStatus = 'PENDING' | 'COMPLETED' | 'FAILED';
 type TransactionDirection = 'DEBIT' | 'CREDIT';
 
+interface BeneficiaryData {
+  accountHolderName: string;
+  accountNumber: string;
+  ifscCode: string;
+}
+
 interface TransactionData {
   id: string;
   date: string; // ISO date string
@@ -39,6 +48,10 @@ interface TransactionData {
   status: TransactionStatus;
   charges?: number;
   referenceNo?: string;
+  utr?: string;
+  transaction_no?: string;
+  beneficiary?: BeneficiaryData;
+  gateway?: string;
 }
 
 const StatementPage = () => {
@@ -48,6 +61,7 @@ const StatementPage = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [typeFilter, setTypeFilter] = useState<TransactionDirection | "ALL">("ALL");
+  const [checkingStatusId, setCheckingStatusId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchAllData = async () => {
@@ -78,6 +92,14 @@ const StatementPage = () => {
               status: txn.transactionStatus,
               charges: txn.transactionStatus === 'COMPLETED' ? parseFloat(txn.chargesAmount) : undefined,
               referenceNo: txn.referenceNo,
+              utr: txn.utr,
+              transaction_no: txn.transaction_no,
+              beneficiary: txn.beneficiary ? {
+                accountHolderName: txn.beneficiary.accountHolderName,
+                accountNumber: txn.beneficiary.accountNumber,
+                ifscCode: txn.beneficiary.ifscCode,
+              } : undefined,
+              gateway: txn.gateway,
             };
           });
 
@@ -144,8 +166,32 @@ const StatementPage = () => {
     console.log("Download statement clicked. Implement CSV/PDF generation here.");
   };
 
+  const handlePrintReceipt = (transaction: TransactionData) => {
+    if (!transaction.beneficiary) return;
+
+    const receiptData = {
+      beneficiaryName: transaction.beneficiary.accountHolderName,
+      bankName: "STATE BANK OF INDIA -SBI", // This is still example data
+      ifscCode: transaction.beneficiary.ifscCode,
+      accountNo: transaction.beneficiary.accountNumber,
+      transferType: "IMPS",
+      serviceType: "Mini Payout",
+      transactionTime: new Date(transaction.date).toLocaleTimeString(),
+      transactionDate: new Date(transaction.date).toLocaleDateString(),
+      transactionId: transaction.transaction_no,
+      rrnNo: transaction.utr,
+      orderId: transaction.referenceNo,
+      payoutPurpose: "",
+      amountRemitted: transaction.amount,
+      transactionStatus: transaction.status,
+    };
+    generateReceiptPDF(receiptData);
+  };
+
   const handleCheckStatus = async (transaction: TransactionData) => {
-    if (!transaction.referenceNo) return;
+    if (!transaction.referenceNo || !transaction.id) return;
+
+    setCheckingStatusId(transaction.id);
 
     try {
       const response = await fetch('/api/sevapay/status', {
@@ -156,88 +202,46 @@ const StatementPage = () => {
         body: JSON.stringify({
           unique_id: transaction.referenceNo,
           id: transaction.id,
+          gateway: transaction.gateway,
         }),
       });
 
-      const result = await response.json();
+      const updatedTxn = await response.json();
 
       if (response.ok) {
-        // refetch transactions
-        const fetchAllData = async () => {
-      try {
-        setLoading(true);
-        const [transactionsResponse, balanceRequestsResponse] = await Promise.all([
-          fetch('/api/transactions'),
-          fetch('/api/balance-requests'),
-        ]);
-
-        const transactionsData = await transactionsResponse.json();
-        const balanceRequestsData = await balanceRequestsResponse.json();
-
-        if (transactionsResponse.ok && balanceRequestsResponse.ok) {
-          const formattedTransactions = transactionsData.map((txn: any) => {
-            let type: TransactionDirection | 'FAILED' | 'PENDING' = 'DEBIT';
-            if (txn.transactionStatus === 'FAILED') {
-              type = 'FAILED';
-            } else if (txn.transactionStatus === 'PENDING') {
-              type = 'PENDING';
+        setTransactions(prevTransactions => {
+          const newTransactions = prevTransactions.map(t => {
+            if (t.id === updatedTxn.id) {
+              let type: TransactionDirection | 'FAILED' | 'PENDING' = 'DEBIT';
+              if (updatedTxn.transactionStatus === 'FAILED') {
+                type = 'FAILED';
+              } else if (updatedTxn.transactionStatus === 'PENDING') {
+                type = 'PENDING';
+              }
+              return {
+                ...t,
+                id: updatedTxn.id,
+                date: updatedTxn.transactionTime,
+                amount: parseFloat(updatedTxn.amount),
+                type: type,
+                status: updatedTxn.transactionStatus,
+                charges: updatedTxn.transactionStatus === 'COMPLETED' ? parseFloat(updatedTxn.chargesAmount) : undefined,
+                referenceNo: updatedTxn.referenceNo,
+                utr: updatedTxn.utr,
+                transaction_no: updatedTxn.transaction_no,
+              };
             }
-
-            return {
-              id: txn.id,
-              date: txn.transactionTime,
-              description: txn.beneficiary ? txn.beneficiary.accountHolderName : 'N/A',
-              amount: parseFloat(txn.amount),
-              type: type,
-              status: txn.transactionStatus,
-              charges: txn.transactionStatus === 'COMPLETED' ? parseFloat(txn.chargesAmount) : undefined,
-              referenceNo: txn.referenceNo,
-            };
+            return t;
           });
-
-          const formattedBalanceRequests = balanceRequestsData.map((req: any) => {
-            let type: TransactionDirection | 'FAILED' | 'PENDING' = 'PENDING';
-            let status: TransactionStatus = 'PENDING';
-
-            if (req.status === 'APPROVED') {
-              type = 'CREDIT';
-              status = 'COMPLETED';
-            } else if (req.status === 'REJECTED') {
-              type = 'FAILED';
-              status = 'FAILED';
-            }
-
-            return {
-              id: req.id,
-              date: req.requestedAt,
-              description: 'Balance Request',
-              amount: parseFloat(req.amount),
-              type: type,
-              status: status,
-            };
-          });
-
-          const combinedData = [...formattedTransactions, ...formattedBalanceRequests].sort(
-            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-          );
-
-          setTransactions(combinedData);
-        } else {
-          console.error('Failed to fetch data');
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAllData();
+          return newTransactions;
+        });
       } else {
-        throw new Error(result.message || 'Failed to update transaction status');
+        throw new Error(updatedTxn.message || 'Failed to update transaction status');
       }
     } catch (error: any) {
-      console.log(error)
+      console.error("Error checking status:", error);
+    } finally {
+      setCheckingStatusId(null);
     }
   };
 
@@ -285,7 +289,7 @@ const StatementPage = () => {
 
   return (
     <MainLayout location="/statement">
-        <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 py-8">
+        <div className="min-h-screen bg-background text-foreground px-4 py-8 pt-8">
             {loading ? (
                 <div className="flex items-center justify-center">
                     <p>Loading...</p>
@@ -295,8 +299,8 @@ const StatementPage = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="w-full max-w-4xl bg-card text-foreground rounded-2xl shadow-lg border border-border p-6 sm:p-8"
-                >
+                className="w-full mx-auto bg-card text-foreground rounded-2xl shadow-lg border border-border p-6 sm:p-8"
+                 >
                 <div className="text-center mb-8">
                     <FileText className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-3 text-primary" />
                     <h1 className="text-2xl sm:text-3xl font-bold">Account Statement</h1>
@@ -369,9 +373,12 @@ const StatementPage = () => {
                             <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Date</th>
                             <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Description</th>
                             <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Amount</th>
+                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Charges</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">UTR</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Transaction No.</th>
                             <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Type</th>
                             <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-<th scope="col" className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
+                            <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
                         </tr>
                         </thead>
                         <tbody className="bg-card divide-y divide-border">
@@ -381,23 +388,37 @@ const StatementPage = () => {
                                 {new Date(txn.date).toLocaleDateString()}
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground max-w-xs truncate" title={txn.description}>{txn.description}</td>
-                            <td className={`px-4 py-4 whitespace-nowrap text-sm text-right font-semibold ${txn.type === 'CREDIT' ? 'text-green-600 dark:text-green-400' : txn.status === 'FAILED' ? 'text-red-600 dark:text-red-400' : 'text-red-600 dark:text-red-400'}`}>
-                                {txn.status === 'FAILED' ? '' : (txn.type === 'CREDIT' ? '+' : '-')}
+                            <td className={`px-4 py-4 whitespace-nowrap text-sm text-right font-semibold ${txn.type === 'CREDIT' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                {txn.type === 'CREDIT' ? '+' : '-'}
                                 ₹{txn.amount.toLocaleString()}
-                                {txn.status === 'COMPLETED' && txn.charges && <span className='text-xs text-muted-foreground'> (Charges: ₹{txn.charges.toLocaleString()})</span>}
                             </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-right text-muted-foreground">
+                                {txn.charges ? `₹${txn.charges.toLocaleString()}` : '-'}
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">{txn.utr || '-'}</td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">{txn.transaction_no || '-'}</td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
                                 <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${txn.type === 'CREDIT' ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300' : txn.status === 'FAILED' ? 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300' : txn.status === 'PENDING' ? 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-300' : 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300'}`}>
                                 {txn.type}
                                 </span>
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
-                                {/* Call the updated function here */}
                                 {getTransactionStatusIcon(txn.status)}
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
                                 {txn.status === 'PENDING' && txn.referenceNo && (
-                                    <Button onClick={() => handleCheckStatus(txn)}>Check Status</Button>
+                                    <Button onClick={() => handleCheckStatus(txn)} disabled={checkingStatusId === txn.id}>
+                                        {checkingStatusId === txn.id ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            'Check Status'
+                                        )}
+                                    </Button>
+                                )}
+                                {txn.status === 'COMPLETED' && (
+                                    <Button onClick={() => handlePrintReceipt(txn)} className="ml-2">
+                                        <Printer className="h-4 w-4" />
+                                    </Button>
                                 )}
                             </td>
                             </tr>

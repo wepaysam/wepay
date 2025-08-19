@@ -1,9 +1,16 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const PaymentGatewayPopup = ({ open, onClose, onSelect, beneficiary, amount }) => {
     const [websiteUrl, setWebsiteUrl] = useState('');
     const [transactionId, setTransactionId] = useState('');
+
+    useEffect(() => {
+        if (open) {
+            setWebsiteUrl('');
+            setTransactionId('');
+        }
+    }, [open]);
 
     if (!open) return null;
 

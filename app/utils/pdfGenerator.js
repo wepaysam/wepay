@@ -42,24 +42,14 @@ export const generateReceiptPDF = (data) => {
     }
   };
 
-  // Sender Details Section
-  doc.setFontSize(14);
-  doc.text('Sender Details', doc.internal.pageSize.getWidth() / 2, 25, { align: 'center' });
-
-  doc.autoTable({
-    startY: 30,
-    head: [['Name', 'Mobile No.']],
-    body: [[data.senderName, data.senderMobile]],
-    ...tableStyles,
-    margin: { left: 15, right: 15 },
-  });
+  
 
   // Beneficiary Details Section
   doc.setFontSize(14);
-  doc.text('Beneficiary Details', doc.internal.pageSize.getWidth() / 2, doc.autoTable.previous.finalY + 10, { align: 'center' });
+  doc.text('Beneficiary Details', doc.internal.pageSize.getWidth() / 2, 25, { align: 'center' });
 
   doc.autoTable({
-    startY: doc.autoTable.previous.finalY + 15,
+    startY: 30,
     head: [['Name', 'Bank Name', 'IFSC Code', 'Account No.']],
     body: [[data.beneficiaryName, data.bankName, data.ifscCode, data.accountNo]],
     ...tableStyles,
