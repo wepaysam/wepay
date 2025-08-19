@@ -2,27 +2,7 @@
 import React from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { 
-  Home, 
-  Users, 
-  CreditCard, 
-  FileText, 
-  LogOut,
-  Settings,
-  Receipt,
-  Shield
-} from "lucide-react";
-import { cn } from "../lib/utils";
-import Cookies from "js-cookie";
-import Image from "next/image";
-import logo from "../../Assets/logo.png";
 
-const Logo = () => (
-  <Link href="/admin" className="flex items-center gap-2">
-    <Image src={logo} alt="Logo" width={32} height={32} />
-    <span className="font-bold text-lg">WePay Admin</span>
-  </Link>
-);
 
 interface AdminSidebarProps {
   open: boolean;
