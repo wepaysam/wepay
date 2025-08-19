@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { User, Mail, Landmark, Hash, Loader2, ShieldAlert, Info, XCircle, ShieldCheck, Phone } from "lucide-react";
-import MainLayout from "../components/MainLayout"; // Adjust path as needed
+// import DashboardLayout from "../dashboard/layout"; // Adjust path as needed
+import DashboardLayout from "../dashboard/layout";
 import { useGlobalContext } from "../context/GlobalContext"; // Adjust path as needed
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button"; // For potential future actions
@@ -92,56 +93,56 @@ const SettingsPage = () => {
 
     if (globalLoading || isLoadingSettings) {
         return (
-            <MainLayout location="settings">
+            <DashboardLayout>
                 <div className="flex items-center justify-center min-h-[60vh]">
                     <Loader2 className="h-12 w-12 animate-spin text-primary" />
                 </div>
-            </MainLayout>
+            </DashboardLayout>
         );
     }
 
     if (!isLogged && !globalLoading) {
         return (
-            <MainLayout location="settings">
+            <DashboardLayout>
                 <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
                     <ShieldAlert className="h-16 w-16 text-destructive" />
                     <h2 className="text-xl font-semibold">Access Denied</h2>
                     <p className="text-muted-foreground">Please log in to view your settings.</p>
                     <Button ><Link href="/login">Login</Link></Button> {/* Assuming router is available or use window.location */}
                 </div>
-            </MainLayout>
+            </DashboardLayout>
         );
     }
 
     if (error) {
         return (
-            <MainLayout location="settings">
+            <DashboardLayout>
                 <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center p-4">
                     <XCircle className="h-16 w-16 text-destructive" />
                     <h2 className="text-xl font-semibold text-destructive">Error Loading Settings</h2>
                     <p className="text-muted-foreground">{error}</p>
                     <Button variant="outline" onClick={() => window.location.reload()}>Try Again</Button>
                 </div>
-            </MainLayout>
+            </DashboardLayout>
         );
     }
     
     if (!userSettings) {
          return (
-            <MainLayout location="settings">
+            <DashboardLayout>
                 <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center p-4">
                     <Info className="h-16 w-16 text-muted-foreground" />
                     <h2 className="text-xl font-semibold">No Settings Found</h2>
                     <p className="text-muted-foreground">We couldn&epos;t find any settings information for your account.</p>
                 </div>
-            </MainLayout>
+            </DashboardLayout>
         );
     }
 
 
     return (
-        <MainLayout location="settings"> {/* Ensure MainLayout uses this for active nav item */}
-            <div className="py-8 px-4 sm:px-6 lg:px-8 max-w-3xl mx-auto">
+    <DashboardLayout>
+      <div className="max-w-4xl mx-auto">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -216,7 +217,7 @@ const SettingsPage = () => {
 
                 </motion.div>
             </div>
-        </MainLayout>
+        </DashboardLayout>
     );
 };
 

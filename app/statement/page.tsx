@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
-import MainLayout from "../components/MainLayout";
+import DashboardLayout from "../dashboard/layout";
 import { generateReceiptPDF } from "../utils/pdfGenerator";
 
 // 1. IMPORT YOUR TOOLTIP COMPONENTS
@@ -288,7 +288,7 @@ const StatementPage = () => {
   };
 
   return (
-    <MainLayout location="/statement">
+    <DashboardLayout>
         <div className="min-h-screen bg-background text-foreground px-4 py-8 pt-8">
             {loading ? (
                 <div className="flex items-center justify-center">
@@ -438,7 +438,7 @@ const StatementPage = () => {
                 </motion.div>
             )}
         </div>
-    </MainLayout>
+    </DashboardLayout>
   );
 };
 

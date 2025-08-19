@@ -30,7 +30,7 @@ const Logo = () => (
 interface SidebarProps {
   open: boolean;
 }
-const Sidebar: React.FC<SidebarProps> = () => {
+const Sidebar: React.FC<SidebarProps> = ({ open }) => {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -61,7 +61,13 @@ const Sidebar: React.FC<SidebarProps> = () => {
   };
 
   return (
-    <div className="fixed top-0 left-0 h-screen w-64 bg-background dark:bg-background-dark border-r dark:border-r-dark flex flex-col shadow-2xl shadow-gray-800 dark:shadow-white">
+    <motion.div
+      initial={{ x: "-100%" }}
+      animate={{ x: 0 }}
+      exit={{ x: "-100%" }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      className="fixed top-0 left-0 h-screen w-64 bg-background dark:bg-background-dark border-r dark:border-r-dark flex flex-col shadow-2xl shadow-gray-800 dark:shadow-white z-50"
+    >
       <div className="h-24 border-b flex items-center justify-center flex-shrink-0">
         <Logo />
       </div>
@@ -88,7 +94,7 @@ const Sidebar: React.FC<SidebarProps> = () => {
           <span>Logout</span>
         </button>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

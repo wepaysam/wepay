@@ -5,7 +5,7 @@ import {
   ArrowRightLeft, Zap, Wifi, Smartphone, CreditCard as CreditCardIcon, ListChecks, Send, AtSign,
   ArrowLeft, Plane, Film
 } from "lucide-react";
-import MainLayout from "../components/MainLayout";
+import DashboardLayout from "../dashboard/layout";
 import { motion, AnimatePresence } from "framer-motion";
 import DataTable from "../components/DataTable";
 import { useToast } from "../hooks/use-toast";
@@ -652,7 +652,7 @@ const ServicesPage = () => {
   );
 
   return (
-    <MainLayout location="/Payouts">
+    <DashboardLayout>
       <PaymentGatewayPopup
         open={isGatewayPopupOpen}
         onClose={() => setIsGatewayPopupOpen(false)}
@@ -1313,7 +1313,7 @@ const ServicesPage = () => {
           )}
         </AnimatePresence>
       </div>
-    </MainLayout>
+    </DashboardLayout>
   );
 };
 

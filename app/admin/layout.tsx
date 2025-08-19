@@ -4,6 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import AdminSidebar from "../components/AdminSidebar";
 import { AnimatePresence, motion } from "framer-motion";
 import ThemeToggle from "../components/ThemeToggle";
+import { Menu, X } from 'lucide-react';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -83,11 +84,18 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
   return (
     <div className="flex w-full min-h-screen bg-background dark:bg-background-dark">
-      <AdminSidebar open={sidebarOpen} toggleSidebar={toggleSidebar} />
+      <AnimatePresence>
+        {sidebarOpen && <AdminSidebar open={sidebarOpen} toggleSidebar={toggleSidebar} />}
+      </AnimatePresence>
       
-      <main className="flex-1 overflow-auto min-h-screen transition-all duration-300">
+      <main className={`flex-1 overflow-auto min-h-screen transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-0"}`}>
         <header className="flex justify-between items-center p-4 border-b">
-          <h1 className="text-xl font-bold">Admin Dashboard</h1>
+          <div className="flex items-center">
+            <button onClick={toggleSidebar} className="p-2 mr-4 bg-gray-200 rounded-md">
+              {sidebarOpen ? <X /> : <Menu />}
+            </button>
+            <h1 className="text-xl font-bold">Admin Dashboard</h1>
+          </div>
           <ThemeToggle />
         </header>
         

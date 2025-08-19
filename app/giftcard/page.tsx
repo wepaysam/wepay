@@ -2,11 +2,12 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Loader2, Gift, CheckCircle, XCircle, User, Mail, Phone, MessageSquare, DollarSign, Info, ShoppingCart ,FileText} from "lucide-react";
-import MainLayout from "../components/MainLayout"; // Adjust path as needed
+// import DashboardLayout from "../dashboard/layout"; // Adjust path as needed
 import { useGlobalContext } from "../context/GlobalContext"; // Adjust path as needed
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import DashboardLayout from "../dashboard/layout";
 import {
     Select,
     SelectContent,
@@ -267,12 +268,12 @@ const GiftCardPage = () => {
         }
     };
 
-     if (globalLoading) { /* ... (same as recharge page) ... */ return <MainLayout location="giftcards"><div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div></MainLayout>; }
-     if (!isLogged && !globalLoading) { /* ... (same as recharge page) ... */ return <MainLayout location="giftcards"><div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center"><h2 className="text-xl font-semibold">Access Denied</h2><p className="text-muted-foreground">Please log in to purchase gift cards.</p><Button ><Link href={"/Auth/login"}>Go to Login</Link></Button></div></MainLayout>;}
+     if (globalLoading) { /* ... (same as recharge page) ... */ return <DashboardLayout ><div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div></DashboardLayout>; }
+     if (!isLogged && !globalLoading) { /* ... (same as recharge page) ... */ return <DashboardLayout><div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center"><h2 className="text-xl font-semibold">Access Denied</h2><p className="text-muted-foreground">Please log in to purchase gift cards.</p><Button ><Link href={"/Auth/login"}>Go to Login</Link></Button></div></DashboardLayout>;}
 
 
     return (
-        <MainLayout location="giftcards"> {/* Update location prop for MainLayout if it uses it */}
+        <DashboardLayout > {/* Update location prop for MainLayout if it uses it */}
             <div className="py-8 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -435,7 +436,7 @@ const GiftCardPage = () => {
                     </div>
                 </motion.div>
             </div>
-        </MainLayout>
+        </DashboardLayout>
     );
 };
 

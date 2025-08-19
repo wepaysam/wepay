@@ -6,9 +6,10 @@ import { Input } from "../components/ui/input"; // Assuming this path is correct
 import { Button } from "../components/ui/button"; // Assuming this path is correct and button is theme-aware
 // import { useToast } from "../../hooks/use-toast"; // Assuming you have this for notifications
 // import { useTheme } from '../../contexts/ThemeContext'; // Assuming you have this for direct theme access if needed
-import  MainLayout  from "../components/MainLayout"; // Assuming this is your main layout component
+// import  MainLayout  from "../components/MainLayout"; // Assuming this is your main layout component
 // Matches Prisma enum BalanceRequestStatus
 type BalanceRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+import DashboardLayout from "../dashboard/layout";
 
 interface BalanceRequestData {
   id: string;
@@ -77,7 +78,7 @@ const BalanceRequestsPage = () => {
   return (
     // Use MainLayout if this is part of it, otherwise, ensure the root div has bg-background
     // For standalone page: <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 py-8">
-    <MainLayout location="/balancerequest">
+    <DashboardLayout>
         <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 py-8">
         <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -171,7 +172,7 @@ const BalanceRequestsPage = () => {
       </p>
     </motion.div>
     </div>
-    </MainLayout>
+    </DashboardLayout>
     // </div> // Closing for standalone page
   );
 };
