@@ -125,10 +125,55 @@ const ServicesPage = () => {
 
   const [isVerificationPopupOpen, setIsVerificationPopupOpen] = useState(false);
   const [beneficiaryToVerify, setBeneficiaryToVerify] = useState<BankBeneficiary | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [beneficiaryToDelete, setBeneficiaryToDelete] = useState<BankBeneficiary | UpiBeneficiary | null>(null);
 
   const handleVerificationClick = (beneficiary: BankBeneficiary) => {
     setBeneficiaryToVerify(beneficiary);
     setIsVerificationPopupOpen(true);
+  };
+
+  const handleDeleteClick = (beneficiary: BankBeneficiary | UpiBeneficiary) => {
+    setBeneficiaryToDelete(beneficiary);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!beneficiaryToDelete) return;
+
+    setFormLoading(true);
+    try {
+      const response = await fetch(`/api/beneficiaries?id=${beneficiaryToDelete.id}&type=${'accountNumber' in beneficiaryToDelete ? 'bank' : 'upi'}`,
+       {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: result.message,
+        });
+        if ('accountNumber' in beneficiaryToDelete) {
+          fetchBankBeneficiaries(false);
+        } else {
+          fetchUpiBeneficiaries(false);
+        }
+      } else {
+        throw new Error(result.message || 'Failed to delete beneficiary');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete beneficiary.",
+        variant: "destructive",
+      });
+    } finally {
+      setFormLoading(false);
+      setIsDeleteDialogOpen(false);
+      setBeneficiaryToDelete(null);
+    }
   };
 
   const handleConfirmVerification = async () => {
@@ -677,6 +722,23 @@ const ServicesPage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="dark:text-black">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this beneficiary?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the beneficiary.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} disabled={formLoading}>
+              {formLoading ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <TransactionSuccessModal
         isOpen={isSuccessModalOpen}
         onClose={() => {
@@ -894,6 +956,20 @@ const ServicesPage = () => {
                                     <Banknote className="h-3 w-3" />
                                   )}
                                   Pay
+                                </button>
+                              )
+                            },
+                            { 
+                              key: "delete", 
+                              header: "", 
+                              className: "min-w-[50px]", 
+                              render: (row: BankBeneficiary) => (
+                                <button 
+                                  onClick={() => handleDeleteClick(row)} 
+                                  disabled={actionLoading[row.id]} 
+                                  className="inline-flex items-center justify-center gap-1 px-3 py-1 bg-red-500 text-white rounded text-xs font-medium hover:bg-red-600 focus:outline-none focus:ring-1 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <Trash2 className="h-3 w-3" />
                                 </button>
                               )
                             },
@@ -1132,6 +1208,20 @@ const ServicesPage = () => {
                                     <Banknote className="h-3 w-3" />
                                   )}
                                   Pay
+                                </button>
+                              )
+                            },
+                            { 
+                              key: "delete", 
+                              header: "", 
+                              className: "min-w-[50px]", 
+                              render: (row: UpiBeneficiary) => (
+                                <button 
+                                  onClick={() => handleDeleteClick(row)} 
+                                  disabled={actionLoading[row.id]} 
+                                  className="inline-flex items-center justify-center gap-1 px-3 py-1 bg-red-500 text-white rounded text-xs font-medium hover:bg-red-600 focus:outline-none focus:ring-1 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <Trash2 className="h-3 w-3" />
                                 </button>
                               )
                             },

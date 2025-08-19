@@ -1,128 +1,159 @@
 import { NextResponse } from 'next/server';
-import { 
-  createBeneficiary, 
-  createUpiBeneficiary,
-  getBeneficiaries,
-  verifyBeneficiaryWithCharge
-} from '../../controllers/beneficiaryController';
-import { verifiedUserMiddleware } from '../../middleware/authMiddleware';
-
-export async function POST(request) {
-  try {
-    // Check authentication
-    const authResult = await verifiedUserMiddleware(request);
-    if (authResult) return authResult;
-    
-    const data = await request.json();
-    const userId = request.user.id;
-    
-    // Validate required fields
-    if (data.transactionType === 'UPI') {
-      if (!data.upiId || !data.accountHolderName) {
-        return NextResponse.json(
-          { message: 'UPI ID and account holder name are required for UPI beneficiary' },
-          { status: 400 }
-        );
-      }
-      const beneficiary = await createUpiBeneficiary(data, userId);
-      return NextResponse.json(beneficiary, { status: 201 });
-    } else {
-      if (!data.accountNumber || !data.accountHolderName || !data.transactionType) {
-        return NextResponse.json(
-          { message: 'Account number, account holder name, and transaction type are required' },
-          { status: 400 }
-        );
-      }
-      const beneficiary = await createBeneficiary(data, userId);
-      return NextResponse.json(beneficiary, { status: 201 });
-    }
-  } catch (error) {
-    return NextResponse.json(
-      { message: error.message || 'Failed to create beneficiary' },
-      { status: 400 }
-    );
-  }
-}
+import prisma from '../../lib/prisma';
+import { verifiedUserMiddleware } from '../../../app/middleware/authMiddleware';
+import { getUserId } from '../../utils/auth';
 
 export async function GET(request) {
   try {
-    // Check authentication
     const authResult = await verifiedUserMiddleware(request);
-    if (authResult) return authResult;
-    
-    const userId = request.user.id;
-    const { bankBeneficiaries, upiBeneficiaries } = await getBeneficiaries(userId);
-    
+        if (authResult) return authResult;
+        
+        const userId = request.user.id;
+
+    const bankBeneficiaries = await prisma.beneficiary.findMany({
+      where: {
+        userId,
+      },
+      select: {
+        id: true,
+        accountNumber: true,
+        accountHolderName: true,
+        ifscCode: true,
+        isVerified: true,
+        createdAt: true,
+        userId: true,
+        transactionType: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    const upiBeneficiaries = await prisma.upiBeneficiary.findMany({
+      where: {
+        userId,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
     return NextResponse.json({ bankBeneficiaries, upiBeneficiaries });
   } catch (error) {
-    return NextResponse.json(
-      { message: error.message || 'Failed to get beneficiaries' },
-      { status: 400 }
-    );
+    return NextResponse.json({ message: `Failed to get beneficiaries: ${error.message}` }, { status: 500 });
   }
 }
 
-export async function PUT(request) {
+export async function POST(request) {
   try {
-    const { beneficiaryId } = await request.json();
-
     const authResult = await verifiedUserMiddleware(request);
-    if (authResult) return authResult;
+        if (authResult) return authResult;
+        
+        const userId = request.user.id;
 
-    // Update beneficiary verification status
-    const beneficiary = await verifyBeneficiaryWithCharge(beneficiaryId);
+    const data = await request.json();
 
-    return NextResponse.json(beneficiary);
+    if (data.accountNumber) {
+      const existingBeneficiary = await prisma.beneficiary.findUnique({
+        where: {
+          accountNumber: data.accountNumber,
+        },
+      });
+
+      if (existingBeneficiary) {
+        return NextResponse.json({ message: 'Beneficiary with this account number already exists' }, { status: 400 });
+      }
+
+      const newBeneficiary = await prisma.beneficiary.create({
+        data: {
+          userId,
+          accountNumber: data.accountNumber,
+          accountHolderName: data.accountHolderName,
+          ifscCode: data.ifscCode,
+          transactionType: data.transactionType,
+        },
+      });
+
+      return NextResponse.json(newBeneficiary);
+    } else if (data.upiId) {
+      const existingUpiBeneficiary = await prisma.upiBeneficiary.findUnique({
+        where: {
+          upiId: data.upiId,
+        },
+      });
+
+      if (existingUpiBeneficiary) {
+        return NextResponse.json({ message: 'UPI Beneficiary with this UPI ID already exists' }, { status: 400 });
+      }
+
+      const newUpiBeneficiary = await prisma.upiBeneficiary.create({
+        data: {
+          userId,
+          upiId: data.upiId,
+          accountHolderName: data.accountHolderName,
+        },
+      });
+
+      return NextResponse.json(newUpiBeneficiary);
+    } else {
+      return NextResponse.json({ message: 'Invalid beneficiary data' }, { status: 400 });
+    }
   } catch (error) {
-    console.error('Error verifying beneficiary:', error);
-    return NextResponse.json(
-      { error: 'Failed to verify beneficiary' },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: `Failed to create beneficiary: ${error.message}` }, { status: 500 });
   }
 }
 
 export async function DELETE(request) {
   try {
-    const { beneficiaryId } = await request.json();
-
     const authResult = await verifiedUserMiddleware(request);
-    if (authResult) return authResult;
+        if (authResult) return authResult;
+        
+        const userId = request.user.id;
 
-    // Delete beneficiary
-    const beneficiary = await prisma.beneficiary.delete({
-      where: { id: beneficiaryId }
-    });
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    const type = searchParams.get('type');
 
-    return NextResponse.json(beneficiary);
+    if (type === 'bank') {
+      const existingBeneficiary = await prisma.beneficiary.findFirst({
+        where: {
+          id,
+          userId,
+        },
+      });
+
+      if (!existingBeneficiary) {
+        return NextResponse.json({ message: 'Beneficiary not found' }, { status: 404 });
+      }
+
+      await prisma.beneficiary.delete({
+        where: {
+          id,
+        },
+      });
+    } else if (type === 'upi') {
+      const existingUpiBeneficiary = await prisma.upiBeneficiary.findFirst({
+        where: {
+          id,
+          userId,
+        },
+      });
+
+      if (!existingUpiBeneficiary) {
+        return NextResponse.json({ message: 'UPI Beneficiary not found' }, { status: 404 });
+      }
+
+      await prisma.upiBeneficiary.delete({
+        where: {
+          id,
+        },
+      });
+    } else {
+      return NextResponse.json({ message: 'Invalid beneficiary type' }, { status: 400 });
+    }
+
+    return NextResponse.json({ message: 'Beneficiary deleted successfully' });
   } catch (error) {
-    console.error('Error deleting beneficiary:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete beneficiary' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PATCH(request) {
-  try {
-    const { beneficiaryId } = await request.json();
-
-    const authResult = await verifiedUserMiddleware(request);
-    if (authResult) return authResult;
-
-    // Update beneficiary
-    const beneficiary = await prisma.beneficiary.update({
-      where: { id: beneficiaryId },
-      data: { isVerified: false }
-    });
-
-    return NextResponse.json(beneficiary);
-  } catch (error) {
-    console.error('Error updating beneficiary:', error);
-    return NextResponse.json(
-      { error: 'Failed to update beneficiary' },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: `Failed to delete beneficiary: ${error.message}` }, { status: 500 });
   }
 }
