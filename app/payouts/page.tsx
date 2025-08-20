@@ -1002,6 +1002,7 @@ const ServicesPage = () => {
                                 value={newBankBeneficiaryData.accountNumber} 
                                 onChange={handleBankInputChange} 
                                 required 
+                                autoComplete="off"
                                 className="pl-10 pr-4 py-2 w-full bg-background border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-400" 
                                 placeholder="Enter Account Number" 
                               />
@@ -1020,6 +1021,7 @@ const ServicesPage = () => {
                                 value={newBankBeneficiaryData.confirmAccountNumber} 
                                 onChange={handleBankInputChange} 
                                 required 
+                                autoComplete="off"
                                 className={`pl-10 pr-4 py-2 w-full bg-background border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-400 ${
                                   newBankBeneficiaryData.accountNumber && 
                                   newBankBeneficiaryData.confirmAccountNumber && 
@@ -1046,6 +1048,7 @@ const ServicesPage = () => {
                                 value={newBankBeneficiaryData.ifscCode} 
                                 onChange={handleBankInputChange} 
                                 required 
+                                autoComplete="off"
                                 className="uppercase pl-10 pr-4 py-2 w-full bg-background border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-400" 
                                 placeholder="Enter IFSC Code" 
                               />
@@ -1064,6 +1067,7 @@ const ServicesPage = () => {
                                 value={newBankBeneficiaryData.accountHolderName} 
                                 onChange={handleBankInputChange} 
                                 required 
+                                autoComplete="off"
                                 className="pl-10 pr-4 py-2 w-full bg-background border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-400" 
                                 placeholder="As per bank records" 
                               />
@@ -1253,6 +1257,7 @@ const ServicesPage = () => {
                               value={newUpiBeneficiaryData.upiId} 
                               onChange={handleUpiInputChange} 
                               required 
+                              autoComplete="off"
                               className="pl-10 pr-4 py-2 w-full bg-background border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary" 
                               placeholder="yourname@bank" 
                             />
@@ -1272,6 +1277,7 @@ const ServicesPage = () => {
                                 name="accountHolderName" 
                                 value={newUpiBeneficiaryData.accountHolderName} 
                                 onChange={handleUpiInputChange} 
+                                autoComplete="off"
                                 className="pl-10 pr-4 py-2 w-full bg-background border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary" 
                                 placeholder="Name for your reference" 
                               />

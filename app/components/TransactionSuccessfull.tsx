@@ -1,6 +1,8 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { CheckCircle, X } from "lucide-react";
+import Image from "next/image";
+import watermark from "../../Assets/watermark.jpg"; // Adjust path as needed
 
 // This interface defines what this modal component *expects* to receive
 // It should match the structure of the `transactionDetails` state in ServicesPage
@@ -73,6 +75,11 @@ const TransactionSuccessModal: React.FC<TransactionSuccessModalProps> = ({
           </div>
           <h3 className="text-xl font-semibold text-green-600 dark:text-green-400">Transaction Successful!</h3>
           <p className="text-muted-foreground text-sm mt-1 text-center">Your payment has been processed successfully.</p>
+        </div>
+
+        {/* Watermark Image */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
+          <Image src={watermark} alt="Watermark" width={500} height={500} className="w-3/4 h-auto object-contain" />
         </div>
 
         <div className="space-y-3 bg-secondary/50 dark:bg-secondary/20 rounded-lg p-4">

@@ -2,13 +2,18 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
-export const generateReceiptPDF = (data) => {
+export const generateReceiptPDF = (data, withWatermark, watermarkBase64) => {
   // Create a new PDF document
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',
   });
+
+  // Add watermark if requested
+  if (withWatermark && watermarkBase64) {
+    doc.addImage(watermarkBase64, 'JPEG', 0, 0, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight());
+  }
 
   // Set document properties
   doc.setProperties({

@@ -18,15 +18,32 @@ import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import DashboardLayout from "../dashboard/layout";
 import { generateReceiptPDF } from "../utils/pdfGenerator";
-
-// 1. IMPORT YOUR TOOLTIP COMPONENTS
-//    Adjust the path if your tooltip components are located elsewhere.
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "../components/ui/tooltip"; // COMMON PATH FOR SHADCN/UI
+} from "../components/ui/tooltip"; // Adjust path as needed
+import watermarkImage from "../../Assets/watermark.jpg"; // Adjust path as needed
+
+// Function to convert image to base64 (client-side)
+const getBase64Image = async (imgUrl: string): Promise<string> => {
+  const response = await fetch(imgUrl);
+  const blob = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
+// ... (rest of your existing imports and component code like type definitions, sample data) ...
+//   Tooltip,
+//   TooltipContent,
+//   TooltipProvider,
+//   TooltipTrigger,
+// } from "../components/ui/tooltip"; // COMMON PATH FOR SHADCN/UI
 
 // ... (rest of your existing imports and component code like type definitions, sample data) ...
 
@@ -62,8 +79,20 @@ const StatementPage = () => {
   const [endDate, setEndDate] = useState("");
   const [typeFilter, setTypeFilter] = useState<TransactionDirection | "ALL">("ALL");
   const [checkingStatusId, setCheckingStatusId] = useState<string | null>(null);
+  const [withWatermark, setWithWatermark] = useState<boolean>(false);
+  const [watermarkBase64, setWatermarkBase64] = useState<string | null>(null);
 
   useEffect(() => {
+    const fetchWatermark = async () => {
+      try {
+        const base64 = await getBase64Image(watermarkImage.src);
+        setWatermarkBase64(base64);
+      } catch (error) {
+        console.error("Error loading watermark image:", error);
+      }
+    };
+    fetchWatermark();
+
     const fetchAllData = async () => {
       try {
         const [transactionsResponse, balanceRequestsResponse] = await Promise.all([
@@ -185,7 +214,7 @@ const StatementPage = () => {
       amountRemitted: transaction.amount,
       transactionStatus: transaction.status,
     };
-    generateReceiptPDF(receiptData);
+    generateReceiptPDF(receiptData, withWatermark, watermarkBase64);
   };
 
   const handleCheckStatus = async (transaction: TransactionData) => {
@@ -357,10 +386,20 @@ const StatementPage = () => {
                     </div>
                     </div>
                 </div>
-                <div className="mb-6 text-right">
+                <div className="mb-6 flex justify-end items-center space-x-4">
+                    <div className="flex items-center">
+                        <input
+                            type="checkbox"
+                            id="watermarkCheckbox"
+                            checked={withWatermark}
+                            onChange={(e) => setWithWatermark(e.target.checked)}
+                            className="mr-2"
+                        />
+                        <label htmlFor="watermarkCheckbox" className="text-sm text-muted-foreground">Add Watermark to PDF</label>
+                    </div>
                     <Button onClick={handleDownload}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Download Statement
+                        <Download className="h-4 w-4 mr-2" />
+                        Download Statement
                     </Button>
                 </div>
 
