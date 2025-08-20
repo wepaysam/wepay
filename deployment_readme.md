@@ -23,18 +23,25 @@ ssh -i "/path/to/your-key.pem" <username>@<public-ip-address>
 
 ### Step 2: Install Dependencies
 
-Once connected to the instance, run the following commands to update the system, install Git, NVM (Node Version Manager), Node.js, and Nginx:
+Once connected to the instance, run the following commands to update the system, install Git, NVM (Node Version Manager), Node.js, npm, pm2, and Nginx:
 
 ```bash
 sudo dnf update -y
 sudo dnf install -y git
-sudo dnf install -y docker
-sudo systemctl start docker
-sudo systemctl enable docker
-sudo usermod -a -G docker ec2-user # Add ec2-user to docker group
-# You will need to log out and log back in for the group change to take effect.
+
+# Install NVM (Node Version Manager)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
+. ~/.nvm/nvm.sh
+nvm install 20 # Install Node.js version 20 (or your desired version)
+nvm use 20
+nvm alias default 20
+
+# Install pm2 globally
+npm install -g pm2
 
 sudo dnf install -y nginx
+sudo systemctl start nginx
+sudo systemctl enable nginx
 ```
 
 ### Step 3: Clone the Project
@@ -45,51 +52,7 @@ Clone the project's Git repository into the user's home directory:
 git clone http://github.com/wepaysam/wepay.git
 ```
 
-### Step 4: Create Dockerfile and Build Image
-
-Create a `Dockerfile` in the root of your project directory. This file defines how your application will be built into a Docker image.
-
-*Create the Dockerfile:*
-
-```bash
-nano Dockerfile
-```
-
-*Add the following content to the Dockerfile:*
-
-```dockerfile
-# Use a Node.js base image
-FROM node:20-alpine
-
-# Set working directory
-WORKDIR /app
-
-# Copy package.json and package-lock.json
-COPY package*.json ./
-
-# Install dependencies
-RUN npm install
-
-# Copy the rest of the application code
-COPY . .
-
-# Build the Next.js application
-RUN npm run build
-
-# Expose the port Next.js runs on
-EXPOSE 3000
-
-# Start the Next.js application
-CMD ["npm", "start"]
-```
-
-*Save the file (Ctrl+O, Enter, Ctrl+X in nano) and then build the Docker image:*
-
-```bash
-docker build -t wepay-app .
-```
-
-### Step 5: Install Project Dependencies and Build
+### Step 4: Install Project Dependencies and Build
 
 Navigate into the project directory and install the necessary npm packages and build the application for production:
 
@@ -99,15 +62,20 @@ npm install
 npm run build
 ```
 
-### Step 6: Run the Application with Docker
+### Step 5: Run the Application with PM2
 
-Run the Docker container, mapping port 3000 from the container to port 3000 on the host:
+### Step 5: Run the Application with PM2
+
+Navigate into your project directory and start the Next.js application using PM2:
 
 ```bash
-docker run -d -p 3000:3000 --name wepay-app wepay-app
+cd wepay
+pm2 start npm --name "wepay-app" -- run start
+pm2 save
+pm2 startup
 ```
 
-### Step 7: Configure Nginx as a Reverse Proxy
+### Step 6: Configure Nginx as a Reverse Proxy
 
 Create a new Nginx server block configuration file to act as a reverse proxy, directing traffic from port 80 to the application running on port 3000.
 
@@ -122,7 +90,7 @@ sudo nano /etc/nginx/conf.d/wepay.conf
 ```nginx
 server {
     listen 80;
-    server_name 98.86.197.57;
+    server_name your_domain_or_ip_address; # Replace with your domain name or EC2 Public IP
 
     location / {
         proxy_pass http://localhost:3000;
@@ -136,93 +104,56 @@ server {
 
 ```
 
-*Restart Nginx to apply the changes:*
+*Save the file (Ctrl+O, Enter, Ctrl+X in nano) and then restart Nginx to apply the changes:*
 
 ```bash
-[ec2-user@ip-172-31-28-171 ~]$ sudo cat /etc/nginx/nginx.conf
-# For more information on configuration, see:
-#   * Official English Documentation: http://nginx.org/en/docs/
-#   * Official Russian Documentation: http://nginx.org/ru/docs/
+sudo systemctl restart nginx
+```
 
-user nginx;
-worker_processes auto;
-error_log /var/log/nginx/error.log notice;
-pid /run/nginx.pid;
+### Step 7: Handling Environment Variables
 
-# Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.
-include /usr/share/nginx/modules/*.conf;
+Your Next.js application might rely on environment variables (e.g., API keys, database URLs). For PM2 deployments, you can manage these variables in a `.env.local` file in your project root. This file should NOT be committed to Git.
 
-events {
-    worker_connections 1024;
-}
+**Example `.env.local` content:**
 
-http {
-    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
-                      '$status $body_bytes_sent "$http_referer" '
-                      '"$http_user_agent" "$http_x_forwarded_for"';
+```
+NEXT_PUBLIC_API_URL=https://api.example.com
+DATABASE_URL=postgresql://user:password@host:port/database
+P2I_API_URL=your_p2i_api_url
+P2I_AUTH_TOKEN=your_p2i_auth_token
+```
 
-    access_log  /var/log/nginx/access.log  main;
+**Note:** Ensure sensitive environment variables are not committed to your Git repository. Use `.gitignore` to exclude environment files.
 
-    sendfile            on;
-    tcp_nopush          on;
-    keepalive_timeout   65;
-    types_hash_max_size 4096;
+### Step 8: Updating the Deployment
 
-    include             /etc/nginx/mime.types;
-    default_type        application/octet-stream;
+To update your deployed application, follow these steps:
 
-    # Load modular configuration files from the /etc/nginx/conf.d directory.
-    # See http://nginx.org/en/docs/ngx_core_module.html#include
-    # for more information.
-    include /etc/nginx/conf.d/*.conf;
+1.  **On your local machine:**
+    ```bash
+    git add .
+    git commit -m "Your commit message"
+    git push origin main # Or your branch name
+    ```
 
-    server {
-        listen       80;
-        listen       [::]:80;
-        server_name  _;
-        root         /usr/share/nginx/html;
+2.  **On the EC2 instance:**
+    ```bash
+    cd wepay # Navigate to your project directory
+    git pull origin main # Or your branch name
 
-        # Load configuration files for the default server block.
-        include /etc/nginx/default.d/*.conf;
+    # Clean up and reinstall dependencies if package.json changed
+    rm -rf .next
+    rm -rf node_modules
+    rm -f package-lock.json
+    npm install
 
-        error_page 404 /404.html;
-        location = /404.html {
-        }
+    # Install dotenv if it's a new dependency and not already installed
+    # npm install dotenv
 
-        error_page 500 502 503 504 /50x.html;
-        location = /50x.html {
-        }
-    }
+    # Update .env.local if any environment variables have changed or been added
+    # nano .env.local
 
-# Settings for a TLS enabled server.
-#
-#    server {
-#        listen       443 ssl;
-#        listen       [::]:443 ssl;
-#        http2        on;
-#        server_name  _;
-#        root         /usr/share/nginx/html;
-#
-#        ssl_certificate "/etc/pki/nginx/server.crt";
-#        ssl_certificate_key "/etc/pki/nginx/private/server.key";
-#        ssl_session_cache shared:SSL:1m;
-#        ssl_session_timeout  10m;
-#        ssl_ciphers PROFILE=SYSTEM;
-#        ssl_prefer_server_ciphers on;
-#
-#        # Load configuration files for the default server block.
-#        include /etc/nginx/default.d/*.conf;
-#
-#        error_page 404 /404.html;
-#        location = /404.html {
-#        }
-#
-#        error_page 500 502 503 504 /50x.html;
-#        location = /50x.html {
-#        }
-#    }
-}
-[ec2-user@ip-172-31-28-171 ~]$ 
-[ec2-user@ip-172-31-28-171 ~]$ ls -l /etc/nginx/conf.d/
-total 4
--rw-r--r--. 1 root root 328 Aug 13 08:26 wepay.conf
+    npm run build
+    pm2 restart all
+    ```
+
