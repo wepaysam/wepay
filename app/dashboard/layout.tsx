@@ -75,11 +75,16 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       <AnimatePresence>
         {isSidebarOpen && <Sidebar open={isSidebarOpen} />}
       </AnimatePresence>
-      <main className={`flex-1 overflow-auto min-h-screen transition-all duration-300 ${isSidebarOpen ? "ml-64" : "ml-0"}`}>
-        <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 m-4 bg-gray-200 rounded-md">
+      <main className={`flex-1 overflow-auto min-h-screen transition-all duration-300 ${isSidebarOpen ? "ml-[270px]" : "ml-0"}`}>
+        <button 
+          onClick={() => setSidebarOpen(!isSidebarOpen)} 
+          className={`fixed top-4 p-2 bg-gray-200 rounded-md z-50 ${isSidebarOpen ? "left-[270px]" : "left-4"}`}
+        >
           {isSidebarOpen ? <X /> : <Menu />}
         </button>
-        {children}
+        <div className="pt-16">
+          {children}
+        </div>
       </main>
     </div>
   );

@@ -48,7 +48,7 @@ const Dashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const [isBalanceRequestOpen, setIsBalanceRequestOpen] = useState(false);
   const [isBalancesLoading, setIsBalancesLoading] = useState(false);
-  const [balances, setBalances] = useState({ vishubhBalance: 0, kotalBalance: 0 });
+  const [balances, setBalances] = useState({ vishubhBalance: 0, kotalBalance: 0, p2iBalance: 0 });
 
   const fetchBalances = async () => {
     setIsBalancesLoading(true);
@@ -56,10 +56,27 @@ const Dashboard = () => {
       const response = await fetch('/api/balance');
       const data = await response.json();
       if (response.ok) {
-        setBalances(data);
+        setBalances(prevBalances => ({ ...prevBalances, vishubhBalance: data.vishubhBalance, kotalBalance: data.kotalBalance }));
       }
     } catch (error) {
       console.error("Failed to fetch balances", error);
+    } finally {
+      setIsBalancesLoading(false);
+    }
+  };
+
+  const fetchP2IBalance = async () => {
+    setIsBalancesLoading(true);
+    try {
+      const response = await fetch('/api/p2i-balance');
+      const data = await response.json();
+      if (response.ok) {
+        setBalances(prevBalances => ({ ...prevBalances, p2iBalance: data.p2iBalance }));
+      } else {
+        console.error("Failed to fetch P2I balance:", data.message);
+      }
+    } catch (error) {
+      console.error("Error fetching P2I balance:", error);
     } finally {
       setIsBalancesLoading(false);
     }
@@ -118,6 +135,7 @@ const Dashboard = () => {
   useEffect(() => {
     fetchDashboardData();
     fetchBalances();
+    fetchP2IBalance();
   }, [fetchDashboardData]);
 
   // Show loading state while global context is loading
@@ -286,7 +304,7 @@ const Dashboard = () => {
           }
         />
         <StatCard
-          title="Kotal Balance"
+          title="Ketla pay Balance"
           value={formatCurrency(balances.kotalBalance.toString())}
           icon={<Wallet2 className="h-5 w-5" />}
           actionButton={
@@ -295,6 +313,21 @@ const Dashboard = () => {
               disabled={isBalancesLoading}
               className="flex items-center justify-center p-2 bg-card hover:bg-muted/50 text-muted-foreground rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="Refresh Balances"
+            >
+              <RefreshCw className={`h-4 w-4 ${isBalancesLoading ? 'animate-spin' : ''}`} />
+            </button>
+          }
+        />
+        <StatCard
+          title="P2I Balance"
+          value={formatCurrency(balances.p2iBalance.toString())}
+          icon={<Wallet2 className="h-5 w-5" />}
+          actionButton={
+            <button
+              onClick={fetchP2IBalance}
+              disabled={isBalancesLoading}
+              className="flex items-center justify-center p-2 bg-card hover:bg-muted/50 text-muted-foreground rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Refresh P2I Balance"
             >
               <RefreshCw className={`h-4 w-4 ${isBalancesLoading ? 'animate-spin' : ''}`} />
             </button>

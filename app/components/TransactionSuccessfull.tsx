@@ -2,7 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { CheckCircle, X } from "lucide-react";
 import Image from "next/image";
-import watermark from "../../Assets/watermark.jpg"; // Adjust path as needed
+import watermark from "../../Assets/watermark.png"; // Adjust path as needed
 
 // This interface defines what this modal component *expects* to receive
 // It should match the structure of the `transactionDetails` state in ServicesPage

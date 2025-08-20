@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo ,useCallback} from "react";
 import { motion } from "framer-motion";
 import {
   FileText,
@@ -24,7 +24,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../components/ui/tooltip"; // Adjust path as needed
-import watermarkImage from "../../Assets/watermark.jpg"; // Adjust path as needed
+import watermarkImage from "../../Assets/watermark.png"; // Adjust path as needed
 
 // Function to convert image to base64 (client-side)
 const getBase64Image = async (imgUrl: string): Promise<string> => {
@@ -82,6 +82,82 @@ const StatementPage = () => {
   const [withWatermark, setWithWatermark] = useState<boolean>(false);
   const [watermarkBase64, setWatermarkBase64] = useState<string | null>(null);
 
+  const fetchAllData = useCallback(async () => {
+    try {
+      const [transactionsResponse, balanceRequestsResponse] = await Promise.all([
+        fetch('/api/transactions'),
+        fetch('/api/balance-requests'),
+      ]);
+
+      const transactionsData = await transactionsResponse.json();
+      const balanceRequestsData = await balanceRequestsResponse.json();
+
+      if (transactionsResponse.ok && balanceRequestsResponse.ok) {
+        const formattedTransactions = transactionsData.map((txn: any) => {
+          let type: TransactionDirection | 'FAILED' | 'PENDING' = 'DEBIT';
+          if (txn.transactionStatus === 'FAILED') {
+            type = 'FAILED';
+          } else if (txn.transactionStatus === 'PENDING') {
+            type = 'PENDING';
+          }
+
+          return {
+            id: txn.id,
+            date: txn.transactionTime,
+            description: txn.beneficiary ? txn.beneficiary.accountHolderName : 'N/A',
+            amount: parseFloat(txn.amount),
+            type: type,
+            status: txn.transactionStatus,
+            charges: txn.transactionStatus === 'COMPLETED' ? parseFloat(txn.chargesAmount) : undefined,
+            referenceNo: txn.referenceNo,
+            utr: txn.utr,
+            transaction_no: txn.transaction_no,
+            beneficiary: txn.beneficiary ? {
+              accountHolderName: txn.beneficiary.accountHolderName,
+              accountNumber: txn.beneficiary.accountNumber,
+              ifscCode: txn.beneficiary.ifscCode,
+            } : undefined,
+            gateway: txn.gateway,
+          };
+        });
+
+        const formattedBalanceRequests = balanceRequestsData.map((req: any) => {
+          let type: TransactionDirection | 'FAILED' | 'PENDING' = 'PENDING';
+          let status: TransactionStatus = 'PENDING';
+
+          if (req.status === 'APPROVED') {
+            type = 'CREDIT';
+            status = 'COMPLETED';
+          } else if (req.status === 'REJECTED') {
+            type = 'FAILED';
+            status = 'FAILED';
+          }
+
+          return {
+            id: req.id,
+            date: req.requestedAt,
+            description: 'Balance Request',
+            amount: parseFloat(req.amount),
+            type: type,
+            status: status,
+          };
+        });
+
+        const combinedData = [...formattedTransactions, ...formattedBalanceRequests].sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+
+        setTransactions(combinedData);
+      } else {
+        console.error('Failed to fetch data');
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [setTransactions, setLoading]);
+
   useEffect(() => {
     const fetchWatermark = async () => {
       try {
@@ -93,84 +169,8 @@ const StatementPage = () => {
     };
     fetchWatermark();
 
-    const fetchAllData = async () => {
-      try {
-        const [transactionsResponse, balanceRequestsResponse] = await Promise.all([
-          fetch('/api/transactions'),
-          fetch('/api/balance-requests'),
-        ]);
-
-        const transactionsData = await transactionsResponse.json();
-        const balanceRequestsData = await balanceRequestsResponse.json();
-
-        if (transactionsResponse.ok && balanceRequestsResponse.ok) {
-          const formattedTransactions = transactionsData.map((txn: any) => {
-            let type: TransactionDirection | 'FAILED' | 'PENDING' = 'DEBIT';
-            if (txn.transactionStatus === 'FAILED') {
-              type = 'FAILED';
-            } else if (txn.transactionStatus === 'PENDING') {
-              type = 'PENDING';
-            }
-
-            return {
-              id: txn.id,
-              date: txn.transactionTime,
-              description: txn.beneficiary ? txn.beneficiary.accountHolderName : 'N/A',
-              amount: parseFloat(txn.amount),
-              type: type,
-              status: txn.transactionStatus,
-              charges: txn.transactionStatus === 'COMPLETED' ? parseFloat(txn.chargesAmount) : undefined,
-              referenceNo: txn.referenceNo,
-              utr: txn.utr,
-              transaction_no: txn.transaction_no,
-              beneficiary: txn.beneficiary ? {
-                accountHolderName: txn.beneficiary.accountHolderName,
-                accountNumber: txn.beneficiary.accountNumber,
-                ifscCode: txn.beneficiary.ifscCode,
-              } : undefined,
-              gateway: txn.gateway,
-            };
-          });
-
-          const formattedBalanceRequests = balanceRequestsData.map((req: any) => {
-            let type: TransactionDirection | 'FAILED' | 'PENDING' = 'PENDING';
-            let status: TransactionStatus = 'PENDING';
-
-            if (req.status === 'APPROVED') {
-              type = 'CREDIT';
-              status = 'COMPLETED';
-            } else if (req.status === 'REJECTED') {
-              type = 'FAILED';
-              status = 'FAILED';
-            }
-
-            return {
-              id: req.id,
-              date: req.requestedAt,
-              description: 'Balance Request',
-              amount: parseFloat(req.amount),
-              type: type,
-              status: status,
-            };
-          });
-
-          const combinedData = [...formattedTransactions, ...formattedBalanceRequests].sort(
-            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-          );
-
-          setTransactions(combinedData);
-        } else {
-          console.error('Failed to fetch data');
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchAllData();
-  }, []);
+  }, [fetchAllData]);
 
   const filteredTransactions = useMemo(() => {
     const filtered = transactions.filter(txn => {
@@ -238,32 +238,8 @@ const StatementPage = () => {
       const updatedTxn = await response.json();
 
       if (response.ok) {
-        setTransactions(prevTransactions => {
-          const newTransactions = prevTransactions.map(t => {
-            if (t.id === updatedTxn.id) {
-              let type: TransactionDirection | 'FAILED' | 'PENDING' = 'DEBIT';
-              if (updatedTxn.transactionStatus === 'FAILED') {
-                type = 'FAILED';
-              } else if (updatedTxn.transactionStatus === 'PENDING') {
-                type = 'PENDING';
-              }
-              return {
-                ...t,
-                id: updatedTxn.id,
-                date: updatedTxn.transactionTime,
-                amount: parseFloat(updatedTxn.amount),
-                type: type,
-                status: updatedTxn.transactionStatus,
-                charges: updatedTxn.transactionStatus === 'COMPLETED' ? parseFloat(updatedTxn.chargesAmount) : undefined,
-                referenceNo: updatedTxn.referenceNo,
-                utr: updatedTxn.utr,
-                transaction_no: updatedTxn.transaction_no,
-              };
-            }
-            return t;
-          });
-          return newTransactions;
-        });
+        // Re-fetch all data to ensure consistency and full update
+        fetchAllData();
       } else {
         throw new Error(updatedTxn.message || 'Failed to update transaction status');
       }
