@@ -14,8 +14,8 @@ export const generateReceiptPDF = (data) => {
   doc.setProperties({
     title: `Transaction Receipt - ${data.transactionId}`,
     subject: 'Transaction Receipt',
-    author: 'VishubhIT Solutions',
-    creator: 'VishubhIT Solutions',
+    author: '',
+    creator: '',
   });
 
   // Add title
@@ -50,8 +50,8 @@ export const generateReceiptPDF = (data) => {
 
   doc.autoTable({
     startY: 30,
-    head: [['Name', 'Bank Name', 'IFSC Code', 'Account No.']],
-    body: [[data.beneficiaryName, data.bankName, data.ifscCode, data.accountNo]],
+    head: [['Name', 'IFSC Code', 'Account No.']],
+    body: [[data.beneficiaryName, data.ifscCode, data.accountNo]],
     ...tableStyles,
     margin: { left: 15, right: 15 },
   });
@@ -95,16 +95,16 @@ export const generateReceiptPDF = (data) => {
     { align: 'center' });
 
   // Company information
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text('VishubhIT Solution Private Limited', 
-    doc.internal.pageSize.getWidth() / 2, 
-    doc.internal.pageSize.getHeight() - 20, 
-    { align: 'center' });
-  doc.text('Phone: 9001770984 | Email: support@vishubhit.com', 
-    doc.internal.pageSize.getWidth() / 2, 
-    doc.internal.pageSize.getHeight() - 15, 
-    { align: 'center' });
+  // doc.setFontSize(10);
+  // doc.setFont('helvetica', 'normal');
+  // doc.text('VishubhIT Solution Private Limited', 
+  //   doc.internal.pageSize.getWidth() / 2, 
+  //   doc.internal.pageSize.getHeight() - 20, 
+  //   { align: 'center' });
+  // doc.text('Phone: 9001770984 | Email: support@vishubhit.com', 
+  //   doc.internal.pageSize.getWidth() / 2, 
+  //   doc.internal.pageSize.getHeight() - 15, 
+  //   { align: 'center' });
 
   // Save the PDF
   doc.save(`Receipt_${data.transactionId}.pdf`);

@@ -47,9 +47,11 @@ const Dashboard = () => {
   const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isBalanceRequestOpen, setIsBalanceRequestOpen] = useState(false);
+  const [isBalancesLoading, setIsBalancesLoading] = useState(false);
   const [balances, setBalances] = useState({ vishubhBalance: 0, kotalBalance: 0 });
 
   const fetchBalances = async () => {
+    setIsBalancesLoading(true);
     try {
       const response = await fetch('/api/balance');
       const data = await response.json();
@@ -58,6 +60,8 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error("Failed to fetch balances", error);
+    } finally {
+      setIsBalancesLoading(false);
     }
   };
 
@@ -270,11 +274,31 @@ const Dashboard = () => {
           title="Vishubh Balance"
           value={formatCurrency(balances.vishubhBalance.toString())}
           icon={<Wallet2 className="h-5 w-5" />}
+          actionButton={
+            <button
+              onClick={fetchBalances}
+              disabled={isBalancesLoading}
+              className="flex items-center justify-center p-2 bg-card hover:bg-muted/50 text-muted-foreground rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Refresh Balances"
+            >
+              <RefreshCw className={`h-4 w-4 ${isBalancesLoading ? 'animate-spin' : ''}`} />
+            </button>
+          }
         />
         <StatCard
           title="Kotal Balance"
           value={formatCurrency(balances.kotalBalance.toString())}
           icon={<Wallet2 className="h-5 w-5" />}
+          actionButton={
+            <button
+              onClick={fetchBalances}
+              disabled={isBalancesLoading}
+              className="flex items-center justify-center p-2 bg-card hover:bg-muted/50 text-muted-foreground rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Refresh Balances"
+            >
+              <RefreshCw className={`h-4 w-4 ${isBalancesLoading ? 'animate-spin' : ''}`} />
+            </button>
+          }
         />
       </div>
       

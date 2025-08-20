@@ -139,27 +139,71 @@ export const sevapayStatus = async (req, res) => {
                 }
             });
 
-            if (data.data.status === 'SUCCESS') {
-                const balanceUpdate = transaction.gateway === 'sevapay_weshubh'
-                    ? { vishubhBalance: data.data.balance }
-                    : { kotalBalance: data.data.balance };
+            // if (data.data.status === 'SUCCESS') {
+            //     const balanceUpdate = transaction.gateway === 'sevapay_weshubh'
+            //         ? { vishubhBalance: data.data.balance }
+            //         : { kotalBalance: data.data.balance };
 
-                await prisma.balance.upsert({
-                    where: { id: "1" },
-                    update: balanceUpdate,
-                    create: {
-                        id: "1",
-                        vishubhBalance: transaction.gateway === 'sevapay_weshubh' ? data.data.balance : 0,
-                        kotalBalance: transaction.gateway === 'sevapay_kelta' ? data.data.balance : 0,
-                    }
-                });
-            }
+            //     await prisma.balance.upsert({
+            //         where: { id: "1" },
+            //         update: balanceUpdate,
+            //         create: {
+            //             id: "1",
+            //             vishubhBalance: transaction.gateway === 'sevapay_weshubh' ? data.data.balance : 0,
+            //             kotalBalance: transaction.gateway === 'sevapay_kelta' ? data.data.balance : 0,
+            //         }
+            //     });
+            // }
             return NextResponse.json(data, { status: 200 });
         } else {
             return NextResponse.json(data, { status: response.status });
         }
     } catch (error) {
-        console.error("Error in sevapayStatus:", error);
         return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
+    }
+};
+
+export const getBalances = async () => {
+    const tokens = {
+        vishubh: process.env.SEVAPAY_API_TOKEN,
+        kotal: process.env.KETLA_API_TOKEN,
+    };
+
+    const fetchBalance = async (token) => {
+        try {
+            const response = await fetch(`${process.env.SEVAPAY_API_URL}/apiclient/balance-check`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'web_code': 'SEVAPAY_X',
+                    'Authorization': `Bearer ${token}`
+                },
+            });
+
+            const data = await response.json();
+            console.log("Balance response:", data);
+
+            if (response.ok && data.code === 200) {
+                return data.data.balance;
+            } else {
+                console.error(`Failed to fetch balance for token`, data);
+                return 0;
+            }
+        } catch (error) {
+            console.error(`Error fetching balance for token`, error);
+            return 0;
+        }
+    };
+
+    try {
+        const [vishubhBalance, kotalBalance] = await Promise.all([
+            fetchBalance(tokens.vishubh),
+            fetchBalance(tokens.kotal),
+        ]);
+
+        return { vishubhBalance, kotalBalance };
+    } catch (error) {
+        console.error("Error fetching balances in parallel:", error);
+        return { vishubhBalance: 0, kotalBalance: 0 };
     }
 };

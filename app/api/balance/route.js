@@ -1,16 +1,12 @@
 import { NextResponse } from 'next/server';
-import prisma from '../../lib/prisma';
+import { getBalances } from '../../controllers/sevapayController';
 
 export async function GET() {
-  try {
-    const balance = await prisma.balance.findFirst();
-    if (!balance) {
-      // If no balance record exists, return default values
-      return NextResponse.json({ vishubhBalance: 0, kotalBalance: 0 });
+    try {
+        const { vishubhBalance, kotalBalance } = await getBalances();
+        return NextResponse.json({ vishubhBalance, kotalBalance });
+    } catch (error) {
+        console.error("Error fetching balances:", error);
+        return NextResponse.json({ message: 'Failed to fetch balances', error: error.message }, { status: 500 });
     }
-    return NextResponse.json(balance);
-  } catch (error) {
-    console.error("Error fetching balance:", error);
-    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
-  }
 }

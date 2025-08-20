@@ -90,6 +90,7 @@ export async function POST(request) {
         data: {
           userId,
           upiId: data.upiId,
+          isVerified:true,
           accountHolderName: data.accountHolderName,
         },
       });
