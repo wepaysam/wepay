@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+#extra's
+apiintegrasion.txt
+accountverification.txt
+Dockerfile
+nginx.txt
+Sevape Documentation.pdf
+P2I Payment API Ver-3.0 (1).pdf
+erro.txt
+package-lock.json
