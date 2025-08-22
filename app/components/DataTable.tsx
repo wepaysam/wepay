@@ -27,7 +27,7 @@ function DataTable<T>({
     <div className={cn("w-full overflow-auto", className)}>
       <table className="w-full border-collapse">
         <thead>
-          <tr className="bg-secondary/30">
+          <tr className="bg-gray-100 dark:bg-gray-800">
             {columns.map((column, index) => (
               <th
                 key={index}

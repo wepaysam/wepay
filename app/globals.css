@@ -70,3 +70,38 @@ body {
 html {
   @apply scroll-smooth;
 }
+
+.stat-card-gradient {
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card-gradient::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: linear-gradient(to right, var(--tw-gradient-stops));
+  --tw-gradient-from: #3b82f6;
+  --tw-gradient-to: #8b5cf6;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+  opacity: 0;
+  transition: opacity 0.5s;
+  z-index: 0;
+}
+
+.dark .stat-card-gradient::before {
+  --tw-gradient-from: #8b5cf6;
+  --tw-gradient-to: #ec4899;
+}
+
+.stat-card-gradient:hover::before {
+  opacity: 1;
+}
+
+.stat-card-gradient > * {
+  position: relative;
+  z-index: 1;
+}

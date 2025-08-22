@@ -12,7 +12,8 @@ import {
   AlertCircle,
   XOctagon,
   Printer,
-  Loader2
+  Loader2,
+  ListChecks
 } from "lucide-react";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
@@ -79,6 +80,7 @@ const StatementPage = () => {
   const [endDate, setEndDate] = useState("");
   const [typeFilter, setTypeFilter] = useState<TransactionDirection | "ALL">("ALL");
   const [checkingStatusId, setCheckingStatusId] = useState<string | null>(null);
+  const [isCheckingAllStatuses, setIsCheckingAllStatuses] = useState(false);
   const [withWatermark, setWithWatermark] = useState<boolean>(false);
   const [watermarkBase64, setWatermarkBase64] = useState<string | null>(null);
 
@@ -292,12 +294,23 @@ const StatementPage = () => {
     );
   };
 
+  const handleCheckAllStatuses = async () => {
+    setIsCheckingAllStatuses(true);
+    const pendingTransactions = transactions.filter(txn => txn.status === 'PENDING');
+    for (const txn of pendingTransactions) {
+      // Await each status check to avoid overwhelming the API or race conditions
+      // In a real app, you might want to batch these or use a queue
+      await handleCheckStatus(txn);
+    }
+    setIsCheckingAllStatuses(false);
+  };
+
   return (
     <DashboardLayout>
         <div className="min-h-screen bg-background text-foreground px-4 py-8 pt-8">
             {loading ? (
-                <div className="flex items-center justify-center">
-                    <p>Loading...</p>
+                <div className="flex items-center justify-center min-h-[60vh]">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
                 </div>
             ) : (
             <motion.div
@@ -373,6 +386,16 @@ const StatementPage = () => {
                         />
                         <label htmlFor="watermarkCheckbox" className="text-sm text-muted-foreground">Add Watermark to PDF</label>
                     </div>
+                    <Button 
+                      onClick={handleCheckAllStatuses} 
+                      disabled={isCheckingAllStatuses || transactions.filter(txn => txn.status === 'PENDING').length === 0}
+                    >
+                        {isCheckingAllStatuses ? (
+                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Checking All...</>
+                        ) : (
+                            <><ListChecks className="h-4 w-4 mr-2" /> Check All Status</>
+                        )}
+                    </Button>
                     <Button onClick={handleDownload}>
                         <Download className="h-4 w-4 mr-2" />
                         Download Statement

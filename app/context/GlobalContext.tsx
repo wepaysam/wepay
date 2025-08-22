@@ -51,11 +51,13 @@ interface GlobalContextType {
   transactions: Transaction[];
   beneficiaries: Beneficiary[];
   balanceRequests: BalanceRequest[];
+  isSidebarOpen: boolean;
   setUser: (user: User | null) => void;
   setIsLogged: (isLogged: boolean) => void;
   setTransactions: (transactions: Transaction[]) => void;
   setBeneficiaries: (beneficiaries: Beneficiary[]) => void;
   setBalanceRequests: (balanceRequests: BalanceRequest[]) => void;
+  setSidebarOpen: (isOpen: boolean) => void;
   logout: () => void;
   refreshUserData: () => Promise<void>;
 }
@@ -81,6 +83,7 @@ export function GlobalProvider({ children }: GlobalProviderProps) {
   const [transactions, setTransactionsState] = useState<Transaction[]>([]);
   const [beneficiaries, setBeneficiariesState] = useState<Beneficiary[]>([]);
   const [balanceRequests, setBalanceRequestsState] = useState<BalanceRequest[]>([]);
+  const [isSidebarOpen, setSidebarOpenState] = useState(true);
   const router = useRouter();
 
   const setUser = (newUser: User | null) => {
@@ -115,6 +118,10 @@ export function GlobalProvider({ children }: GlobalProviderProps) {
 
   const setBalanceRequests = (newBalanceRequests: BalanceRequest[]) => {
     setBalanceRequestsState(newBalanceRequests);
+  };
+
+  const setSidebarOpen = (isOpen: boolean) => {
+    setSidebarOpenState(isOpen);
   };
 
   const logout = () => {
@@ -339,11 +346,13 @@ export function GlobalProvider({ children }: GlobalProviderProps) {
         transactions,
         beneficiaries,
         balanceRequests,
+        isSidebarOpen,
         setUser,
         setIsLogged,
         setTransactions,
         setBeneficiaries,
         setBalanceRequests,
+        setSidebarOpen,
         logout,
         refreshUserData
       }}

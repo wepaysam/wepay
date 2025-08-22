@@ -11,10 +11,12 @@ interface DashboardLayoutProps {
 
 import { AnimatePresence, motion } from "framer-motion";
 
+import { useGlobalContext } from '../context/GlobalContext';
+
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const router = useRouter();
+  const { isSidebarOpen, setSidebarOpen } = useGlobalContext();
   const [isLoading, setIsLoading] = useState(true);
-  const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [user, setUser] = useState(null);
 
   useEffect(() => {
@@ -62,14 +64,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     checkAuth();
   }, [router]);
 
-  if (isLoading || (user && user.userType === 'ADMIN')) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex min-h-screen">
       <AnimatePresence>
@@ -78,12 +72,18 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       <main className={`flex-1 overflow-auto min-h-screen transition-all duration-300 ${isSidebarOpen ? "ml-[270px]" : "ml-0"}`}>
         <button 
           onClick={() => setSidebarOpen(!isSidebarOpen)} 
-          className={`fixed top-4 p-2 bg-gray-200 rounded-md z-50 ${isSidebarOpen ? "left-[270px]" : "left-4"}`}
+          className={`fixed top-4 p-2 bg-gray-200 dark:bg-gray-800 rounded-md z-50 ${isSidebarOpen ? "left-[270px]" : "left-4"}`}
         >
-          {isSidebarOpen ? <X /> : <Menu />}
+          {isSidebarOpen ? <X className="text-gray-800 dark:text-gray-200" /> : <Menu className="text-gray-800 dark:text-gray-200" />}
         </button>
-        <div className="pt-16">
-          {children}
+        <div>
+          {isLoading || (user && user.userType === 'ADMIN') ? (
+            <div className="flex items-center justify-center min-h-screen">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            </div>
+          ) : (
+            children
+          )}
         </div>
       </main>
     </div>

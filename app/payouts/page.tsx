@@ -301,7 +301,26 @@ const ServicesPage = () => {
     if (serviceId === "UPI") setActiveUpiSubTab("ViewUpiBeneficiaries"); 
   };
 
-  const handleGoBackToGrid = () => setSelectedService(null);
+  const clearBeneficiaryForms = () => {
+    setNewBankBeneficiaryData({
+      accountNumber: "",
+      confirmAccountNumber: "",
+      accountHolderName: "",
+      ifscCode: "",
+      transactionType: "IMPS"
+    });
+    setNewUpiBeneficiaryData({
+      upiId: "",
+      accountHolderName: ""
+    });
+    setIsBankAccountVerifiedSim(null);
+    setIsUpiVerifiedSim(null);
+  };
+
+  const handleGoBackToGrid = () => {
+    setSelectedService(null);
+    clearBeneficiaryForms();
+  };
 
   const filteredBankBeneficiaries = bankBeneficiaries.filter(b => 
     b.accountHolderName.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -367,6 +386,9 @@ const ServicesPage = () => {
         description: error.message || "Failed to add beneficiary.", 
         variant: "destructive" 
       }); 
+      if (error.message && error.message.toLowerCase().includes('already exist')) {
+        clearBeneficiaryForms();
+      }
     } finally { 
       setFormLoading(false); 
     } 
@@ -451,6 +473,9 @@ const ServicesPage = () => {
         description: error.message || "Failed to add UPI beneficiary.", 
         variant: "destructive" 
       }); 
+      if (error.message && error.message.toLowerCase().includes('already exist')) {
+        clearBeneficiaryForms();
+      }
     } finally { 
       setFormLoading(false); 
     } 
@@ -757,9 +782,9 @@ const ServicesPage = () => {
             : new Date().toISOString(),
         }}
       />
-      <div className="space-y-6">
+      <div className="space-y-6 mt-5">
         <div className="flex items-center justify-between">
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="text-center w-full">
             <h1 className="text-2xl font-semibold">
               {selectedService ? services.find(s => s.id === selectedService)?.label : "All Services"}
             </h1>
@@ -788,7 +813,7 @@ const ServicesPage = () => {
               animate={{ opacity: 1 }} 
               exit={{ opacity: 0 }} 
               transition={{ duration: 0.3 }}
-              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-5"
+              className="grid mx-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-5"
             >
               {services.map((service, index) => (
                 <motion.button
@@ -797,8 +822,8 @@ const ServicesPage = () => {
                   className={`
                     bg-card rounded-xl p-4 md:p-5 text-left shadow-sm
                     border-2 border-blue-300 dark:border-blue-700 
-                    hover:border-purple-400 dark:hover:border-purple-600 
-                    transition-all duration-200 group 
+                    hover:border-blue-400 dark:hover:border-blue-600 
+                    transition-all duration-200 group  bg-gray-100 dark:bg-gray-800
                     focus:outline-none focus:ring-2 focus:ring-primary 
                     focus:ring-offset-2 focus:ring-offset-background
                     flex flex-col justify-between h-full 

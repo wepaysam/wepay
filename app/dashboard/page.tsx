@@ -39,60 +39,128 @@ interface DashboardData {
   transactions: Array<Transaction>;
 }
 
+interface DashboardState {
+  dashboardData: DashboardData | null;
+  balances: {
+    vishubhBalance: number;
+    kotalBalance: number;
+    p2iBalance: number;
+  };
+  isLoading: boolean;
+  isFetching: boolean;
+  error: string | null;
+  isBalanceRequestOpen: boolean;
+  isBalancesLoading: boolean;
+}
+
+// const SkeletonCard = () => (
+//   <div className="bg-card border border-border/40 rounded-xl p-5 shadow-sm animate-pulse">
+//     <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-3"></div>
+//     <div className="h-8 bg-gray-300 dark:bg-gray-600 rounded w-1/2"></div>
+//     <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mt-4"></div>
+//   </div>
+// );
+
+// const SkeletonTable = () => (
+//   <div className="bg-card border border-border/40 rounded-xl overflow-hidden shadow-sm p-4 md:p-6 animate-pulse">
+//     <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-full mb-4"></div>
+//     <div className="space-y-3">
+//       {[...Array(5)].map((_, i) => (
+//         <div key={i} className="grid grid-cols-7 gap-4">
+//           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded col-span-1"></div>
+//           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded col-span-2"></div>
+//           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded col-span-1"></div>
+//           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded col-span-1"></div>
+//           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded col-span-1"></div>
+//           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded col-span-1"></div>
+//           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded col-span-1"></div>
+//         </div>
+//       ))}
+//     </div>
+//   </div>
+// );
+
+const SkeletonCard = () => (
+  <div className="bg-card border border-border/40 rounded-xl p-5 shadow-sm animate-pulse">
+    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-3"></div>
+    <div className="h-8 bg-gray-300 dark:bg-gray-600 rounded w-1/2"></div>
+    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mt-4"></div>
+  </div>
+);
+
+const SkeletonTable = () => (
+  <div className="bg-card border border-border/40 rounded-xl overflow-hidden shadow-sm p-4 md:p-6 animate-pulse">
+    <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-full mb-4"></div>
+    <div className="space-y-3">
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="grid grid-cols-7 gap-4">
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded col-span-1"></div>
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded col-span-2"></div>
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded col-span-1"></div>
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded col-span-1"></div>
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded col-span-1"></div>
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded col-span-1"></div>
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded col-span-1"></div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
 const Dashboard = () => {
   const location = usePathname();
   const { user, isLogged, loading: globalLoading, refreshUserData } = useGlobalContext();
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isFetching, setIsFetching] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isBalanceRequestOpen, setIsBalanceRequestOpen] = useState(false);
-  const [isBalancesLoading, setIsBalancesLoading] = useState(false);
-  const [balances, setBalances] = useState({ vishubhBalance: 0, kotalBalance: 0, p2iBalance: 0 });
+  const [state, setState] = useState<DashboardState>({
+    dashboardData: null,
+    balances: {
+      vishubhBalance: 0,
+      kotalBalance: 0,
+      p2iBalance: 0,
+    },
+    isLoading: true,
+    isFetching: false,
+    error: null,
+    isBalanceRequestOpen: false,
+    isBalancesLoading: false,
+  });
 
   const fetchBalances = async () => {
-    setIsBalancesLoading(true);
     try {
       const response = await fetch('/api/balance');
       const data = await response.json();
       if (response.ok) {
-        setBalances(prevBalances => ({ ...prevBalances, vishubhBalance: data.vishubhBalance, kotalBalance: data.kotalBalance }));
+        setState(prevState => ({ 
+          ...prevState,
+          balances: { ...prevState.balances, vishubhBalance: data.vishubhBalance, kotalBalance: data.kotalBalance }
+        }));
       }
     } catch (error) {
       console.error("Failed to fetch balances", error);
-    } finally {
-      setIsBalancesLoading(false);
     }
   };
 
   const fetchP2IBalance = async () => {
-    setIsBalancesLoading(true);
     try {
       const response = await fetch('/api/p2i-balance');
       const data = await response.json();
       if (response.ok) {
-        setBalances(prevBalances => ({ ...prevBalances, p2iBalance: data.p2iBalance }));
+        setState(prevState => ({ 
+          ...prevState,
+          balances: { ...prevState.balances, p2iBalance: data.p2iBalance }
+        }));
       } else {
         console.error("Failed to fetch P2I balance:", data.message);
       }
     } catch (error) {
       console.error("Error fetching P2I balance:", error);
-    } finally {
-      setIsBalancesLoading(false);
     }
   };
 
   const fetchDashboardData = useCallback(async () => {
-    if (globalLoading) return;
-
     try {
-      setIsFetching(true);
-      
       if (!isLogged || !user) {
-        if (!globalLoading) {
-          if (typeof window !== 'undefined') {
-            window.location.href = '/Auth/login';
-          }
+        if (typeof window !== 'undefined') {
+          window.location.href = '/Auth/login';
         }
         return;
       }
@@ -121,25 +189,37 @@ const Dashboard = () => {
       }
 
       const data = await response.json();
-      setDashboardData(data);
-      setError(null);
+      setState(prevState => ({ ...prevState, dashboardData: data, error: null }));
     } catch (err) {
       console.error('Dashboard fetch error:', err);
-      setError(err.message || 'Could not load dashboard data');
-    } finally {
-      setIsFetching(false);
-      setIsLoading(false);
+      setState(prevState => ({ ...prevState, error: err.message || 'Could not load dashboard data' }));
     }
   }, [isLogged, user, globalLoading, refreshUserData]);
 
   useEffect(() => {
-    fetchDashboardData();
-    fetchBalances();
-    fetchP2IBalance();
-  }, [fetchDashboardData]);
+    if (!globalLoading) {
+      const fetchAllData = async () => {
+        setState(prevState => ({ ...prevState, isLoading: true }));
+        try {
+          await Promise.all([
+            fetchDashboardData(),
+            fetchBalances(),
+            fetchP2IBalance(),
+          ]);
+        } catch (error) {
+          console.error("Failed to fetch all dashboard data", error);
+          setState(prevState => ({ ...prevState, error: "Failed to load dashboard data." }));
+        } finally {
+          setState(prevState => ({ ...prevState, isLoading: false }));
+        }
+      };
+
+      fetchAllData();
+    }
+  }, [globalLoading]);
 
   // Show loading state while global context is loading
-  if (globalLoading || isLoading) {
+  if (globalLoading || state.isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
@@ -148,11 +228,11 @@ const Dashboard = () => {
   }
 
   // Error state
-  if (error) {
+  if (state.error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <div className="text-xl text-red-500">Something went wrong</div>
-        <div className="text-muted-foreground">{error}</div>
+        <div className="text-muted-foreground">{state.error}</div>
         <button 
           onClick={() => fetchDashboardData()}
           className="px-4 py-2 bg-primary text-white rounded-md"
@@ -233,7 +313,7 @@ const Dashboard = () => {
           <div className="flex flex-col gap-2">
             <span className="text-white/80 text-sm">Total Balance</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-white">
-              {dashboardData && formatCurrency(dashboardData.user.balance)}
+              {state.dashboardData && formatCurrency(state.dashboardData.user.balance)}
             </h2>
             <div className="flex items-center text-sm mt-1">
               <span className="text-white/70">View more details</span>
@@ -250,7 +330,7 @@ const Dashboard = () => {
             </div>
             
             <button
-              onClick={() => setIsBalanceRequestOpen(true)}
+              onClick={() => setState(prevState => ({ ...prevState, isBalanceRequestOpen: true }))}
               className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 flex items-center gap-2 hover:bg-white/20 transition-colors"
             >
               <span className="text-white font-medium">Balance Request</span>
@@ -262,77 +342,91 @@ const Dashboard = () => {
       
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Total Transactions"
-          value={dashboardData ? `${dashboardData.stats.transactionCount}` : "0"}
-          change={12.5}
-          icon={<RefreshCw className="h-5 w-5" />}
-        />
-        
-        <StatCard
-          title="Active Beneficiaries"
-          value={dashboardData ? `${dashboardData.stats.beneficiaryCount}` : "0"}
-          change={8.1}
-          icon={<Users className="h-5 w-5" />}
-        />
-        
-        <StatCard
-          title="Monthly Transfer"
-          value={dashboardData ? formatCurrency(dashboardData.stats.monthlyTransfer) : "₹0.00"}
-          change={-3.2}
-          icon={<DollarSign className="h-5 w-5" />}
-        />
-        
-        <StatCard
-          title="Available Credit"
-          value="₹50,000"
-          icon={<Wallet className="h-5 w-5" />}
-        />
-        <StatCard
-          title="Vishubh Balance"
-          value={formatCurrency(balances.vishubhBalance.toString())}
-          icon={<Wallet2 className="h-5 w-5" />}
-          actionButton={
-            <button
-              onClick={fetchBalances}
-              disabled={isBalancesLoading}
-              className="flex items-center justify-center p-2 bg-card hover:bg-muted/50 text-muted-foreground rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Refresh Balances"
-            >
-              <RefreshCw className={`h-4 w-4 ${isBalancesLoading ? 'animate-spin' : ''}`} />
-            </button>
-          }
-        />
-        <StatCard
-          title="Ketla pay Balance"
-          value={formatCurrency(balances.kotalBalance.toString())}
-          icon={<Wallet2 className="h-5 w-5" />}
-          actionButton={
-            <button
-              onClick={fetchBalances}
-              disabled={isBalancesLoading}
-              className="flex items-center justify-center p-2 bg-card hover:bg-muted/50 text-muted-foreground rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Refresh Balances"
-            >
-              <RefreshCw className={`h-4 w-4 ${isBalancesLoading ? 'animate-spin' : ''}`} />
-            </button>
-          }
-        />
-        <StatCard
-          title="P2I Balance"
-          value={formatCurrency(balances.p2iBalance.toString())}
-          icon={<Wallet2 className="h-5 w-5" />}
-          actionButton={
-            <button
-              onClick={fetchP2IBalance}
-              disabled={isBalancesLoading}
-              className="flex items-center justify-center p-2 bg-card hover:bg-muted/50 text-muted-foreground rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Refresh P2I Balance"
-            >
-              <RefreshCw className={`h-4 w-4 ${isBalancesLoading ? 'animate-spin' : ''}`} />
-            </button>
-          }
-        />
+        {state.isLoading ? (
+          <>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </>
+        ) : (
+          <>
+            <StatCard
+              title="Total Transactions"
+              value={state.dashboardData ? `${state.dashboardData.stats.transactionCount}` : "0"}
+              change={12.5}
+              icon={<RefreshCw className="h-5 w-5" />}
+            />
+            
+            <StatCard
+              title="Active Beneficiaries"
+              value={state.dashboardData ? `${state.dashboardData.stats.beneficiaryCount}` : "0"}
+              change={8.1}
+              icon={<Users className="h-5 w-5" />}
+            />
+            
+            <StatCard
+              title="Monthly Transfer"
+              value={state.dashboardData ? formatCurrency(state.dashboardData.stats.monthlyTransfer) : "₹0.00"}
+              change={-3.2}
+              icon={<DollarSign className="h-5 w-5" />}
+            />
+            
+            <StatCard
+              title="Available Credit"
+              value="₹50,000"
+              icon={<Wallet className="h-5 w-5" />}
+            />
+            <StatCard
+              title="Vishubh Balance"
+              value={formatCurrency(state.balances.vishubhBalance.toString())}
+              icon={<Wallet2 className="h-5 w-5" />}
+              actionButton={
+                <button
+                  onClick={fetchBalances}
+                  disabled={state.isBalancesLoading}
+                  className="flex items-center justify-center p-2 bg-card hover:bg-muted/50 text-muted-foreground rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Refresh Balances"
+                >
+                  <RefreshCw className={`h-4 w-4 ${state.isBalancesLoading ? 'animate-spin' : ''}`} />
+                </button>
+              }
+            />
+            <StatCard
+              title="Ketla pay Balance"
+              value={formatCurrency(state.balances.kotalBalance.toString())}
+              icon={<Wallet2 className="h-5 w-5" />}
+              actionButton={
+                <button
+                  onClick={fetchBalances}
+                  disabled={state.isBalancesLoading}
+                  className="flex items-center justify-center p-2 bg-card hover:bg-muted/50 text-muted-foreground rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Refresh Balances"
+                >
+                  <RefreshCw className={`h-4 w-4 ${state.isBalancesLoading ? 'animate-spin' : ''}`} />
+                </button>
+              }
+            />
+            <StatCard
+              title="P2I Balance"
+              value={formatCurrency(state.balances.p2iBalance.toString())}
+              icon={<Wallet2 className="h-5 w-5" />}
+              actionButton={
+                <button
+                  onClick={fetchP2IBalance}
+                  disabled={state.isBalancesLoading}
+                  className="flex items-center justify-center p-2 bg-card hover:bg-muted/50 text-muted-foreground rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Refresh P2I Balance"
+                >
+                  <RefreshCw className={`h-4 w-4 ${state.isBalancesLoading ? 'animate-spin' : ''}`} />
+                </button>
+              }
+            />
+          </>
+        )}
       </div>
       
       {/* Recent Transactions */}
@@ -342,11 +436,11 @@ const Dashboard = () => {
             <div className="flex items-center gap-4">
                 <button
                     onClick={fetchDashboardData}
-                    disabled={isFetching}
-                    className="flex items-center justify-center p-2 bg-card hover:bg-muted/50 text-muted-foreground rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={state.isFetching}
+                    className="flex items-center  justify-center p-2 bg-card hover:bg-muted/50 text-muted-foreground rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Refresh Transactions"
                     >
-                    <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`h-4 w-4 ${state.isFetching ? 'animate-spin' : ''}`} />
                 </button>
                 <Link
                     href="/statement"
@@ -359,9 +453,11 @@ const Dashboard = () => {
         </div>
         
         <div className="bg-card border border-border/40 rounded-xl overflow-hidden shadow-sm">
-          {dashboardData && dashboardData.transactions.length > 0 ? (
+          {state.isLoading ? (
+            <SkeletonTable />
+          ) : state.dashboardData && state.dashboardData.transactions.length > 0 ? (
             <DataTable
-              data={dashboardData.transactions}
+              data={state.dashboardData.transactions}
               columns={[
                 {
                   key: "txnId",
@@ -448,7 +544,7 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <motion.div
             whileHover={{ y: -5 }}
-            className="bg-card border border-border/40 rounded-xl p-5 hover:shadow-md transition-all cursor-pointer"
+            className="bg-card border border-border/40 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 rounded-xl p-5 hover:shadow-md transition-all cursor-pointer"
           >
             <div className="flex items-center gap-4">
               <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
@@ -463,7 +559,7 @@ const Dashboard = () => {
           
           <motion.div
             whileHover={{ y: -5 }}
-            className="bg-card border border-border/40 rounded-xl p-5 hover:shadow-md transition-all cursor-pointer"
+            className="bg-card border border-border/40 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 rounded-xl p-5 hover:shadow-md transition-all cursor-pointer"
           >
             <div className="flex items-center gap-4">
               <div className="h-10 w-10 bg-green-500/10 rounded-full flex items-center justify-center">
@@ -478,7 +574,7 @@ const Dashboard = () => {
           
           <motion.div
             whileHover={{ y: -5 }}
-            className="bg-card border border-border/40 rounded-xl p-5 hover:shadow-md transition-all cursor-pointer"
+            className="bg-card border border-border/40 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 rounded-xl p-5 hover:shadow-md transition-all cursor-pointer"
           >
             <div className="flex items-center gap-4">
               <div className="h-10 w-10 bg-amber-500/10 rounded-full flex items-center justify-center">
@@ -492,7 +588,7 @@ const Dashboard = () => {
           </motion.div>
         </div>
       </div>
-      <BalanceRequestPopup isOpen={isBalanceRequestOpen} onClose={() => setIsBalanceRequestOpen(false)} />
+      <BalanceRequestPopup isOpen={state.isBalanceRequestOpen} onClose={() => setState(prevState => ({ ...prevState, isBalanceRequestOpen: false }))} />
     </div>
     </MainLayout>
   );

@@ -124,8 +124,8 @@ const Login = () => {
     try {
       const otpValue = otpValues.join('');
       
-      if (otpValue !== "000000") {
-        throw new Error("Invalid OTP. For now, use 000000.");
+      if (otpValue !== "161616") {
+        throw new Error("Invalid OTP. Please try again.");
       }
       
       const response = await fetch('/api/auth/login', {
@@ -363,9 +363,9 @@ const Login = () => {
                     </Button>
                   </div>
                   
-                  <div className="text-center text-sm text-gray-400">
+                  {/* <div className="text-center text-sm text-gray-400">
                     <p>For testing, use code: <span className="font-medium text-purple-400">000000</span></p>
-                  </div>
+                  </div> */}
                 </form>
               </Form>
             )}

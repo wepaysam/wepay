@@ -33,20 +33,19 @@ const StatCard: React.FC<StatCardProps> = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       className={cn(
-        "p-5 rounded-xl overflow-hidden",
+        "p-5 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 stat-card-gradient group",
         variant === "outline" && "border border-border",
         variant === "glass" && "glass-morphism",
-        variant === "default" && "bg-card",
         className
       )}
     >
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center group-hover:bg-transparent">
         <div>
-          <p className="text-sm font-medium text-muted-foreground mb-1">{title}</p>
-          <h3 className="text-2xl font-bold mb-1">{value}</h3>
+          <p className="text-sm font-medium text-muted-foreground mb-1 group-hover:text-white">{title}</p>
+          <h3 className="text-2xl font-bold mb-1 group-hover:text-white">{value}</h3>
 
           {change !== undefined && (
-            <div className="flex items-center text-xs">
+            <div className="flex items-center text-xs group-hover:text-white">
               <span
                 className={cn(
                   "flex items-center",
@@ -60,12 +59,12 @@ const StatCard: React.FC<StatCardProps> = ({
                 )}
                 {Math.abs(change)}%
               </span>
-              <span className="text-muted-foreground ml-1">vs last period</span>
+              <span className="text-muted-foreground ml-1 group-hover:text-white">vs last period</span>
             </div>
           )}
 
           {description && (
-            <p className="text-xs text-muted-foreground mt-2">{description}</p>
+            <p className="text-xs text-muted-foreground mt-2 group-hover:text-white">{description}</p>
           )}
         </div>
 
