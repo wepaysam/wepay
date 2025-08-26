@@ -1,8 +1,7 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-3.0.x"]
 }
-
 
 datasource db {
   provider = "postgresql"
@@ -10,111 +9,132 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())  
-  email     String?   @unique
-  phoneNumber String  @unique
-  userType  UserType
-  balance   Decimal  @default(0.00)
-  aadhaarNumber String? // Optional initially, can be required during KYC
-  panCardNumber String? // Optional initially, can be required during KYC
-  aadhaarCardUrl String? // URL to stored Aadhaar card document
-  panCardUrl String? // URL to stored PAN card document
-  isKycVerified Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt @default(now())
-  beneficiaries Beneficiary[] 
-  upiBeneficiaries UpiBeneficiary[] // New relation for UPI beneficiaries
-  sentTransactions Transactions[] @relation(name: "SenderTransactions")
-  balanceRequests BalanceRequest[]
+  id                String            @id @default(uuid())
+  email             String?           @unique
+  userType          UserType          @default(UNVERIFIED)
+  balance           Decimal           @default(0.00)
+  createdAt         DateTime          @default(now())
+  aadhaarCardUrl    String?
+  aadhaarNumber     String?
+  isKycVerified     Boolean           @default(false)
+  panCardNumber     String?
+  panCardUrl        String?
+  phoneNumber       String            @unique
+  updatedAt         DateTime          @default(now()) @updatedAt
+  companyCIN        String?
+  companyName       String?
+  fullName          String?
+  isAadhaarVerified Boolean           @default(false)
+  isPanVerified     Boolean           @default(false)
+  profilePhotoUrl   String?
+  gstNumber         String?
+  balanceRequests   BalanceRequest[]
+  beneficiaries     Beneficiary[]
+  documents         CompanyDocument[]
+  directors         Director[]
+  dmtBeneficiaries  DmtBeneficiary[]
+  officePhotos      OfficePhoto[]
+  sentTransactions  Transactions[]    @relation("SenderTransactions")
+  upiBeneficiaries  UpiBeneficiary[]
 }
 
-enum UserType {
-  ADMIN
-  VERIFIED
-  UNVERIFIED
+model Director {
+  id      String @id @default(cuid())
+  name    String
+  pan     String
+  aadhaar String
+  userId  String
+  user    User   @relation(fields: [userId], references: [id])
+}
+
+model CompanyDocument {
+  id           String @id @default(cuid())
+  documentType String
+  url          String
+  userId       String
+  user         User   @relation(fields: [userId], references: [id])
+}
+
+model OfficePhoto {
+  id     String @id @default(cuid())
+  url    String
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 }
 
 model Beneficiary {
-  id                 String   @id @default(uuid())
-  userId             String
-  accountNumber      String   @unique
-  accountHolderName  String
-  ifscCode           String?
-  transactionType    TransactionType
-  isVerified         Boolean  @default(false)
-  createdAt          DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions Transactions[]
+  id                String          @id @default(uuid())
+  userId            String
+  accountNumber     String          @unique
+  accountHolderName String
+  transactionType   TransactionType
+  isVerified        Boolean         @default(false)
+  createdAt         DateTime        @default(now())
+  ifscCode          String?
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions      Transactions[]
 }
 
 model UpiBeneficiary {
-  id                 String   @id @default(uuid())
-  userId             String
-  upiId              String   @unique
-  accountHolderName  String
-  isVerified         Boolean  @default(false)
-  createdAt          DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions Transactions[]
+  id                String         @id @default(uuid())
+  userId            String
+  upiId             String         @unique
+  accountHolderName String
+  isVerified        Boolean        @default(false)
+  createdAt         DateTime       @default(now())
+  transactions      Transactions[]
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-enum TransactionType {
-  NEFT
-  IMPS
-  UPI
+model DmtBeneficiary {
+  id                String         @id @default(uuid())
+  userId            String
+  accountNumber     String         @unique
+  accountHolderName String
+  ifscCode          String?
+  isVerified        Boolean        @default(false)
+  createdAt         DateTime       @default(now())
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions      Transactions[]
 }
 
 model Transactions {
-  id                 String   @id @default(uuid())
-  senderId           String?
-  senderAccount      String
-  beneficiaryId      String?
-  upiBeneficiaryId   String?
-  chargesAmount      Decimal
-  amount             Decimal
-  transactionType    TransactionType
-  transactionStatus  TransactionStatus @default(PENDING)
-  transactionTime    DateTime @default(now())
-  referenceNo        String?
-  websiteUrl         String?
-  transactionId      String?
-  utr                String?
-  transaction_no     String?
-  gateway            String?
-  createdAt          DateTime @default(now())
-
-  sender          User? @relation(name: "SenderTransactions", fields: [senderId], references: [id])
-  beneficiary     Beneficiary? @relation(fields: [beneficiaryId], references: [id])
-  upiBeneficiary  UpiBeneficiary? @relation(fields: [upiBeneficiaryId], references: [id])
-}
-
-enum TransactionStatus {
-  PENDING
-  COMPLETED
-  FAILED
+  id                String            @id @default(uuid())
+  senderId          String?
+  senderAccount     String
+  beneficiaryId     String?
+  amount            Decimal
+  transactionType   TransactionType
+  transactionStatus TransactionStatus @default(PENDING)
+  transactionTime   DateTime          @default(now())
+  createdAt         DateTime          @default(now())
+  chargesAmount     Decimal
+  referenceNo       String?
+  upiBeneficiaryId  String?
+  transactionId     String?
+  websiteUrl        String?
+  transaction_no    String?
+  utr               String?
+  gateway           String?
+  dmtBeneficiaryId  String?
+  beneficiary       Beneficiary?      @relation(fields: [beneficiaryId], references: [id])
+  dmtBeneficiary    DmtBeneficiary?   @relation(fields: [dmtBeneficiaryId], references: [id])
+  sender            User?             @relation("SenderTransactions", fields: [senderId], references: [id])
+  upiBeneficiary    UpiBeneficiary?   @relation(fields: [upiBeneficiaryId], references: [id])
 }
 
 model BalanceRequest {
-  id            String   @id @default(uuid())
-  userId        String
-  amount        Decimal
-  UTRnumber     String
-  isConfirmed   Boolean  @default(false)
-  isRejected    Boolean  @default(false)
-  status        BalanceRequestStatus @default(PENDING)
-  requestedAt   DateTime @default(now())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-enum BalanceRequestStatus {
-  PENDING
-  APPROVED
-  REJECTED
+  id          String               @id @default(uuid())
+  userId      String
+  amount      Decimal
+  isConfirmed Boolean              @default(false)
+  requestedAt DateTime             @default(now())
+  UTRnumber   String
+  isRejected  Boolean              @default(false)
+  createdAt   DateTime             @default(now())
+  status      BalanceRequestStatus @default(PENDING)
+  updatedAt   DateTime             @default(now()) @updatedAt
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model TransactionCharge {
@@ -123,13 +143,51 @@ model TransactionCharge {
   maxAmount Decimal
   charge    Decimal
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
 model Balance {
-  id              String   @id @default(uuid())
-  vishubhBalance  Decimal  @default(0.00)
-  kotalBalance    Decimal  @default(0.00)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(uuid())
+  vishubhBalance Decimal  @default(0.00)
+  kotalBalance   Decimal  @default(0.00)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model BankInfo {
+  id        String   @id @default(uuid())
+  name      String
+  ifsc      String   @unique
+  location  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum UserType {
+  ADMIN
+  VERIFIED
+  UNVERIFIED
+  PROPRIETOR_VERIFIED
+  PROPRIETOR_UNVERIFIED
+  COMPANY_VERIFIED
+  COMPANY_UNVERIFIED
+}
+
+enum TransactionType {
+  NEFT
+  IMPS
+  UPI
+  DMT
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum BalanceRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

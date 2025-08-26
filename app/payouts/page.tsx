@@ -17,6 +17,8 @@ import { Input } from "../components/ui/input";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
 
 import PaymentGatewayPopup from "../components/PaymentGatewayPopup";
+import BankTransferBeneficiaryModal from "../components/BankTransferBeneficiaryModal";
+import DmtPaymentConfirmationPopup from "../components/DmtPaymentConfirmationPopup";
 
 // --- Interface Definitions (same as before) ---
 interface BankBeneficiary { 
@@ -35,6 +37,16 @@ interface UpiBeneficiary {
   id: string; 
   upiId: string; 
   accountHolderName: string; 
+  isVerified: boolean; 
+  createdAt: string; 
+  userId: string; 
+}
+
+interface DmtBeneficiary { 
+  id: string; 
+  accountNumber: string; 
+  accountHolderName: string; 
+  ifscCode?: string; 
   isVerified: boolean; 
   createdAt: string; 
   userId: string; 
@@ -93,13 +105,16 @@ const ServicesPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [bankBeneficiaries, setBankBeneficiaries] = useState<BankBeneficiary[]>([]);
   const [upiBeneficiaries, setUpiBeneficiaries] = useState<UpiBeneficiary[]>([]);
+  const [dmtBeneficiaries, setDmtBeneficiaries] = useState<DmtBeneficiary[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [isGatewayPopupOpen, setIsGatewayPopupOpen] = useState(false);
-  const [selectedBeneficiary, setSelectedBeneficiary] = useState<BankBeneficiary | UpiBeneficiary | null>(null);
+  const [isBankTransferBeneficiaryModalOpen, setIsBankTransferBeneficiaryModalOpen] = useState(false);
+  const [isDmtConfirmationPopupOpen, setIsDmtConfirmationPopupOpen] = useState(false);
+  const [selectedBeneficiary, setSelectedBeneficiary] = useState<BankBeneficiary | UpiBeneficiary | DmtBeneficiary | null>(null);
 
   const [successfulTransactionData, setSuccessfulTransactionData] = useState<any>(null);
 
@@ -126,14 +141,14 @@ const ServicesPage = () => {
   const [isVerificationPopupOpen, setIsVerificationPopupOpen] = useState(false);
   const [beneficiaryToVerify, setBeneficiaryToVerify] = useState<BankBeneficiary | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [beneficiaryToDelete, setBeneficiaryToDelete] = useState<BankBeneficiary | UpiBeneficiary | null>(null);
+  const [beneficiaryToDelete, setBeneficiaryToDelete] = useState<BankBeneficiary | UpiBeneficiary | DmtBeneficiary | null>(null);
 
   const handleVerificationClick = (beneficiary: BankBeneficiary) => {
     setBeneficiaryToVerify(beneficiary);
     setIsVerificationPopupOpen(true);
   };
 
-  const handleDeleteClick = (beneficiary: BankBeneficiary | UpiBeneficiary) => {
+  const handleDeleteClick = (beneficiary: BankBeneficiary | UpiBeneficiary | DmtBeneficiary) => {
     setBeneficiaryToDelete(beneficiary);
     setIsDeleteDialogOpen(true);
   };
@@ -260,6 +275,29 @@ const ServicesPage = () => {
     } 
   }, [toast]);
 
+  const fetchDmtBeneficiaries = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
+    try {
+      // In a real application, you would get the userId from your authentication context
+      const dummyUserId = "clx022222000008jwe222222"; // Replace with actual user ID
+      const response = await fetch(`/api/dmt-beneficiaries?userId=${dummyUserId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch DMT beneficiaries');
+      }
+      const data = await response.json();
+      setDmtBeneficiaries(data.dmtBeneficiaries);
+    } catch (error) {
+      console.error("Error fetching DMT beneficiaries:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load DMT beneficiaries.",
+        variant: "destructive"
+      });
+    } finally {
+      if (showLoading) setLoading(false);
+    }
+  }, [toast]);
+
   const fetchTransactions = useCallback(async () => { 
     setLoading(true); 
     const dummyTransactions: Transaction[] = [ 
@@ -291,9 +329,10 @@ const ServicesPage = () => {
   useEffect(() => { 
     if (selectedService === "IMPS") fetchBankBeneficiaries(); 
     else if (selectedService === "UPI") fetchUpiBeneficiaries(); 
+    else if (selectedService === "DMT") fetchDmtBeneficiaries();
     else if (selectedService === "Transactions") fetchTransactions(); 
     setSearchQuery(""); 
-  }, [selectedService, fetchBankBeneficiaries, fetchUpiBeneficiaries, fetchTransactions]);
+  }, [selectedService, fetchBankBeneficiaries, fetchUpiBeneficiaries, fetchDmtBeneficiaries, fetchTransactions]);
 
   const handleServiceSelect = (serviceId: ServiceTabId) => { 
     setSelectedService(serviceId); 
@@ -538,7 +577,7 @@ const ServicesPage = () => {
     }
   };
 
-  const handlePay = async (beneficiary: BankBeneficiary | UpiBeneficiary) => {
+  const handlePay = async (beneficiary: BankBeneficiary | UpiBeneficiary | DmtBeneficiary) => {
     const amountStr = payoutAmounts[beneficiary.id] || "";
     const amount = parseFloat(amountStr);
 
@@ -553,6 +592,7 @@ const ServicesPage = () => {
 
     const IMPS_LIMIT = 200000;
     const UPI_LIMIT = 100000;
+    const DMT_LIMIT = 200000; // Assuming a DMT limit
 
     if ('upiId' in beneficiary) {
       if (amount > UPI_LIMIT) {
@@ -564,7 +604,18 @@ const ServicesPage = () => {
         return;
       }
       await initiateUpiPayment(beneficiary as UpiBeneficiary, amount);
-    } else {
+    } else if ('accountNumber' in beneficiary && !('transactionType' in beneficiary)) { // This is a DmtBeneficiary
+      if (amount > DMT_LIMIT) {
+        toast({
+          title: "Error",
+          description: `DMT transaction limit is ₹${DMT_LIMIT.toLocaleString()}.`,
+          variant: "destructive"
+        });
+        return;
+      }
+      setSelectedBeneficiary(beneficiary as DmtBeneficiary);
+      setIsDmtConfirmationPopupOpen(true);
+    } else { // This is a BankBeneficiary (IMPS/NEFT)
       if (amount > IMPS_LIMIT) {
         toast({
           title: "Error",
@@ -573,8 +624,80 @@ const ServicesPage = () => {
         });
         return;
       }
-      setSelectedBeneficiary(beneficiary);
+      setSelectedBeneficiary(beneficiary as BankBeneficiary);
       setIsGatewayPopupOpen(true);
+    }
+  };
+
+  const handleDmtGatewaySelect = async (gatewayDetails: { gateway: 'sevapay_weshubh' | 'sevapay_kelta', websiteUrl: string, transactionId: string }) => {
+    setIsDmtConfirmationPopupOpen(false);
+    if (!selectedBeneficiary || !('accountNumber' in selectedBeneficiary && !('transactionType' in selectedBeneficiary))) return; // Ensure it's a DmtBeneficiary
+
+    const { gateway, websiteUrl, transactionId } = gatewayDetails;
+
+    if (!websiteUrl.endsWith(transactionId)) {
+        toast({
+            title: "Error",
+            description: "Wrong transaction ID. Please check the website URL and transaction ID.",
+            variant: "destructive",
+        });
+        return;
+    }
+
+    const amountStr = payoutAmounts[selectedBeneficiary.id] || "";
+    const amount = parseFloat(amountStr);
+
+    setRowLoading(selectedBeneficiary.id, true);
+    try {
+      const response = await fetch('/api/dmt-payout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: amount,
+          beneficiary: selectedBeneficiary,
+          gateway: gateway,
+          websiteUrl: websiteUrl,
+          transactionId: transactionId,
+        }),
+      });
+
+      const result = await response.json();
+      console.log("DMT Payout response:", result);
+
+      if (response.ok && result.data ) {
+        setSuccessfulTransactionData({
+          ...result,
+          amount: amount,
+          beneficiary: selectedBeneficiary,
+          transactionType: 'DMT',
+          timestamp: new Date().toISOString(),
+        });
+        setIsSuccessModalOpen(true);
+        fetchDmtBeneficiaries(false); // Refresh DMT beneficiaries
+        setPayoutAmounts(prev => ({ ...prev, [selectedBeneficiary.id]: "" }));
+      } else if (!response.ok || (result.original && result.original.msg === "Sorry Insufficient wallet Balance")) {
+        console.log("Error result in handleDmtGatewaySelect:", result);
+        if (result.original && result.original.msg === "Sorry Insufficient wallet Balance") {
+          toast({
+            title: "Error",
+            description: "Insufficient wallet balance. Please add funds.",
+            variant: "destructive",
+          });
+        } else {
+          throw new Error(result.message || 'Failed to initiate DMT payout');
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to initiate DMT payout.",
+        variant: "destructive",
+      });
+    } finally {
+      setRowLoading(selectedBeneficiary.id, false);
+      setSelectedBeneficiary(null);
     }
   };
 
@@ -599,20 +722,22 @@ const ServicesPage = () => {
     setRowLoading(selectedBeneficiary.id, true);
     try {
       let response;
-      // if (gateway === 'aeronpay') {
-      //   response = await fetch('/api/payout', {
-      //     method: 'POST',
-      //     headers: {
-      //       'Content-Type': 'application/json',
-      //     },
-      //     body: JSON.stringify({
-      //       amount: amount,
-      //       beneficiaryId: selectedBeneficiary.id,
-      //     }),
-      //   });
-      // } else {
-        // This part will now only be for Sevapay bank transfers, not UPI
-        // UPI is handled directly in handlePay
+      // Check if it's a DMT beneficiary
+      if ('accountNumber' in selectedBeneficiary && !('transactionType' in selectedBeneficiary)) {
+        response = await fetch('/api/dmt-payout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            amount: amount,
+            beneficiary: selectedBeneficiary,
+            gateway: gateway,
+            websiteUrl: websiteUrl,
+            transactionId: transactionId,
+          }),
+        });
+      } else { // Existing Sevapay bank transfers
         response = await fetch('/api/sevapay/payment', {
           method: 'POST',
           headers: {
@@ -626,7 +751,7 @@ const ServicesPage = () => {
             transactionId: transactionId,
           }),
         });
-      // }
+      }
 
       const result = await response.json();
       console.log("Sevapay response:", response);
@@ -781,6 +906,27 @@ const ServicesPage = () => {
             ? new Date(successfulTransactionData.timestamp).toISOString() 
             : new Date().toISOString(),
         }}
+      />
+
+      <BankTransferBeneficiaryModal
+        isOpen={isBankTransferBeneficiaryModalOpen}
+        onClose={() => setIsBankTransferBeneficiaryModalOpen(false)}
+        onSuccess={() => {
+          setIsBankTransferBeneficiaryModalOpen(false);
+          // Optionally refresh DMT beneficiaries here if you implement a list for them
+          toast({
+            title: "Success",
+            description: "Bank transfer beneficiary added successfully.",
+          });
+        }}
+      />
+
+      <DmtPaymentConfirmationPopup
+        open={isDmtConfirmationPopupOpen}
+        onClose={() => setIsDmtConfirmationPopupOpen(false)}
+        onConfirm={handleDmtGatewaySelect}
+        beneficiary={selectedBeneficiary as DmtBeneficiary | null}
+        amount={payoutAmounts[selectedBeneficiary?.id]}
       />
       <div className="space-y-6 mt-5">
         <div className="flex items-center justify-between">
@@ -1364,7 +1510,138 @@ const ServicesPage = () => {
               )}
 
               {selectedService === "Recharge" && renderPlaceholder("Mobile & DTH Recharge")}
-              {selectedService === "DMT" && renderPlaceholder("Domestic Money Transfer")}
+              {selectedService === "DMT" && (
+                <motion.div key="dmt-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+                  <div className="mb-4 p-4 bg-card border border-border/40 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div>
+                      <h2 className="text-xl font-semibold text-foreground">Domestic Money Transfer</h2>
+                      <p className="text-sm text-muted-foreground">Send money to any bank account instantly.</p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button onClick={() => setIsBankTransferBeneficiaryModalOpen(true)}>
+                        Add Bank Transfer Beneficiary
+                      </Button>
+                    </div>
+                  </div>
+
+                  <motion.div 
+                    key="view-dmt-beneficiaries" 
+                    initial={{ opacity: 0, y: 10 }} 
+                    animate={{ opacity: 1, y: 0 }} 
+                    className="bg-card border border-border/40 rounded-xl overflow-hidden shadow-sm p-4 md:p-6"
+                  >
+                    <div className="relative mb-4">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <input 
+                        type="text" 
+                        placeholder="Search by name, account, IFSC..." 
+                        className="pl-10 pr-4 py-2 w-full bg-background border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary" 
+                        value={searchQuery} 
+                        onChange={(e) => setSearchQuery(e.target.value)} 
+                      />
+                    </div>
+
+                    {loading ? (
+                      <div className="text-center py-10">
+                        <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary"/>
+                      </div>
+                    ) : dmtBeneficiaries.length === 0 ? (
+                      <div className="text-center py-10 text-muted-foreground">
+                        No DMT beneficiaries found. Add one to get started.
+                      </div>
+                    ) : (
+                      <DataTable 
+                        data={dmtBeneficiaries} 
+                        columns={[
+                          { 
+                            key: "accountHolderName", 
+                            header: "Beneficiary Name", 
+                            className: "min-w-[150px]" 
+                          },
+                          { 
+                            key: "accountNumber", 
+                            header: "Account Number", 
+                            render: (row: DmtBeneficiary) => `${row.accountNumber}`,
+                            className: "min-w-[120px]" 
+                          },
+                          { 
+                            key: "ifscCode", 
+                            header: "IFSC Code", 
+                            render: (row: DmtBeneficiary) => `${row.ifscCode}`,
+                            className: "min-w-[100px]" 
+                          },
+                          { 
+                            key: "isVerified", 
+                            header: "Status", 
+                            className: "min-w-[100px]",
+                            render: (row: DmtBeneficiary) => row.isVerified ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400">
+                                <CheckCircle className="h-3 w-3" /> Verified
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400">
+                                <XCircle className="h-3 w-3" /> Not Verified
+                              </span>
+                            )
+                          },
+                          { 
+                            key: "amount", 
+                            header: "Amount (₹)", 
+                            className: "min-w-[130px]", 
+                            render: (row: DmtBeneficiary) => (
+                              <div className="relative">
+                                <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">₹</span>
+                                <input 
+                                  type="text" 
+                                  inputMode="decimal" 
+                                  value={payoutAmounts[row.id] || ""} 
+                                  onChange={(e) => handleAmountChange(row.id, e.target.value)} 
+                                  disabled={ actionLoading[row.id]} 
+                                  className="pl-6 pr-2 py-1 w-full bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed text-sm dark:text-black" 
+                                  placeholder="0.00"
+                                />
+                              </div>
+                            )
+                          },
+                          { 
+                            key: "actions", 
+                            header: "Actions", 
+                            className: "min-w-[100px]", 
+                            render: (row: DmtBeneficiary) => (
+                              <button 
+                                onClick={() => handlePay(row as BankBeneficiary | UpiBeneficiary | DmtBeneficiary)} 
+                                disabled={ !(parseFloat(payoutAmounts[row.id] || "0") > 0) || actionLoading[row.id]} 
+                                className="inline-flex items-center justify-center gap-1 px-3 py-1 bg-primary text-primary-foreground rounded text-xs font-medium hover:bg-primary/90 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {actionLoading[row.id] ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Banknote className="h-3 w-3" />
+                                )}
+                                Pay
+                              </button>
+                            )
+                          },
+                          { 
+                            key: "delete", 
+                            header: "", 
+                            className: "min-w-[50px]", 
+                            render: (row: DmtBeneficiary) => (
+                              <button 
+                                onClick={() => handleDeleteClick(row as BankBeneficiary | UpiBeneficiary | DmtBeneficiary)} 
+                                disabled={actionLoading[row.id]} 
+                                className="inline-flex items-center justify-center gap-1 px-3 py-1 bg-red-500 text-white rounded text-xs font-medium hover:bg-red-600 focus:outline-none focus:ring-1 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            )
+                          },
+                        ]} 
+                      />
+                    )}
+                  </motion.div>
+                </motion.div>
+              )}
               {selectedService === "BillPayments" && renderPlaceholder("Utility Bill Payments")}
               {selectedService === "CreditCardPayment" && renderPlaceholder("Credit Card Bill Payment")}
               {selectedService === "Flights" && renderPlaceholder("Book Flights", "Flight booking feature is coming soon!")}
