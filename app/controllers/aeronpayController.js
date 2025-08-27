@@ -60,16 +60,27 @@ export const upiPayment = async (req) => {
 
     // --- Step 4: Call External AeronPay UPI Payout API ---
     const payload = {
+        bankProfileId:"1",
+        transferMode:"upi",
+        accountNumber:"9001770984",
         amount: amount.toNumber(), // Convert Decimal to number for API
         client_referenceId: requestId,
         // Assuming AeronPay UPI API expects VPA and name
-        vpa: upiBeneficiary.upiId,
-        name: upiBeneficiary.accountHolderName,
+        // vpa: upiBeneficiary.upiId,
+        // name: upiBeneficiary.accountHolderName,
         // Add any other required fields for AeronPay UPI API
         // e.g., user.email, user.phoneNumber, remarks, etc.
-        email: user.email || '',
-        phone: user.phoneNumber || '',
+        // email: user.email || '',
+        // phone: user.phoneNumber || '',
         remarks: 'UPI Payout',
+        beneDetails:{
+            vpa: upiBeneficiary.upiId,
+            name: upiBeneficiary.accountHolderName,
+            email: 'support@wepayx.com',
+            phone: '9001770984'
+        },
+        latitude: '20.1236',
+        longitude: '78.1228'
     };
 
     console.log(`[${requestId}] Sending payload to AeronPay UPI:`, JSON.stringify(payload, null, 2));
