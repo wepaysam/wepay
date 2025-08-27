@@ -21,11 +21,23 @@ function generateHash(mid, parameters, hashingMethod = 'sha512', secretKey) {
 
 export const dmtPayment = async (req) => {
     try {
-        const { name, bankName, bankBranch, accountNumber, ifsc, amount, remarks, paymentMode, paymentReferenceNo, beneficiary, gateway, websiteUrl, transactionId } = await req.json();
+        const { name, accountNumber, ifsc, amount, remarks, paymentMode, paymentReferenceNo, beneficiary, gateway, websiteUrl, transactionId } = await req.json();
+
+        const bankDetails = await prisma.BankInfo.findUnique({
+            where: { ifsc },
+        });
+
+        if (!bankDetails) {
+            return NextResponse.json({ message: 'Invalid IFSC code' }, { status: 400 });
+        }
+
+        const bankName = bankDetails.name;
+        const bankBranch = bankDetails.location;
 
         // Placeholder for merchantId and secretKey - REPLACE WITH ACTUAL VALUES FROM AUTH CONTEXT
-        const merchantId = process.env.KATLA_MERCHANT_ID || 'KCM29'; 
-        const secretKey = process.env.KATLA_SECRET_KEY || '4FD84163ABCD4F393C0FF8257B1007B42300FB1C660F1746CC133949981CE1D5';
+        const merchantId = process.env.KATLA_MERCHANT_ID ; 
+        const secretKey = process.env.KATLA_SECRET_KEY;
+        console.log("Received dmtPayment request:", { name, bankName, bankBranch, accountNumber, ifsc, amount, remarks, paymentMode, beneficiary, gateway, websiteUrl, transactionId });
 
         const existingTransaction = await prisma.transactions.findFirst({
             where: {
@@ -37,16 +49,18 @@ export const dmtPayment = async (req) => {
             return NextResponse.json({ message: 'Transaction ID already exists' }, { status: 400 });
         }
 
+        const unique_id = Date.now().toString() + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
+
         const parametersForHash = {
-            name,
+            name: beneficiary.accountHolderName,
             bankName,
             bankBranch,
-            accountNumber,
-            ifsc,
+            accountNumber: beneficiary.accountNumber,
+            ifsc: beneficiary.ifscCode,
             amount,
             remarks,
             paymentMode,
-            paymentReferenceNo
+            paymentReferenceNo: unique_id
         };
 
         const generatedHash = generateHash(merchantId, parametersForHash, 'sha512', secretKey);
@@ -64,7 +78,7 @@ export const dmtPayment = async (req) => {
             amount,
             remarks,
             paymentMode,
-            paymentReferenceNo,
+            paymentReferenceNo: unique_id,
             hash: generatedHash
         };
 
@@ -94,9 +108,9 @@ export const dmtPayment = async (req) => {
                             id: beneficiary.id
                         }
                     },
-                    transactionType: 'DMT',
+                    transactionType: 'IMPS',
                     transactionStatus: data.status === 'SUCCESS' ? 'COMPLETED' : data.status === 'PENDING' ? 'PENDING' : 'FAILED',
-                    referenceNo: paymentReferenceNo,
+                    referenceNo: unique_id,
                     sender: {
                         connect: {
                             id: beneficiary.userId

@@ -655,7 +655,12 @@ const ServicesPage = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          name: selectedBeneficiary.accountHolderName,
+          accountNumber: selectedBeneficiary.accountNumber,
+          ifsc: selectedBeneficiary.ifscCode,
+          remarks: "Payment imps",
           amount: amount,
+          paymentMode:"IMPS",
           beneficiary: selectedBeneficiary,
           gateway: gateway,
           websiteUrl: websiteUrl,
