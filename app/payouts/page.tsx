@@ -19,6 +19,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import PaymentGatewayPopup from "../components/PaymentGatewayPopup";
 import BankTransferBeneficiaryModal from "../components/BankTransferBeneficiaryModal";
 import DmtPaymentConfirmationPopup from "../components/DmtPaymentConfirmationPopup";
+import UpiPaymentConfirmationPopup from "../components/UpiPaymentConfirmationPopup";
 
 // --- Interface Definitions (same as before) ---
 interface BankBeneficiary { 
@@ -114,6 +115,7 @@ const ServicesPage = () => {
   const [isGatewayPopupOpen, setIsGatewayPopupOpen] = useState(false);
   const [isBankTransferBeneficiaryModalOpen, setIsBankTransferBeneficiaryModalOpen] = useState(false);
   const [isDmtConfirmationPopupOpen, setIsDmtConfirmationPopupOpen] = useState(false);
+  const [isUpiConfirmationPopupOpen, setIsUpiConfirmationPopupOpen] = useState(false);
   const [selectedBeneficiary, setSelectedBeneficiary] = useState<BankBeneficiary | UpiBeneficiary | DmtBeneficiary | null>(null);
 
   const [successfulTransactionData, setSuccessfulTransactionData] = useState<any>(null);
@@ -622,7 +624,8 @@ const ServicesPage = () => {
         });
         return;
       }
-      await initiateUpiPayment(beneficiary as UpiBeneficiary, amount);
+      setSelectedBeneficiary(beneficiary as UpiBeneficiary);
+      setIsUpiConfirmationPopupOpen(true);
     } else if ('accountNumber' in beneficiary && !('transactionType' in beneficiary)) { // This is a DmtBeneficiary
       if (amount > DMT_LIMIT) {
         toast({
@@ -870,8 +873,69 @@ const ServicesPage = () => {
     </motion.div> 
   );
 
+  const handleUpiAeronPaySelect = async () => {
+    if (!selectedBeneficiary) return;
+
+    const amountStr = payoutAmounts[selectedBeneficiary.id] || "";
+    const amount = parseFloat(amountStr);
+
+    setRowLoading(selectedBeneficiary.id, true);
+    try {
+      const response = await fetch('/api/aeronpay/upi', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: amount,
+          beneficiary: selectedBeneficiary,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "AeronPay UPI payment initiated successfully.",
+        });
+        fetchUpiBeneficiaries(false);
+        setPayoutAmounts(prev => ({ ...prev, [selectedBeneficiary.id]: "" }));
+      } else {
+        throw new Error(result.message || 'Failed to initiate AeronPay UPI payment');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setRowLoading(selectedBeneficiary.id, false);
+      setSelectedBeneficiary(null);
+    }
+  };
+
   return (
     <DashboardLayout>
+      <UpiPaymentConfirmationPopup
+        open={isUpiConfirmationPopupOpen}
+        onClose={() => setIsUpiConfirmationPopupOpen(false)}
+        onSelectAeronPay={() => {
+          setIsUpiConfirmationPopupOpen(false);
+          handleUpiAeronPaySelect();
+        }}
+        onSelectP2I={() => {
+          setIsUpiConfirmationPopupOpen(false);
+          if (selectedBeneficiary) {
+            const amountStr = payoutAmounts[selectedBeneficiary.id] || "";
+            const amount = parseFloat(amountStr);
+            initiateUpiPayment(selectedBeneficiary as UpiBeneficiary, amount);
+          }
+        }}
+        beneficiary={selectedBeneficiary}
+        amount={payoutAmounts[selectedBeneficiary?.id]}
+      />
       <PaymentGatewayPopup
         open={isGatewayPopupOpen}
         onClose={() => setIsGatewayPopupOpen(false)}

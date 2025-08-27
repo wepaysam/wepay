@@ -98,7 +98,7 @@ export const dmtPayment = async (req) => {
         const data = JSON.parse(text);
         console.log("Katla API response:", data);
 
-        if (response.ok && data.status === 'SUCCESS') {
+        if (response.ok ) {
             await prisma.transactions.create({
                 data: {
                     amount: parseFloat(amount),
