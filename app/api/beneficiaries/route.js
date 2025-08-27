@@ -54,6 +54,7 @@ export async function POST(request) {
     const data = await request.json();
 
     if (data.accountNumber) {
+      data.accountNumber = data.accountNumber.trim();
       const existingBeneficiary = await prisma.beneficiary.findUnique({
         where: {
           accountNumber: data.accountNumber,

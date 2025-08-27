@@ -158,10 +158,21 @@ const ServicesPage = () => {
 
     setFormLoading(true);
     try {
-      const response = await fetch(`/api/beneficiaries?id=${beneficiaryToDelete.id}&type=${'accountNumber' in beneficiaryToDelete ? 'bank' : 'upi'}`,
-       {
-        method: 'DELETE',
-      });
+      let url = '';
+      let type = '';
+
+      if ('ifscCode' in beneficiaryToDelete && !('transactionType' in beneficiaryToDelete)) {
+        type = 'dmt';
+        url = `/api/dmt-beneficiaries?id=${beneficiaryToDelete.id}`;
+      } else if ('accountNumber' in beneficiaryToDelete) {
+        type = 'bank';
+        url = `/api/beneficiaries?id=${beneficiaryToDelete.id}&type=bank`;
+      } else {
+        type = 'upi';
+        url = `/api/beneficiaries?id=${beneficiaryToDelete.id}&type=upi`;
+      }
+
+      const response = await fetch(url, { method: 'DELETE' });
 
       const result = await response.json();
 
@@ -170,13 +181,15 @@ const ServicesPage = () => {
           title: "Success",
           description: result.message,
         });
-        if ('accountNumber' in beneficiaryToDelete) {
+        if (type === 'dmt') {
+          fetchDmtBeneficiaries(false);
+        } else if (type === 'bank') {
           fetchBankBeneficiaries(false);
         } else {
           fetchUpiBeneficiaries(false);
         }
       } else {
-        throw new Error(result.message || 'Failed to delete beneficiary');
+        throw new Error(result.message || `Failed to delete ${type} beneficiary`);
       }
     } catch (error: any) {
       toast({
@@ -370,6 +383,12 @@ const ServicesPage = () => {
   const filteredUpiBeneficiaries = upiBeneficiaries.filter(b => 
     b.accountHolderName.toLowerCase().includes(searchQuery.toLowerCase()) || 
     b.upiId.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredDmtBeneficiaries = dmtBeneficiaries.filter(b => 
+    b.accountHolderName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    b.accountNumber.includes(searchQuery) || 
+    (b.ifscCode && b.ifscCode.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const handleBankInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => { 
@@ -918,7 +937,7 @@ const ServicesPage = () => {
         onClose={() => setIsBankTransferBeneficiaryModalOpen(false)}
         onSuccess={() => {
           setIsBankTransferBeneficiaryModalOpen(false);
-          // Optionally refresh DMT beneficiaries here if you implement a list for them
+          fetchDmtBeneficiaries(false); // Refresh DMT beneficiaries
           toast({
             title: "Success",
             description: "Bank transfer beneficiary added successfully.",
@@ -1556,7 +1575,7 @@ const ServicesPage = () => {
                       </div>
                     ) : (
                       <DataTable 
-                        data={dmtBeneficiaries} 
+                        data={filteredDmtBeneficiaries} 
                         columns={[
                           { 
                             key: "accountHolderName", 
