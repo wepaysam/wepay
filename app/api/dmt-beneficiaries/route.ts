@@ -1,3 +1,4 @@
+
 import { NextResponse } from 'next/server';
 import { verifiedUserMiddleware } from '../../middleware/authMiddleware';
 import prisma from '../../lib/prisma';
@@ -13,7 +14,11 @@ export async function POST(request) {
         const userId = request.user.id;
         console.log('Authenticated user ID:', userId);
     const body = await request.json();
-    const { accountNumber, accountHolderName, ifscCode } = body;
+    let { accountNumber, accountHolderName, ifscCode } = body;
+
+    if (accountNumber) {
+      accountNumber = accountNumber.trim();
+    }
 
     if (!accountNumber || !accountHolderName || !userId) {
       return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
@@ -67,11 +72,53 @@ export async function GET(request) {
       where: {
         userId: userId,
       },
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
 
     return NextResponse.json({ dmtBeneficiaries }, { status: 200 });
   } catch (error) {
     console.error('Error fetching DMT beneficiaries:', error);
+    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request) {
+  try {
+    const authResult = await verifiedUserMiddleware(request);
+    if (authResult) {
+      return authResult;
+    }
+    
+    const userId = request.user.id;
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ message: 'Beneficiary ID is required' }, { status: 400 });
+    }
+
+    const beneficiary = await prisma.dmtBeneficiary.findFirst({
+      where: {
+        id: id,
+        userId: userId,
+      },
+    });
+
+    if (!beneficiary) {
+      return NextResponse.json({ message: 'Beneficiary not found or you do not have permission to delete it' }, { status: 404 });
+    }
+
+    await prisma.dmtBeneficiary.delete({
+      where: {
+        id: id,
+      },
+    });
+
+    return NextResponse.json({ message: 'DMT Beneficiary deleted successfully' }, { status: 200 });
+  } catch (error) {
+    console.error('Error deleting DMT beneficiary:', error);
     return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
   }
 }
