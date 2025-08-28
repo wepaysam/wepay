@@ -193,8 +193,8 @@ export const upiPayment = async (req) => {
     // Record a FAILED transaction on network error
     await prisma.transactions.create({
         data: { 
-            senderId: req.user ? req.user.id : null, 
-            upiBeneficiaryId: null, 
+            sender: { connect: { id: req.user ? req.user.id : null } }, 
+            upiBeneficiary: null, 
             amount: new Decimal(0), 
             chargesAmount: new Decimal(0), 
             transactionType: 'UPI', 
