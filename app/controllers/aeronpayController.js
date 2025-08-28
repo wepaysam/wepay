@@ -12,7 +12,7 @@ export const upiPayment = async (req) => {
     // Assuming authentication and user details are handled by a middleware before this function
     // For now, we'll get userId from the request if available, or assume it's passed in body for testing
     const { amount: rawAmount, beneficiary, websiteUrl, utr } = await req.json();
-    const userId = req.user ? req.user.id : beneficiary.userId; // Get userId from auth context or beneficiary
+    const userId =  req.user.id ; // Get userId from auth context or beneficiary
     const existingTransaction = await prisma.transactions.findFirst({
         where: {
             transactionId: utr,
