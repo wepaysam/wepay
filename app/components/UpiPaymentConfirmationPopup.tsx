@@ -13,10 +13,10 @@ interface UpiPaymentConfirmationPopupProps {
 }
 
 const UpiPaymentConfirmationPopup: React.FC<UpiPaymentConfirmationPopupProps> = ({ open, onClose, onSelectAeronPay, onSelectP2I, beneficiary, amount }) => {
-  if (!open || !beneficiary) return null;
-
   const [websiteUrl, setWebsiteUrl] = React.useState("");
   const [utr, setUtr] = React.useState("");
+
+  if (!open || !beneficiary) return null;
 
   return (
     <AlertDialog open={open} onOpenChange={onClose}>
