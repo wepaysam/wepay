@@ -98,12 +98,43 @@ export async function getTransactionCharge(amount) {
   }
 }
 
-export async function getUserTransactions(userId) {
+export async function getUserTransactions(userId, searchTerm, transactionBasis) {
   try {
+    const where = {
+      senderId: userId,
+    };
+
+    if (transactionBasis && transactionBasis !== 'ALL') {
+      where.transactionType = transactionBasis;
+    }
+
+    if (searchTerm) {
+      where.OR = [
+        {
+          beneficiary: {
+            accountHolderName: {
+              contains: searchTerm,
+              mode: 'insensitive',
+            },
+          },
+        },
+        {
+          utr: {
+            contains: searchTerm,
+            mode: 'insensitive',
+          },
+        },
+        {
+          transaction_no: {
+            contains: searchTerm,
+            mode: 'insensitive',
+          },
+        },
+      ];
+    }
+
     const transactions = await prisma.transactions.findMany({
-      where: {
-        senderId: userId,
-      },
+      where,
       select: {
         id: true,
         amount: true,
@@ -114,6 +145,7 @@ export async function getUserTransactions(userId) {
         referenceNo: true,
         utr: true,
         transaction_no: true,
+        transactionType: true,
       },
       orderBy: {
         transactionTime: 'desc',

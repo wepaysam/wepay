@@ -13,7 +13,8 @@ import {
   XOctagon,
   Printer,
   Loader2,
-  ListChecks
+  ListChecks,
+  Search
 } from "lucide-react";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
@@ -50,6 +51,7 @@ const getBase64Image = async (imgUrl: string): Promise<string> => {
 
 type TransactionStatus = 'PENDING' | 'COMPLETED' | 'FAILED';
 type TransactionDirection = 'DEBIT' | 'CREDIT';
+type TransactionBasis = 'ALL' | 'UPI' | 'IMPS' | 'DMT';
 
 interface BeneficiaryData {
   accountHolderName: string;
@@ -70,6 +72,7 @@ interface TransactionData {
   transaction_no?: string;
   beneficiary?: BeneficiaryData;
   gateway?: string;
+  transactionBasis?: string;
 }
 
 const StatementPage = () => {
@@ -79,6 +82,8 @@ const StatementPage = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [typeFilter, setTypeFilter] = useState<TransactionDirection | "ALL">("ALL");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [transactionBasis, setTransactionBasis] = useState<TransactionBasis>("ALL");
   const [checkingStatusId, setCheckingStatusId] = useState<string | null>(null);
   const [isCheckingAllStatuses, setIsCheckingAllStatuses] = useState(false);
   const [withWatermark, setWithWatermark] = useState<boolean>(false);
@@ -87,7 +92,7 @@ const StatementPage = () => {
   const fetchAllData = useCallback(async () => {
     try {
       const [transactionsResponse, balanceRequestsResponse] = await Promise.all([
-        fetch('/api/transactions'),
+        fetch(`/api/transactions?searchTerm=${searchTerm}&transactionBasis=${transactionBasis}`),
         fetch('/api/balance-requests'),
       ]);
 
@@ -120,6 +125,7 @@ const StatementPage = () => {
               ifscCode: txn.beneficiary.ifscCode,
             } : undefined,
             gateway: txn.gateway,
+            transactionBasis: txn.transactionType,
           };
         });
 
@@ -158,7 +164,7 @@ const StatementPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [setTransactions, setLoading]);
+  }, [setTransactions, setLoading, searchTerm, transactionBasis]);
 
   useEffect(() => {
     const fetchWatermark = async () => {
@@ -188,10 +194,16 @@ const StatementPage = () => {
       }
       
       const matchesType = typeFilter === "ALL" || txn.type === typeFilter;
-      return matchesType;
+      const matchesBasis = transactionBasis === "ALL" || txn.transactionBasis === transactionBasis;
+      const matchesSearch = !searchTerm || 
+        txn.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (txn.utr && txn.utr.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (txn.transaction_no && txn.transaction_no.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      return matchesType && matchesBasis && matchesSearch;
     });
     return filtered;
-  }, [transactions, startDate, endDate, typeFilter]);
+  }, [transactions, startDate, endDate, typeFilter, transactionBasis, searchTerm]);
 
   const handleDownload = () => {
     console.log("Download statement clicked. Implement CSV/PDF generation here.");
@@ -326,7 +338,7 @@ const StatementPage = () => {
                 </div>
 
                 {/* Filters */}
-                <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                     <div>
                     <label htmlFor="startDate" className="block text-sm font-medium text-muted-foreground mb-1">Start Date</label>
                     <div className="relative">
@@ -373,6 +385,40 @@ const StatementPage = () => {
                             <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
                         </div>
                     </div>
+                    </div>
+                    <div>
+                    <label htmlFor="transactionBasis" className="block text-sm font-medium text-muted-foreground mb-1">Transaction Basis</label>
+                    <div className="relative">
+                        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <select
+                        id="transactionBasis"
+                        value={transactionBasis}
+                        onChange={(e) => setTransactionBasis(e.target.value as TransactionBasis)}
+                        className="pl-10 dark:text-black pr-8 block w-full py-2.5 bg-background border border-border text-foreground focus:border-primary focus:ring-1 focus:ring-primary rounded-md appearance-none"
+                        >
+                        <option value="ALL">All</option>
+                        <option value="UPI">UPI</option>
+                        <option value="IMPS">IMPS</option>
+                        <option value="DMT">DMT</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground">
+                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+                <div className="mb-6">
+                    <label htmlFor="search" className="block text-sm font-medium text-muted-foreground mb-1">Search</label>
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                        id="search"
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10 w-full dark:text-black"
+                        placeholder="Search by description, UTR, or transaction no."
+                        />
                     </div>
                 </div>
                 <div className="mb-6 flex justify-end items-center space-x-4">
