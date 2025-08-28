@@ -30,6 +30,7 @@ export const dmtPayment = async (req) => {
         if (!bankDetails) {
             return NextResponse.json({ message: 'Invalid IFSC code' }, { status: 400 });
         }
+        // const userId =  req.user.id ; 
 
         const bankName = bankDetails.name;
         const bankBranch = bankDetails.location;
