@@ -651,16 +651,16 @@ const ServicesPage = () => {
     }
   };
 
-  const handleDmtGatewaySelect = async (gatewayDetails: { gateway: 'sevapay_weshubh' | 'sevapay_kelta', websiteUrl: string, utr: string }) => {
+  const handleDmtGatewaySelect = async (gatewayDetails: { gateway: 'sevapay_weshubh' | 'sevapay_kelta', websiteUrl: string, transactionId: string }) => {
     setIsDmtConfirmationPopupOpen(false);
     if (!selectedBeneficiary || !('accountNumber' in selectedBeneficiary && !('transactionType' in selectedBeneficiary))) return; // Ensure it's a DmtBeneficiary
 
-    const { gateway, websiteUrl, utr } = gatewayDetails;
+    const { gateway, websiteUrl, transactionId } = gatewayDetails;
 
-    if (!websiteUrl.endsWith(utr)) {
+    if (!websiteUrl.endsWith(transactionId)) {
         toast({
             title: "Error",
-            description: "Wrong UTR. Please check the website URL and UTR.",
+            description: "Wrong transaction ID. Please check the website URL and transaction ID.",
             variant: "destructive",
         });
         return;
@@ -686,7 +686,7 @@ const ServicesPage = () => {
           beneficiary: selectedBeneficiary,
           gateway: gateway,
           websiteUrl: websiteUrl,
-          utr: utr,
+          transactionId: transactionId,
         }),
       });
 
@@ -728,16 +728,16 @@ const ServicesPage = () => {
     }
   };
 
-  const handleGatewaySelect = async (gatewayDetails: { gateway: 'sevapay_weshubh' | 'sevapay_kelta', websiteUrl: string, utr: string }) => {
+  const handleGatewaySelect = async (gatewayDetails: { gateway: 'sevapay_weshubh' | 'sevapay_kelta', websiteUrl: string, transactionId: string }) => {
     setIsGatewayPopupOpen(false);
     if (!selectedBeneficiary) return;
 
-    const { gateway, websiteUrl, utr } = gatewayDetails;
+    const { gateway, websiteUrl, transactionId } = gatewayDetails;
 
-    if (!websiteUrl.endsWith(utr)) {
+    if (!websiteUrl.endsWith(transactionId)) {
         toast({
             title: "Error",
-            description: "Wrong UTR. Please check the website URL and UTR.",
+            description: "Wrong transaction ID. Please check the website URL and transaction ID.",
             variant: "destructive",
         });
         return;
@@ -761,7 +761,7 @@ const ServicesPage = () => {
             beneficiary: selectedBeneficiary,
             gateway: gateway,
             websiteUrl: websiteUrl,
-            utr: utr,
+            transactionId: transactionId,
           }),
         });
       } else { // Existing Sevapay bank transfers
@@ -775,7 +775,7 @@ const ServicesPage = () => {
             beneficiary: selectedBeneficiary,
             gateway: gateway,
             websiteUrl: websiteUrl,
-            utr: utr,
+            transactionId: transactionId,
           }),
         });
       }

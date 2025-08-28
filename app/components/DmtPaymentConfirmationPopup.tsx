@@ -13,30 +13,30 @@ interface DmtBeneficiary {
 interface DmtPaymentConfirmationPopupProps {
     open: boolean;
     onClose: () => void;
-    onConfirm: (gatewayDetails: { gateway: 'sevapay_weshubh' | 'sevapay_kelta', websiteUrl: string, utr: string }) => void;
+    onConfirm: (gatewayDetails: { gateway: 'sevapay_weshubh' | 'sevapay_kelta', websiteUrl: string, transactionId: string }) => void;
     beneficiary: DmtBeneficiary | null;
     amount: string;
 }
 
 const DmtPaymentConfirmationPopup: React.FC<DmtPaymentConfirmationPopupProps> = ({ open, onClose, onConfirm, beneficiary, amount }) => {
     const [websiteUrl, setWebsiteUrl] = useState('');
-    const [utr, setUtr] = useState('');
+    const [transactionId, setTransactionId] = useState('');
 
     useEffect(() => {
         if (open) {
             setWebsiteUrl('');
-            setUtr('');
+            setTransactionId('');
         }
     }, [open]);
 
     if (!open) return null;
 
     const handleConfirm = (gateway: 'sevapay_weshubh' | 'sevapay_kelta') => {
-        if (!websiteUrl || !utr) {
-            alert('Website URL and UTR are required.');
+        if (!websiteUrl || !transactionId) {
+            alert('Website URL and Transaction ID are required.');
             return;
         }
-        onConfirm({ gateway, websiteUrl, utr });
+        onConfirm({ gateway, websiteUrl, transactionId });
     };
 
     return (
@@ -63,12 +63,12 @@ const DmtPaymentConfirmationPopup: React.FC<DmtPaymentConfirmationPopupProps> = 
                     />
                 </div>
                 <div className="mb-4">
-                    <label htmlFor="utr" className="block text-sm font-medium text-gray-700 dark:text-gray-300">UTR</label>
+                    <label htmlFor="transactionId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Transaction ID</label>
                     <input
                         type="text"
-                        id="utr"
-                        value={utr}
-                        onChange={(e) => setUtr(e.target.value)}
+                        id="transactionId"
+                        value={transactionId}
+                        onChange={(e) => setTransactionId(e.target.value)}
                         required
                         className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
                     />
