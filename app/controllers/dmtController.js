@@ -108,7 +108,7 @@ export const dmtPayment = async (req) => {
                             id: beneficiary.id
                         }
                     },
-                    transactionType: 'IMPS',
+                    transactionType: 'DMT',
                     transactionStatus: data.status === 'SUCCESS' ? 'COMPLETED' : data.status === 'PENDING' ? 'PENDING' : 'FAILED',
                     referenceNo: unique_id,
                     sender: {
