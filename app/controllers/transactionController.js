@@ -46,9 +46,9 @@ export async function createTransaction(data, userId) {
       // Create transaction
       const transaction = await prisma.transactions.create({
         data: {
-          senderId: userId,
+          sender: { connect: { id: userId } },
           senderAccount: user.email, // Using email as sender account
-          beneficiaryId: data.beneficiaryId,
+          beneficiary: { connect: { id: data.beneficiaryId } },
           amount: data.amount,
           transactionType: data.transactionType || beneficiary.transactionType,
         },
@@ -291,8 +291,8 @@ export async function createTransactionWithCharges(userId, beneficiaryId, amount
           transactionType: type,
           transactionStatus: "COMPLETED",
           senderAccount: user.phoneNumber, // Using phone number as sender account
-          senderId: userId,
-          beneficiaryId: beneficiaryId,
+          sender: { connect: { id: userId } },
+          beneficiary: { connect: { id: beneficiaryId } },
           chargesAmount: chargeAmount // Assuming you've added this field to your schema
         }
       });
