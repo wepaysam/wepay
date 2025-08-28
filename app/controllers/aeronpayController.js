@@ -119,7 +119,6 @@ export const upiPayment = async (req) => {
         }
         await tx.transactions.create({
           data: {
-            senderId: userId,
             beneficiary: {
                 connect: {
                     id: beneficiary.id
