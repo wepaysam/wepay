@@ -131,7 +131,7 @@ export const upiPayment = async (req) => {
                 }
             },
             amount: amount,
-            chargesAmount: transactionCharge,
+            chargesAmount: 0,
             transactionType: 'UPI',
             description: 'AeronPay UPI Payout',
             transactionStatus: payoutResult.status, // Set to PENDING until confirmed
