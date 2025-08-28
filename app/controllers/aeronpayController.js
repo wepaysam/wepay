@@ -77,7 +77,8 @@ export const upiPayment = async (req) => {
             vpa: upiBeneficiary.upiId,
             name: upiBeneficiary.accountHolderName,
             email: 'support@wepayx.com',
-            phone: '9001770984'
+            phone: '9001770984',
+            address1: "Mumbai"
         },
         latitude: '20.1236',
         longitude: '78.1228'
