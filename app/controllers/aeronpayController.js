@@ -62,10 +62,10 @@ export const upiPayment = async (req) => {
     // console.log(`[${requestId}] Amount: ${amount}, Charge: ${transactionCharge}, Total Debit: ${totalDebitAmount}`);
 
     // --- Step 3: Validate User Balance ---
-    if (user.balance > totalDebitAmount) {
-      console.warn(`[${requestId}] Insufficient balance for UserID: ${userId}. Balance: ${user.balance}, Required: ${totalDebitAmount}`);
-      return NextResponse.json({ message: 'Insufficient balance' }, { status: 400 });
-    }
+    // if (user.balance > totalDebitAmount) {
+    //   console.warn(`[${requestId}] Insufficient balance for UserID: ${userId}. Balance: ${user.balance}, Required: ${totalDebitAmount}`);
+    //   return NextResponse.json({ message: 'Insufficient balance' }, { status: 400 });
+    // }
 
     // --- Step 4: Call External AeronPay UPI Payout API ---
     const payload = {
@@ -111,12 +111,12 @@ export const upiPayment = async (req) => {
       // SUCCESS PATH: Record the transaction and update balance
       console.log(`[${requestId}] AeronPay UPI reported SUCCESS. Starting database transaction.`);
       await prisma.$transaction(async (tx) => {
-        if(payoutResult.status === 'SUCCESS'){
-          await tx.user.update({
-          where: { id: userId },
-          data: { balance: { decrement: totalDebitAmount } },
-        });
-        }
+        // if(payoutResult.status === 'SUCCESS'){
+        //   await tx.user.update({
+        //   where: { id: userId },
+        //   data: { balance: { decrement: totalDebitAmount } },
+        // });
+        // }
         await tx.transactions.create({
           data: {
             beneficiary: {
