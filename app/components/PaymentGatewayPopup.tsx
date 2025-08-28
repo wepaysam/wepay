@@ -3,23 +3,23 @@ import React, { useState, useEffect } from 'react';
 
 const PaymentGatewayPopup = ({ open, onClose, onSelect, beneficiary, amount }) => {
     const [websiteUrl, setWebsiteUrl] = useState('');
-    const [transactionId, setTransactionId] = useState('');
+    const [utr, setUtr] = useState('');
 
     useEffect(() => {
         if (open) {
             setWebsiteUrl('');
-            setTransactionId('');
+            setUtr('');
         }
     }, [open]);
 
     if (!open) return null;
 
     const handleSelect = (gateway) => {
-        if (!websiteUrl || !transactionId) {
-            alert('Website URL and Transaction ID are required.');
+        if (!websiteUrl || !utr) {
+            alert('Website URL and UTR are required.');
             return;
         }
-        onSelect({ gateway, websiteUrl, transactionId });
+        onSelect({ gateway, websiteUrl, utr });
     };
 
     return (
@@ -45,12 +45,12 @@ const PaymentGatewayPopup = ({ open, onClose, onSelect, beneficiary, amount }) =
                     />
                 </div>
                 <div className="mb-4">
-                    <label htmlFor="transactionId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Transaction ID</label>
+                    <label htmlFor="utr" className="block text-sm font-medium text-gray-700 dark:text-gray-300">UTR</label>
                     <input
                         type="text"
-                        id="transactionId"
-                        value={transactionId}
-                        onChange={(e) => setTransactionId(e.target.value)}
+                        id="utr"
+                        value={utr}
+                        onChange={(e) => setUtr(e.target.value)}
                         required
                         className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
                     />
@@ -66,3 +66,4 @@ const PaymentGatewayPopup = ({ open, onClose, onSelect, beneficiary, amount }) =
 };
 
 export default PaymentGatewayPopup;
+
