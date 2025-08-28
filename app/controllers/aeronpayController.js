@@ -157,7 +157,7 @@ export const upiPayment = async (req) => {
         },
         upiBeneficiaryId: upiBeneficiary.id,
         amount: amount,
-        chargesAmount: transactionCharge,
+        chargesAmount: 0,
         transactionType: 'UPI',
         transactionStatus: 'FAILED',
         senderAccount: user.email || user.phoneNumber,
