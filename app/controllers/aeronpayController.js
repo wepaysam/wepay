@@ -140,11 +140,6 @@ export const upiPayment = async (req) => {
     console.warn(`[${requestId}] AeronPay UPI payout failed.`);
     await prisma.transactions.create({
       data: {
-        sender: {
-            connect: {
-                id: beneficiary.userId
-            }
-        },
         upiBeneficiaryId: upiBeneficiary.id,
         amount: amount,
         chargesAmount: 0,
