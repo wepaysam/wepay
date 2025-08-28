@@ -22,6 +22,7 @@ const BankTransferBeneficiaryForm: React.FC<BankTransferBeneficiaryFormProps> = 
   const [formLoading, setFormLoading] = useState(false);
   const [banks, setBanks] = useState<BankInfo[]>([]);
   const [selectedBankId, setSelectedBankId] = useState<string>("");
+  const [ifscCode, setIfscCode] = useState<string>("");
   const [newBankBeneficiaryData, setNewBankBeneficiaryData] = useState({
     accountNumber: "",
     confirmAccountNumber: "",
@@ -61,7 +62,14 @@ const BankTransferBeneficiaryForm: React.FC<BankTransferBeneficiaryFormProps> = 
   };
 
   const handleBankSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedBankId(e.target.value);
+    const bankId = e.target.value;
+    setSelectedBankId(bankId);
+    const selectedBank = banks.find(bank => bank.id === bankId);
+    if (selectedBank) {
+      setIfscCode(selectedBank.ifsc);
+    } else {
+      setIfscCode("");
+    }
   };
 
   const handleAddBankBeneficiary = async (e: React.FormEvent) => {
@@ -205,6 +213,25 @@ const BankTransferBeneficiaryForm: React.FC<BankTransferBeneficiaryFormProps> = 
               </select>
             </div>
           </div>
+          <div>
+            <label htmlFor="ifscCode" className="block text-sm font-medium text-muted-foreground mb-1">
+              IFSC Code
+            </label>
+            <div className="relative">
+              <Hash className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <input
+                type="text"
+                id="ifscCode"
+                name="ifscCode"
+                value={ifscCode}
+                readOnly
+                className="pl-10 pr-4 py-2 w-full bg-background border border-border rounded-lg focus:outline-none dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-400"
+                placeholder="IFSC Code"
+              />
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div>
             <label htmlFor="accountHolderName" className="block text-sm font-medium text-muted-foreground mb-1">
               Account Holder Name <span className="text-destructive">*</span>

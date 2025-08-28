@@ -546,57 +546,57 @@ const ServicesPage = () => {
     if (validAmount) setPayoutAmounts(prev => ({ ...prev, [id]: amount })); 
   };
 
-  const initiateUpiPayment = async (beneficiary: UpiBeneficiary, amount: number) => {
-    setRowLoading(beneficiary.id, true);
-    try {
-      const response = await fetch('/api/upi/payout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          vpa: beneficiary.upiId,
-          amount: amount,
-          name: beneficiary.accountHolderName,
-        }),
-      });
+  // const initiateUpiPayment = async (beneficiary: UpiBeneficiary, amount: number) => {
+  //   setRowLoading(beneficiary.id, true);
+  //   try {
+  //     const response = await fetch('/api/upi/payout', {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //       },
+  //       body: JSON.stringify({
+  //         vpa: beneficiary.upiId,
+  //         amount: amount,
+  //         name: beneficiary.accountHolderName,
+  //       }),
+  //     });
 
-      const result = await response.json();
+  //     const result = await response.json();
 
-      if (response.ok && result.data && (result.data.status === 'SUCCESS' || result.data.status === 'PENDING')) {
-        setSuccessfulTransactionData({
-          ...result,
-          amount: amount,
-          beneficiary: beneficiary,
-          transactionType: 'UPI',
-          timestamp: new Date().toISOString(),
-        });
-        setIsSuccessModalOpen(true);
-        fetchUpiBeneficiaries(false); // Refresh UPI beneficiaries
-        setPayoutAmounts(prev => ({ ...prev, [beneficiary.id]: "" }));
-      } else if (!response.ok || (result.original && result.original.msg === "Sorry Insufficient wallet Balance")) {
-        console.log("Error result in initiateUpiPayment:", result);
-        if (result.original && result.original.msg === "Sorry Insufficient wallet Balance") {
-          toast({
-            title: "Error",
-            description: "Insufficient wallet balance. Please add funds.",
-            variant: "destructive",
-          });
-        } else {
-          throw new Error(result.message || result.msg || 'Failed to initiate UPI payout');
-        }
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to initiate UPI payout.",
-        variant: "destructive",
-      });
-    } finally {
-      setRowLoading(beneficiary.id, false);
-      setSelectedBeneficiary(null);
-    }
-  };
+  //     if (response.ok && result.data && (result.data.status === 'SUCCESS' || result.data.status === 'PENDING')) {
+  //       setSuccessfulTransactionData({
+  //         ...result,
+  //         amount: amount,
+  //         beneficiary: beneficiary,
+  //         transactionType: 'UPI',
+  //         timestamp: new Date().toISOString(),
+  //       });
+  //       setIsSuccessModalOpen(true);
+  //       fetchUpiBeneficiaries(false); // Refresh UPI beneficiaries
+  //       setPayoutAmounts(prev => ({ ...prev, [beneficiary.id]: "" }));
+  //     } else if (!response.ok || (result.original && result.original.msg === "Sorry Insufficient wallet Balance")) {
+  //       console.log("Error result in initiateUpiPayment:", result);
+  //       if (result.original && result.original.msg === "Sorry Insufficient wallet Balance") {
+  //         toast({
+  //           title: "Error",
+  //           description: "Insufficient wallet balance. Please add funds.",
+  //           variant: "destructive",
+  //         });
+  //       } else {
+  //         throw new Error(result.message || result.msg || 'Failed to initiate UPI payout');
+  //       }
+  //     }
+  //   } catch (error: any) {
+  //     toast({
+  //       title: "Error",
+  //       description: error.message || "Failed to initiate UPI payout.",
+  //       variant: "destructive",
+  //     });
+  //   } finally {
+  //     setRowLoading(beneficiary.id, false);
+  //     setSelectedBeneficiary(null);
+  //   }
+  // };
 
   const handlePay = async (beneficiary: BankBeneficiary | UpiBeneficiary | DmtBeneficiary) => {
     const amountStr = payoutAmounts[beneficiary.id] || "";
@@ -873,7 +873,7 @@ const ServicesPage = () => {
     </motion.div> 
   );
 
-  const handleUpiAeronPaySelect = async () => {
+  const handleUpiAeronPaySelect = async (websiteUrl: string, utr: string) => {
     if (!selectedBeneficiary) return;
 
     const amountStr = payoutAmounts[selectedBeneficiary.id] || "";
@@ -889,6 +889,8 @@ const ServicesPage = () => {
         body: JSON.stringify({
           amount: amount,
           beneficiary: selectedBeneficiary,
+          websiteUrl: websiteUrl,
+          utr: utr,
         }),
       });
 
@@ -916,21 +918,75 @@ const ServicesPage = () => {
     }
   };
 
+  const initiateUpiPayment = async (beneficiary: UpiBeneficiary, amount: number, websiteUrl: string, utr: string) => {
+    setRowLoading(beneficiary.id, true);
+    try {
+      const response = await fetch('/api/upi/payout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          vpa: beneficiary.upiId,
+          amount: amount,
+          name: beneficiary.accountHolderName,
+          websiteUrl: websiteUrl,
+          utr: utr,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.data && (result.data.status === 'SUCCESS' || result.data.status === 'PENDING')) {
+        setSuccessfulTransactionData({
+          ...result,
+          amount: amount,
+          beneficiary: beneficiary,
+          transactionType: 'UPI',
+          timestamp: new Date().toISOString(),
+        });
+        setIsSuccessModalOpen(true);
+        fetchUpiBeneficiaries(false); // Refresh UPI beneficiaries
+        setPayoutAmounts(prev => ({ ...prev, [beneficiary.id]: "" }));
+      } else if (!response.ok || (result.original && result.original.msg === "Sorry Insufficient wallet Balance")) {
+        console.log("Error result in initiateUpiPayment:", result);
+        if (result.original && result.original.msg === "Sorry Insufficient wallet Balance") {
+          toast({
+            title: "Error",
+            description: "Insufficient wallet balance. Please add funds.",
+            variant: "destructive",
+          });
+        } else {
+          throw new Error(result.message || result.msg || 'Failed to initiate UPI payout');
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to initiate UPI payout.",
+        variant: "destructive",
+      });
+    } finally {
+      setRowLoading(beneficiary.id, false);
+      setSelectedBeneficiary(null);
+    }
+  };
+
   return (
     <DashboardLayout>
       <UpiPaymentConfirmationPopup
         open={isUpiConfirmationPopupOpen}
         onClose={() => setIsUpiConfirmationPopupOpen(false)}
-        onSelectAeronPay={() => {
+        onSelectAeronPay={(websiteUrl, utr) => {
           setIsUpiConfirmationPopupOpen(false);
-          handleUpiAeronPaySelect();
+          handleUpiAeronPaySelect(websiteUrl, utr);
         }}
-        onSelectP2I={() => {
+        onSelectP2I={(websiteUrl, utr) => {
           setIsUpiConfirmationPopupOpen(false);
           if (selectedBeneficiary) {
             const amountStr = payoutAmounts[selectedBeneficiary.id] || "";
             const amount = parseFloat(amountStr);
-            initiateUpiPayment(selectedBeneficiary as UpiBeneficiary, amount);
+            initiateUpiPayment(selectedBeneficiary as UpiBeneficiary, amount, websiteUrl, utr);
           }
         }}
         beneficiary={selectedBeneficiary}

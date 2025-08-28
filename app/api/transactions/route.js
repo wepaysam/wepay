@@ -12,8 +12,12 @@ export async function GET(request) {
     // At this point, request.user contains the decoded token data
     const userId = request.user.id;
 
+    const { searchParams } = new URL(request.url);
+    const searchTerm = searchParams.get('searchTerm');
+    const transactionBasis = searchParams.get('transactionBasis');
+
     // Get the user's transactions
-    const transactions = await getUserTransactions(userId);
+    const transactions = await getUserTransactions(userId, searchTerm, transactionBasis);
 
     return NextResponse.json( transactions );
   } catch (error) {

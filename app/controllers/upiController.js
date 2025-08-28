@@ -50,8 +50,18 @@ export const p2iUpiPayout = async (req) => {
     console.log("P2I UPI Payout request received");
     try {
         const body = await req.json();
-        const { vpa, amount, name } = body;
+        const { vpa, amount, name, websiteUrl, utr } = body;
         console.log("Request body:", body);
+
+        const existingTransaction = await prisma.transactions.findFirst({
+            where: {
+                transactionId: utr,
+            },
+        });
+
+        if (existingTransaction) {
+            return NextResponse.json({ message: 'Transaction ID already exists' }, { status: 400 });
+        }        
 
 
         if (!vpa || !amount || !name) {
@@ -75,7 +85,7 @@ export const p2iUpiPayout = async (req) => {
             unique_id: unique_id,
             vpa: vpa,
             amount: amount,
-            name: name
+            name: name 
         };
         console.log("Payload to be sent to P2I API:", payload);
 
@@ -127,6 +137,9 @@ export const p2iUpiPayout = async (req) => {
                     transactionStatus: data.data.status === 'SUCCESS' ? 'COMPLETED' : data.data.status === 'PENDING' ? 'PENDING' : 'FAILED',
                     referenceNo: unique_id,
                     senderId: userId,
+                    transactionId: utr,
+                    websiteUrl: websiteUrl,
+                    utr: utr,
                     chargesAmount: data.data.api_user_charges || 0,
                 }
             });
