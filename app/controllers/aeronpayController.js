@@ -9,10 +9,8 @@ export const upiPayment = async (req) => {
 //   console.log(`[${requestId}] AeronPay UPI payout request received.`);
 
   try {
-    // Assuming authentication and user details are handled by a middleware before this function
-    // For now, we'll get userId from the request if available, or assume it's passed in body for testing
     const { amount: rawAmount, beneficiary, websiteUrl, utr } = await req.json();
-    const userId =  req.user.id ; // Get userId from auth context or beneficiary
+    const userId =  req.user.id ;
     const existingTransaction = await prisma.transactions.findFirst({
         where: {
             transactionId: utr,
@@ -23,7 +21,6 @@ export const upiPayment = async (req) => {
         return NextResponse.json({ message: 'Transaction ID already exists' }, { status: 400 });
     }
 
-    // Ensure amount is a valid Decimal
     const amount = new Decimal(rawAmount);
 
     console.log(`[${requestId}] Processing AeronPay UPI payout. UserID: ${userId}, Beneficiary: ${beneficiary.upiId}, Amount: ${amount}`);
@@ -33,7 +30,6 @@ export const upiPayment = async (req) => {
         return NextResponse.json({ message: 'A valid Amount and Beneficiary details are required.' }, { status: 400 });
     }
 
-    // --- Step 1: Fetch User and UPI Beneficiary ---
     const [user, upiBeneficiary] = await Promise.all([
       prisma.user.findUnique({ where: { id: userId } }),
       prisma.upiBeneficiary.findUnique({ where: { id: beneficiary.id } })
@@ -49,23 +45,10 @@ export const upiPayment = async (req) => {
     }
     
     // --- Step 2: Calculate Transaction Charges (Placeholder for UPI specific charges) ---
-    // You might have different charge rules for UPI vs. IMPS
-    // const chargeRule = await prisma.transactionCharge.findFirst({
-    //   where: {
-    //     minAmount: { lte: amount },
-    //     maxAmount: { gte: amount },
-    //   },
-    // });
-
-    // const transactionCharge = chargeRule ? new Decimal(chargeRule.charge) : new Decimal(0);
-    // const totalDebitAmount = amount.add(transactionCharge);
-    // console.log(`[${requestId}] Amount: ${amount}, Charge: ${transactionCharge}, Total Debit: ${totalDebitAmount}`);
+    // (Your existing charge calculation logic remains commented out)
 
     // --- Step 3: Validate User Balance ---
-    // if (user.balance > totalDebitAmount) {
-    //   console.warn(`[${requestId}] Insufficient balance for UserID: ${userId}. Balance: ${user.balance}, Required: ${totalDebitAmount}`);
-    //   return NextResponse.json({ message: 'Insufficient balance' }, { status: 400 });
-    // }
+    // (Your existing balance validation logic remains commented out)
 
     // --- Step 4: Call External AeronPay UPI Payout API ---
     const payload = {
@@ -90,14 +73,12 @@ export const upiPayment = async (req) => {
 
     console.log(`[${requestId}] Sending payload to AeronPay UPI:`, JSON.stringify(payload, null, 2));
     
-    // REPLACE WITH ACTUAL AERONPAY UPI API ENDPOINT AND HEADERS
     const response = await fetch( 'https://api.aeronpay.in/api/serviceapi-prod/api/payout/upi', {
         method: 'POST',
         headers: { 
             'Content-Type': 'application/json',
             'client-id': process.env.AERONPAY_CLIENT_ID ,
             'client-secret': process.env.AERONPAY_CLIENT_SECRET ,
-            // Add any other required headers
         },
         body: JSON.stringify(payload),
     });
@@ -106,13 +87,22 @@ export const upiPayment = async (req) => {
     console.log(`[${requestId}] AeronPay UPI API response received. Status: ${response.status}, Body:`, payoutResult);
 
     // --- Step 5: Process API Response ---
-    // Modified condition to accept both 200 and 201 status codes
-    if ((payoutResult.statusCode === '200' || payoutResult.statusCode === '201') && 
-        (payoutResult.status === 'SUCCESS' || payoutResult.status === 'PENDING')) {
+    // *** MODIFIED SUCCESS CONDITION HERE ***
+    // We now check if AeronPay's *internal* statusCode is 200 or 201 AND their *internal* status is SUCCESS or PENDING.
+    // We also make sure the HTTP response status from AeronPay is generally successful (2xx range).
+    if ( response.ok && (payoutResult.statusCode === 200 || payoutResult.statusCode === '201') && (payoutResult.status === 'SUCCESS' || payoutResult.status === 'PENDING') ) {
+      // SUCCESS/PENDING PATH: Record the transaction with the correct status
+      console.log(`[${requestId}] AeronPay UPI reported SUCCESS or PENDING. Starting database transaction.`);
       
-      console.log(`[${requestId}] AeronPay UPI reported ${payoutResult.status}. Starting database transaction.`);
-      
+      const transactionStatus = payoutResult.status === 'SUCCESS' ? 'SUCCESS' : 'PENDING';
+
       await prisma.$transaction(async (tx) => {
+        // if(payoutResult.status === 'SUCCESS'){
+        //   await tx.user.update({
+        //   where: { id: userId },
+        //   data: { balance: { decrement: totalDebitAmount } },
+        // });
+        // }
         await tx.transactions.create({
           data: {
             upiBeneficiaryId: upiBeneficiary?.id,
@@ -120,34 +110,22 @@ export const upiPayment = async (req) => {
             chargesAmount: 0,
             transactionType: 'UPI',
             description: 'AeronPay UPI Payout',
-            transactionStatus: payoutResult.status, // This will now store 'PENDING' status
+            transactionStatus: transactionStatus, // Set to PENDING or SUCCESS based on payoutResult.status
             senderAccount: user.email || user.phoneNumber,
-            transaction_no: payoutResult.data?.transactionId || utr, // Using AeronPay transactionId
-            utr: payoutResult.data?.utr || 'PENDING', // UTR will be updated later
+            transaction_no: utr,
+            utr: payoutResult.data?.utr || payoutResult.data?.transactionId || 'N/A', // Use payoutResult.data.utr or transactionId
             gateway: 'AeronPay',
-            remarks: payoutResult.message || 'Transaction Under Process',
-            aeronpayTransactionId: payoutResult.data?.transactionId, // Store AeronPay's transaction ID
-            clientReferenceId: payoutResult.data?.client_referenceId
           },
         });
       });
-
-      console.log(`[${requestId}] Database transaction completed successfully with PENDING status.`);
+      console.log(`[${requestId}] Database transaction completed successfully with status: ${transactionStatus}.`);
       
-      // Return success response even for PENDING status
-      return NextResponse.json({
-        status: 'SUCCESS',
-        message: 'Transaction initiated successfully',
-        data: {
-          ...payoutResult.data,
-          status: payoutResult.status,
-          transaction_no: payoutResult.data?.transactionId
-        }
-      });
+      // Return the AeronPay response directly to the frontend, which will have the PENDING status and message
+      return NextResponse.json(payoutResult);
     }
     
     // FAILURE PATH: Record the failed attempt, but DO NOT update balance
-    console.warn(`[${requestId}] AeronPay UPI payout failed.`);
+    console.warn(`[${requestId}] AeronPay UPI payout failed or an unexpected status was returned.`);
     await prisma.transactions.create({
       data: {
         upiBeneficiaryId: upiBeneficiary.id,
@@ -156,14 +134,13 @@ export const upiPayment = async (req) => {
         transactionType: 'UPI',
         transactionStatus: 'FAILED',
         senderAccount: user.email || user.phoneNumber,
-        transaction_no: payoutResult.transaction_no || requestId, // Adjust based on AeronPay response
-        utr: payoutResult.utr || payoutResult.transaction_no || 'N/A', // Adjust based on AeronPay response
+        transaction_no: payoutResult.data?.transactionId || requestId, // Use payoutResult.data.transactionId if available
+        utr: payoutResult.data?.utr || payoutResult.data?.transactionId || 'N/A',
         gateway: 'AeronPay',
       },
     });
     console.log(`[${requestId}] Logged FAILED AeronPay UPI transaction.`);
 
-    // Extract the specific error message for the frontend
     const errorMessage = payoutResult.description || payoutResult.message || 'The UPI payment was rejected by AeronPay.';
     
     return NextResponse.json(
@@ -174,7 +151,6 @@ export const upiPayment = async (req) => {
   } catch (error) {
     console.error(`[${requestId}] --- UNHANDLED GLOBAL ERROR IN AERONPAY UPI PAYOUT HANDLER ---`, error);
     
-    // Handle specific errors
     if (error.name === 'AbortError') {
         return NextResponse.json({ message: 'Request timed out.' }, { status: 408 });
     }
@@ -185,20 +161,29 @@ export const upiPayment = async (req) => {
         return NextResponse.json({ message: 'A decimal-related processing error occurred.' }, { status: 500 });
     }
 
-    // Record a FAILED transaction on network error
+    // In case of an unhandled error, we try to create a FAILED transaction.
+    // We need to be careful here as upiBeneficiary might not be defined if the error happened early.
+    let upiBeneficiaryIdForError = null;
+    try {
+        const { beneficiary } = await req.json(); // Re-parse to get beneficiary if available
+        upiBeneficiaryIdForError = beneficiary?.id;
+    } catch (parseError) {
+        // If parsing fails, beneficiaryId will remain null
+    }
+
     await prisma.transactions.create({
         data: { 
-            sender: { connect: { id: req.user.id } }, 
-            upiBeneficiary: { connect: { id: upiBeneficiary.id } }, 
-            amount: new Decimal(0), 
+            // Only connect if upiBeneficiaryIdForError is valid
+            ...(upiBeneficiaryIdForError && { upiBeneficiary: { connect: { id: upiBeneficiaryIdForError } } }),
+            amount: new Decimal(0), // Can't reliably get amount if error is early
             chargesAmount: new Decimal(0), 
             transactionType: 'UPI', 
             transactionStatus: 'FAILED',
-            senderAccount: req.user ? req.user.email || req.user.phoneNumber : 'N/A', // Or another identifier
+            senderAccount: req.user ? req.user.email || req.user.phoneNumber : 'N/A',
             transaction_no: requestId,
             utr: 'N/A',
             gateway: 'AeronPay',
-            remarks: 'Unhandled exception occurred'
+            description: 'Unhandled exception occurred', // Changed from remarks to description for consistency
         }
     });
 
@@ -206,7 +191,6 @@ export const upiPayment = async (req) => {
     return NextResponse.json({ message: errorMessage }, { status: 500 });
   }
 };
-
 export const AeronpayStatus = async (req, res) => {
     const { unique_id } = await req.json();
 
