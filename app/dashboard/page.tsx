@@ -155,7 +155,7 @@ const Dashboard = () => {
       if (response.ok && data && data.data) {
         setState(prevState => ({ 
           ...prevState,
-          balances: { ...prevState.balances, dmtBalance: data.currentBalance }
+          balances: { ...prevState.balances, dmtBalance: data.data.currentBalance }
         }));
       } else {
         console.error("Failed to fetch DMT balance:", data.message);
