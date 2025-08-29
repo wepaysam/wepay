@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import prisma from '../lib/prisma';
 import crypto from 'crypto';
 import { Decimal } from '@prisma/client/runtime/library'; // Import Decimal for calculations
+import { se } from 'date-fns/locale';
 
 export const upiPayment = async (req) => {
   const requestId = crypto.randomUUID();
@@ -30,7 +31,6 @@ export const upiPayment = async (req) => {
         return NextResponse.json({ message: 'A valid Amount and Beneficiary details are required.' }, { status: 400 });
     }
 
-    con
 
     const [user] = await Promise.all([
       prisma.user.findUnique({ where: { id: userId } })
@@ -40,10 +40,10 @@ export const upiPayment = async (req) => {
       console.error(`[${requestId}] CRITICAL: Authenticated UserID: ${userId} not found.`);
       return NextResponse.json({ message: 'User not found' }, { status: 404 });
     }
-    if (!upiBeneficiary) {
-      console.warn(`[${requestId}] UPI Beneficiary with ID: ${beneficiary.id} not found.`);
-      return NextResponse.json({ message: 'UPI Beneficiary not found' }, { status: 404 });
-    }
+    // if (!upiBeneficiary) {
+    //   console.warn(`[${requestId}] UPI Beneficiary with ID: ${beneficiary.id} not found.`);
+    //   return NextResponse.json({ message: 'UPI Beneficiary not found' }, { status: 404 });
+    // }
     
     // --- Step 2: Calculate Transaction Charges (Placeholder for UPI specific charges) ---
     // (Your existing charge calculation logic remains commented out)
@@ -106,13 +106,14 @@ export const upiPayment = async (req) => {
         // }
         await tx.transactions.create({
           data: {
-            upiBeneficiaryId: beneficiary?.id,
+            upiBeneficiary: { connect: { id: beneficiary.id } },
+            sender:{ connect: { id: userId } },
             amount: amount,
             chargesAmount: 0,
             transactionType: 'UPI',
             description: 'AeronPay UPI Payout',
             transactionStatus: transactionStatus, // Set to PENDING or SUCCESS based on payoutResult.status
-            senderAccount: user.email || user.phoneNumber,
+            senderAccount: beneficiary.upiId,
             transaction_no: utr,
             referenceNo: requestId,
             websiteUrl: websiteUrl,
@@ -132,12 +133,13 @@ export const upiPayment = async (req) => {
     console.warn(`[${requestId}] AeronPay UPI payout failed or an unexpected status was returned.`);
     await prisma.transactions.create({
       data: {
-        upiBeneficiaryId: beneficiary.id,
+        upiBeneficiary: { connect: { id: beneficiary.id } },
+        sender:{ connect: { id: userId } },
         amount: amount,
         chargesAmount: 0,
         transactionType: 'UPI',
         transactionStatus: 'FAILED',
-        senderAccount: user.email || user.phoneNumber,
+        senderAccount: beneficiary.upiId,
         transaction_no: payoutResult.data?.transactionId || requestId, // Use payoutResult.data.transactionId if available
         utr: payoutResult.data?.utr || payoutResult.data?.transactionId || 'N/A',
         gateway: 'AeronPay',
@@ -167,23 +169,23 @@ export const upiPayment = async (req) => {
 
     // In case of an unhandled error, we try to create a FAILED transaction.
     // We need to be careful here as upiBeneficiary might not be defined if the error happened early.
-    let upiBeneficiaryIdForError = null;
-    try {
-        const { beneficiary } = await req.json(); // Re-parse to get beneficiary if available
-        upiBeneficiaryIdForError = beneficiary?.id;
-    } catch (parseError) {
-        // If parsing fails, beneficiaryId will remain null
-    }
+    // let upiBeneficiaryIdForError = null;
+    // try {
+    //     const { beneficiary } = await req.json(); // Re-parse to get beneficiary if available
+    //     upiBeneficiaryIdForError = beneficiary?.id;
+    // } catch (parseError) {
+    //     // If parsing fails, beneficiaryId will remain null
+    // }
 
     await prisma.transactions.create({
         data: { 
             // Only connect if upiBeneficiaryIdForError is valid
-            ...(upiBeneficiaryIdForError && { upiBeneficiary: { connect: { id: upiBeneficiaryIdForError } } }),
+            upiBeneficiary: { connect: { id: upiBeneficiaryIdForError } },
             amount: new Decimal(0), // Can't reliably get amount if error is early
             chargesAmount: new Decimal(0), 
             transactionType: 'UPI', 
             transactionStatus: 'FAILED',
-            senderAccount: req.user ? req.user.email || req.user.phoneNumber : 'N/A',
+            sender: { connect: { id: userId } },
             transaction_no: requestId,
             utr: 'N/A',
             gateway: 'AeronPay',
@@ -249,24 +251,15 @@ export const AeronpayBalance = async (req, res) => {
                 accountNumber:"9001770984",
                 account_type:"Merchant",
                 merchant_id:"97009362986"
-
             })
         });
 
         const text = await response.text();
         const data = JSON.parse(text);
-
+// console.log("Balance response:", data);
         if (response.ok) {
-             await prisma.transactions.update({
-                where: {
-                    id: id
-                },
-                data: {
-                    transactionStatus: data.data.status === 'SUCCESS' ? 'COMPLETED' : data.data.status === 'PENDING' ? 'PENDING' : 'FAILED',
-                    utr: data.data.third_party_no || data.data.transaction_no,
-                }
-            });
             return NextResponse.json(data, { status: 200 });
+            // console.log("Balance response:", data);
         } else {
             return NextResponse.json(data, { status: response.status });
         }

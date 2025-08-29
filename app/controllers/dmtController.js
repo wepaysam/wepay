@@ -149,7 +149,7 @@ export const dmtStatus = async (req, res) => {
     }
 
     try {
-        const response = await fetch(`${process.env.SEVAPAY_API_URL}/apiclient/mini-i/status-check`, {
+        const response = await fetch(`https://api.ketlacollect.com/v1/pg/check-payout-transaction-status`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -200,46 +200,40 @@ export const dmtStatus = async (req, res) => {
 };
 
 export const getBalances = async () => {
-    const tokens = {
-        vishubh: process.env.SEVAPAY_API_TOKEN,
-        kotal: process.env.KETLA_API_TOKEN,
-    };
+    const merchantId = process.env.KATLA_MERCHANT_ID; 
+    const secretKey = process.env.KATLA_SECRET_KEY;
 
-    const fetchBalance = async (token) => {
+    const fetchBalance = async () => {
         try {
-            const response = await fetch(`${process.env.SEVAPAY_API_URL}/apiclient/mini-i/balance-check`, {
-                method: 'POST',
+            const response = await fetch(`https://api.ketlacollect.com/v1/pg/balance`, {
+                method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    'web_code': 'SEVAPAY_X',
-                    'Authorization': `Bearer ${token}`
+                    'merchantID': merchantId,
+                    'secretkey': secretKey
                 },
             });
 
             const data = await response.json();
-            console.log("Balance response:", data);
+            // console.log("Balance response:", data);
 
             if (response.ok && data.code === 200) {
                 return data.data.balance;
             } else {
-                console.error(`Failed to fetch balance for token`, data);
+                console.error(`Failed to fetch balance`, data);
                 return 0;
             }
         } catch (error) {
-            console.error(`Error fetching balance for token`, error);
+            console.error(`Error fetching balance`, error);
             return 0;
         }
     };
 
     try {
-        const [vishubhBalance, kotalBalance] = await Promise.all([
-            fetchBalance(tokens.vishubh),
-            fetchBalance(tokens.kotal),
-        ]);
-
-        return { vishubhBalance, kotalBalance };
+        const kotalBalance = await fetchBalance();
+        return { kotalBalance };
     } catch (error) {
         console.error("Error fetching balances in parallel:", error);
-        return { vishubhBalance: 0, kotalBalance: 0 };
+        return { kotalBalance: 0 };
     }
 };
