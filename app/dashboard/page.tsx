@@ -172,7 +172,7 @@ const Dashboard = () => {
       if (response.ok) {
         setState(prevState => ({ 
           ...prevState,
-          balances: { ...prevState.balances, dmtBalance: data.available_balance }
+          balances: { ...prevState.balances, dmtBalance: data.balance }
         }));
       } else {
         console.error("Failed to fetch DMT balance:", data.message);
@@ -188,14 +188,13 @@ const Dashboard = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ unique_id: Date.now().toString() })
+        }
       });
       const data = await response.json();
       if (response.ok) {
         setState(prevState => ({ 
           ...prevState,
-          balances: { ...prevState.balances, aeronpayBalance: data?.currentBalance }
+          balances: { ...prevState.balances, aeronpayBalance: data?.balance }
         }));
       } else {
         console.error("Failed to fetch Aeronpay balance:", data.message);
