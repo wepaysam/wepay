@@ -293,9 +293,8 @@ const ServicesPage = () => {
   const fetchDmtBeneficiaries = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
     try {
-      // In a real application, you would get the userId from your authentication context
-      const dummyUserId = "clx022222000008jwe222222"; // Replace with actual user ID
-      const response = await fetch(`/api/dmt-beneficiaries?userId=${dummyUserId}`);
+      // In a real application, you would get the userId from your authentication context // Replace with actual user ID
+      const response = await fetch(`/api/dmt-beneficiaries`);
       if (!response.ok) {
         throw new Error('Failed to fetch DMT beneficiaries');
       }
@@ -897,10 +896,14 @@ const ServicesPage = () => {
       const result = await response.json();
 
       if (response.ok) {
-        toast({
-          title: "Success",
-          description: "AeronPay UPI payment initiated successfully.",
+        setSuccessfulTransactionData({
+          ...result,
+          amount: amount,
+          beneficiary: selectedBeneficiary,
+          transactionType: 'UPI',
+          timestamp: new Date().toISOString(),
         });
+        setIsSuccessModalOpen(true);
         fetchUpiBeneficiaries(false);
         setPayoutAmounts(prev => ({ ...prev, [selectedBeneficiary.id]: "" }));
       } else {
