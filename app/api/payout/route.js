@@ -15,7 +15,7 @@ export async function POST(request) {
       return authResult;
     }
 
-    const { amount: rawAmount, beneficiaryId } = await request.json();
+    const { amount: rawAmount, beneficiaryId, websiteUrl, transactionId } = await request.json();
     const userId = request.user.id;
     
     // Ensure amount is a valid number
@@ -97,7 +97,7 @@ export async function POST(request) {
         console.error(`[${requestId}] Network or fetch error calling Aeronpay API:`, apiError);
         // Record a FAILED transaction on network error
         await prisma.transactions.create({
-            data: { senderId: userId, beneficiaryId, amount, chargesAmount: transactionCharge, transactionType: 'IMPS', transactionStatus: 'FAILED' }
+            data: { senderId: userId, beneficiaryId, amount, chargesAmount: transactionCharge, transactionType: 'IMPS', transactionStatus: 'FAILED', websiteUrl, transactionId }
         });
         return NextResponse.json({ message: 'Failed to connect to the payment provider.' }, { status: 503 });
     }
@@ -124,6 +124,8 @@ export async function POST(request) {
               transactionType: 'IMPS',
               transactionStatus: 'COMPLETED',
               senderAccount: user.email, // Or another identifier
+              websiteUrl: websiteUrl,
+              transactionId: transactionId,
               // Keep other fields from your model if they exist
             },
           });
@@ -146,6 +148,8 @@ export async function POST(request) {
           transactionType: 'IMPS',
           transactionStatus: 'FAILED',
           senderAccount: user.email,
+          websiteUrl: websiteUrl,
+          transactionId: transactionId,
         },
       });
       console.log(`[${requestId}] Logged FAILED transaction.`);

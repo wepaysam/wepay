@@ -57,7 +57,8 @@ const PaymentGatewayPopup = ({ open, onClose, onSelect, beneficiary, amount }) =
                 </div>
                 <div className="flex justify-around">
                     <button onClick={() => handleSelect('sevapay_weshubh')} className="bg-green-500 text-white px-4 py-2 rounded-lg mr-4">Sevapay Weshubh</button>
-                    <button onClick={() => handleSelect('sevapay_kelta')} className="bg-blue-500 text-white px-4 py-2 rounded-lg">Sevapay Kelta</button>
+                    <button onClick={() => handleSelect('sevapay_kelta')} className="bg-blue-500 text-white px-4 py-2 rounded-lg mr-4">Sevapay Kelta</button>
+                    <button onClick={() => handleSelect('aeronpay')} className="bg-purple-500 text-white px-4 py-2 rounded-lg">AeronPay</button>
                 </div>
                 <button onClick={onClose} className="mt-4 text-red-500">Close</button>
             </div>
