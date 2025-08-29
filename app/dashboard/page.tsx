@@ -172,7 +172,7 @@ const Dashboard = () => {
       if (response.ok) {
         setState(prevState => ({ 
           ...prevState,
-          balances: { ...prevState.balances, dmtBalance: data.kotalBalance }
+          balances: { ...prevState.balances, dmtBalance: data.available_balance }
         }));
       } else {
         console.error("Failed to fetch DMT balance:", data.message);
@@ -195,7 +195,7 @@ const Dashboard = () => {
       if (response.ok) {
         setState(prevState => ({ 
           ...prevState,
-          balances: { ...prevState.balances, aeronpayBalance: data.data.balance }
+          balances: { ...prevState.balances, aeronpayBalance: data?.currentBalance }
         }));
       } else {
         console.error("Failed to fetch Aeronpay balance:", data.message);
