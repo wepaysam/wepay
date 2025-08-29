@@ -111,7 +111,6 @@ export const upiPayment = async (req) => {
             amount: amount,
             chargesAmount: 0,
             transactionType: 'UPI',
-            description: 'AeronPay UPI Payout',
             transactionStatus: transactionStatus, // Set to PENDING or SUCCESS based on payoutResult.status
             senderAccount: beneficiary.upiId,
             transaction_no: utr,
@@ -147,7 +146,7 @@ export const upiPayment = async (req) => {
     });
     console.log(`[${requestId}] Logged FAILED AeronPay UPI transaction.`);
 
-    const errorMessage = payoutResult.description || payoutResult.message || 'The UPI payment was rejected by AeronPay.';
+    const errorMessage =  payoutResult.message || 'The UPI payment was rejected by AeronPay.';
     
     return NextResponse.json(
       { message: errorMessage, ...payoutResult }, 
