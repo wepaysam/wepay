@@ -6,6 +6,9 @@ import { Input } from "../components/ui/input";
 import MainLayout from "../components/MainLayout";
 import { Button } from "../components/ui/button";
 import { useRouter } from "next/navigation";
+import { generateReceiptPDF } from "../utils/pdfGenerator";
+
+import TransactionSuccessModal from "../components/TransactionSuccessfull";
 
 const UpiPayoutPage = () => {
   const [vpa, setVpa] = useState("");
@@ -13,7 +16,31 @@ const UpiPayoutPage = () => {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [successfulTransactionData, setSuccessfulTransactionData] = useState<any>(null);
   const router = useRouter();
+
+  const handleViewReceipt = () => {
+    if (!successfulTransactionData) return;
+
+    const receiptData = {
+      beneficiaryName: successfulTransactionData.beneficiary.accountHolderName,
+      bankName: "", // Not available for UPI
+      ifscCode: "", // Not available for UPI
+      accountNo: successfulTransactionData.beneficiary.upiId,
+      transferType: successfulTransactionData.transactionType,
+      serviceType: "UPI Payout",
+      transactionTime: new Date(successfulTransactionData.timestamp).toLocaleTimeString(),
+      transactionDate: new Date(successfulTransactionData.timestamp).toLocaleDateString(),
+      transactionId: successfulTransactionData.transaction_no,
+      rrnNo: successfulTransactionData.data?.transaction_no, // UTR/RRN might be here
+      orderId: successfulTransactionData.data?.unique_id, // Reference No might be here
+      payoutPurpose: "",
+      amountRemitted: successfulTransactionData.amount,
+      transactionStatus: successfulTransactionData.data?.status,
+    };
+    generateReceiptPDF(receiptData);
+  };
 
   const handlePayout = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,8 +59,14 @@ const UpiPayoutPage = () => {
       const result = await response.json();
 
       if (response.ok) {
-        setMessage({ type: 'success', text: result.msg || 'UPI Payout successful!' });
-        // Optionally clear form or redirect
+        setSuccessfulTransactionData({
+          ...result,
+          amount: parseFloat(amount),
+          beneficiary: { accountHolderName: name, upiId: vpa },
+          transactionType: 'UPI',
+          timestamp: new Date().toISOString(),
+        });
+        setIsSuccessModalOpen(true);
         setVpa('');
         setAmount('');
         setName('');
@@ -50,6 +83,24 @@ const UpiPayoutPage = () => {
 
   return (
     <MainLayout location="/upi-payout">
+      <TransactionSuccessModal
+        isOpen={isSuccessModalOpen}
+        onClose={() => {
+          setIsSuccessModalOpen(false);
+          setSuccessfulTransactionData(null);
+        }}
+        onViewReceipt={handleViewReceipt}
+        transactionDetails={{
+          amount: successfulTransactionData?.amount || 0,
+          beneficiaryName: successfulTransactionData?.beneficiary?.accountHolderName || 'N/A',
+          accountNumber: successfulTransactionData?.beneficiary?.upiId || 'N/A',
+          transactionId: successfulTransactionData?.transaction_no || successfulTransactionData?.data?.transaction_no || 'N/A',
+          transactionType: successfulTransactionData?.transactionType || 'N/A',
+          timestamp: successfulTransactionData?.timestamp 
+            ? new Date(successfulTransactionData.timestamp).toISOString() 
+            : new Date().toISOString(),
+        }}
+      />
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 py-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

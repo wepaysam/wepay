@@ -727,7 +727,7 @@ const ServicesPage = () => {
     }
   };
 
-  const handleGatewaySelect = async (gatewayDetails: { gateway: 'sevapay_weshubh' | 'sevapay_kelta', websiteUrl: string, transactionId: string }) => {
+  const handleGatewaySelect = async (gatewayDetails: { gateway: 'sevapay_weshubh' | 'sevapay_kelta' | 'aeronpay', websiteUrl: string, transactionId: string }) => {
     setIsGatewayPopupOpen(false);
     if (!selectedBeneficiary) return;
 
@@ -748,8 +748,20 @@ const ServicesPage = () => {
     setRowLoading(selectedBeneficiary.id, true);
     try {
       let response;
-      // Check if it's a DMT beneficiary
-      if ('accountNumber' in selectedBeneficiary && !('transactionType' in selectedBeneficiary)) {
+      if (gateway === 'aeronpay') {
+        response = await fetch('/api/payout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            amount: amount,
+            beneficiaryId: selectedBeneficiary.id,
+            websiteUrl: websiteUrl,
+            transactionId: transactionId,
+          }),
+        });
+      } else if ('accountNumber' in selectedBeneficiary && !('transactionType' in selectedBeneficiary)) {
         response = await fetch('/api/dmt-payout', {
           method: 'POST',
           headers: {
