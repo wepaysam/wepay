@@ -45,6 +45,8 @@ interface DashboardState {
     vishubhBalance: number;
     kotalBalance: number;
     p2iBalance: number;
+    dmtBalance: number;
+    aeronpayBalance: number;
   };
   isLoading: boolean;
   isFetching: boolean;
@@ -116,6 +118,8 @@ const Dashboard = () => {
       vishubhBalance: 0,
       kotalBalance: 0,
       p2iBalance: 0,
+      dmtBalance: 0,
+      aeronpayBalance: 0,
     },
     isLoading: true,
     isFetching: false,
@@ -153,6 +157,51 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error("Error fetching P2I balance:", error);
+    }
+  };
+
+  const fetchDmtBalance = async () => {
+    try {
+      const response = await fetch('/api/dmt/balance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setState(prevState => ({ 
+          ...prevState,
+          balances: { ...prevState.balances, dmtBalance: data.kotalBalance }
+        }));
+      } else {
+        console.error("Failed to fetch DMT balance:", data.message);
+      }
+    } catch (error) {
+      console.error("Error fetching DMT balance:", error);
+    }
+  };
+
+  const fetchAeronpayBalance = async () => {
+    try {
+      const response = await fetch('/api/aeronpay/balance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ unique_id: Date.now().toString() })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setState(prevState => ({ 
+          ...prevState,
+          balances: { ...prevState.balances, aeronpayBalance: data.data.balance }
+        }));
+      } else {
+        console.error("Failed to fetch Aeronpay balance:", data.message);
+      }
+    } catch (error) {
+      console.error("Error fetching Aeronpay balance:", error);
     }
   };
 
@@ -205,6 +254,8 @@ const Dashboard = () => {
             fetchDashboardData(),
             fetchBalances(),
             fetchP2IBalance(),
+            fetchDmtBalance(),
+            fetchAeronpayBalance(),
           ]);
         } catch (error) {
           console.error("Failed to fetch all dashboard data", error);
@@ -244,11 +295,15 @@ const Dashboard = () => {
   }
 
   // Format currency
-  const formatCurrency = (amount: string) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR'
-    }).format(parseFloat(amount));
+  const formatCurrency = (amount: number | string) => {
+    const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  if (isNaN(numericAmount)) {
+    return '₹0.00';
+  }
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+  }).format(numericAmount);
   };
 
   // Handle Receipt Generation
@@ -351,6 +406,8 @@ const Dashboard = () => {
             <SkeletonCard />
             <SkeletonCard />
             <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
           </>
         ) : (
           <>
@@ -410,7 +467,7 @@ const Dashboard = () => {
                 </button>
               }
             />
-            <StatCard
+            {/* <StatCard
               title="P2I Balance"
               value={formatCurrency(state.balances.p2iBalance.toString())}
               icon={<Wallet2 className="h-5 w-5" />}
@@ -424,9 +481,39 @@ const Dashboard = () => {
                   <RefreshCw className={`h-4 w-4 ${state.isBalancesLoading ? 'animate-spin' : ''}`} />
                 </button>
               }
-            />
+            /> */}
           </>
         )}
+         <StatCard
+              title="DMT Balance"
+              value={formatCurrency(state.balances.dmtBalance.toString())}
+              icon={<Wallet2 className="h-5 w-5" />}
+              actionButton={
+                <button
+                  onClick={fetchDmtBalance}
+                  disabled={state.isBalancesLoading}
+                  className="flex items-center justify-center p-2 bg-card hover:bg-muted/50 text-muted-foreground rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Refresh DMT Balance"
+                >
+                  <RefreshCw className={`h-4 w-4 ${state.isBalancesLoading ? 'animate-spin' : ''}`} />
+                </button>
+              }
+            />
+            <StatCard
+              title="UPI Balance"
+              value={formatCurrency(state.balances.aeronpayBalance.toString())}
+              icon={<Wallet2 className="h-5 w-5" />}
+              actionButton={
+                <button
+                  onClick={fetchAeronpayBalance}
+                  disabled={state.isBalancesLoading}
+                  className="flex items-center justify-center p-2 bg-card hover:bg-muted/50 text-muted-foreground rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Refresh UPI Balance"
+                >
+                  <RefreshCw className={`h-4 w-4 ${state.isBalancesLoading ? 'animate-spin' : ''}`} />
+                </button>
+              }
+            />
       </div>
       
       {/* Recent Transactions */}
