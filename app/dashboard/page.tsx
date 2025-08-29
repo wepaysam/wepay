@@ -44,7 +44,6 @@ interface DashboardState {
   balances: {
     vishubhBalance: number;
     kotalBalance: number;
-    p2iBalance: number;
     dmtBalance: number;
     aeronpayBalance: number;
   };
@@ -117,7 +116,6 @@ const Dashboard = () => {
     balances: {
       vishubhBalance: 0,
       kotalBalance: 0,
-      p2iBalance: 0,
       dmtBalance: 0,
       aeronpayBalance: 0,
     },
@@ -143,22 +141,7 @@ const Dashboard = () => {
     }
   };
 
-  const fetchP2IBalance = async () => {
-    try {
-      const response = await fetch('/api/p2i-balance');
-      const data = await response.json();
-      if (response.ok) {
-        setState(prevState => ({ 
-          ...prevState,
-          balances: { ...prevState.balances, p2iBalance: data.p2iBalance }
-        }));
-      } else {
-        console.error("Failed to fetch P2I balance:", data.message);
-      }
-    } catch (error) {
-      console.error("Error fetching P2I balance:", error);
-    }
-  };
+  
 
   const fetchDmtBalance = async () => {
     try {
@@ -169,10 +152,10 @@ const Dashboard = () => {
         }
       });
       const data = await response.json();
-      if (response.ok) {
+      if (response.ok && data && data.data) {
         setState(prevState => ({ 
           ...prevState,
-          balances: { ...prevState.balances, dmtBalance: data.balance }
+          balances: { ...prevState.balances, dmtBalance: data.data.currentBalance }
         }));
       } else {
         console.error("Failed to fetch DMT balance:", data.message);
@@ -191,10 +174,10 @@ const Dashboard = () => {
         }
       });
       const data = await response.json();
-      if (response.ok) {
+      if (response.ok && data) {
         setState(prevState => ({ 
           ...prevState,
-          balances: { ...prevState.balances, aeronpayBalance: data?.balance }
+          balances: { ...prevState.balances, aeronpayBalance: data.available_balance }
         }));
       } else {
         console.error("Failed to fetch Aeronpay balance:", data.message);
@@ -252,7 +235,6 @@ const Dashboard = () => {
           await Promise.all([
             fetchDashboardData(),
             fetchBalances(),
-            fetchP2IBalance(),
             fetchDmtBalance(),
             fetchAeronpayBalance(),
           ]);
@@ -466,21 +448,7 @@ const Dashboard = () => {
                 </button>
               }
             />
-            {/* <StatCard
-              title="P2I Balance"
-              value={formatCurrency(state.balances.p2iBalance.toString())}
-              icon={<Wallet2 className="h-5 w-5" />}
-              actionButton={
-                <button
-                  onClick={fetchP2IBalance}
-                  disabled={state.isBalancesLoading}
-                  className="flex items-center justify-center p-2 bg-card hover:bg-muted/50 text-muted-foreground rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Refresh P2I Balance"
-                >
-                  <RefreshCw className={`h-4 w-4 ${state.isBalancesLoading ? 'animate-spin' : ''}`} />
-                </button>
-              }
-            /> */}
+            
           </>
         )}
          <StatCard

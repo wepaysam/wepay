@@ -205,8 +205,8 @@ export const getBalances = async () => {
 
     const fetchBalance = async () => {
         try {
-            const response = await fetch(`https://api.ketlacollect.com/v1/pg/balance`, {
-                method: 'GET',
+            const response = await fetch(`${process.env.SEVAPAY_API_URL}/apiclient/mini-i/balance-check`, {
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'merchantID': merchantId,
@@ -215,25 +215,25 @@ export const getBalances = async () => {
             });
 
             const data = await response.json();
-            // console.log("Balance response:", data);
+            console.log("Balance response:", data);
 
             if (response.ok && data.code === 200) {
-                return data.data?.available_balance;
+                return data;
             } else {
                 console.error(`Failed to fetch balance`, data);
-                return 0;
+                return { data: { currentBalance: 0 } };
             }
         } catch (error) {
             console.error(`Error fetching balance`, error);
-            return 0;
+            return { data: { currentBalance: 0 } };
         }
     };
 
     try {
         const kotalBalance = await fetchBalance();
-        return { kotalBalance };
+        return kotalBalance;
     } catch (error) {
         console.error("Error fetching balances in parallel:", error);
-        return { kotalBalance: 0 };
+        return { data: { currentBalance: 0 } };
     }
 };
