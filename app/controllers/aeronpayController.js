@@ -30,9 +30,10 @@ export const upiPayment = async (req) => {
         return NextResponse.json({ message: 'A valid Amount and Beneficiary details are required.' }, { status: 400 });
     }
 
-    const [user, upiBeneficiary] = await Promise.all([
-      prisma.user.findUnique({ where: { id: userId } }),
-      prisma.upiBeneficiary.findUnique({ where: { id: beneficiary.id } })
+    con
+
+    const [user] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId } })
     ]);
 
     if (!user) {
@@ -59,8 +60,8 @@ export const upiPayment = async (req) => {
         client_referenceId: requestId,
         remarks: 'UPI Payout',
         beneDetails:{
-            vpa: upiBeneficiary.upiId,
-            name: upiBeneficiary.accountHolderName,
+            vpa: beneficiary.upiId,
+            name: beneficiary?.accountHolderName,
             email: 'support@wepayx.com',
             phone: '9001770984',
             address1: "Mumbai"
@@ -105,7 +106,7 @@ export const upiPayment = async (req) => {
         // }
         await tx.transactions.create({
           data: {
-            upiBeneficiaryId: upiBeneficiary?.id,
+            upiBeneficiaryId: beneficiary?.id,
             amount: amount,
             chargesAmount: 0,
             transactionType: 'UPI',
@@ -115,7 +116,7 @@ export const upiPayment = async (req) => {
             transaction_no: utr,
             referenceNo: requestId,
             websiteUrl: websiteUrl,
-            transactionId: transactionId, // Use AeronPay
+            transactionId: utr, // Use AeronPay
             utr: payoutResult.data?.utr || payoutResult.data?.transactionId || 'N/A', // Use payoutResult.data.utr or transactionId
             gateway: 'AeronPay',
           },
@@ -131,7 +132,7 @@ export const upiPayment = async (req) => {
     console.warn(`[${requestId}] AeronPay UPI payout failed or an unexpected status was returned.`);
     await prisma.transactions.create({
       data: {
-        upiBeneficiaryId: upiBeneficiary.id,
+        upiBeneficiaryId: beneficiary.id,
         amount: amount,
         chargesAmount: 0,
         transactionType: 'UPI',
@@ -186,7 +187,6 @@ export const upiPayment = async (req) => {
             transaction_no: requestId,
             utr: 'N/A',
             gateway: 'AeronPay',
-            remark: 'Unhandled exception occurred', // Changed from remarks to description for consistency
         }
     });
 
