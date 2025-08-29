@@ -113,6 +113,9 @@ export const upiPayment = async (req) => {
             transactionStatus: transactionStatus, // Set to PENDING or SUCCESS based on payoutResult.status
             senderAccount: user.email || user.phoneNumber,
             transaction_no: utr,
+            referenceNo: requestId,
+            websiteUrl: websiteUrl,
+            transactionId: transactionId, // Use AeronPay
             utr: payoutResult.data?.utr || payoutResult.data?.transactionId || 'N/A', // Use payoutResult.data.utr or transactionId
             gateway: 'AeronPay',
           },
@@ -183,7 +186,7 @@ export const upiPayment = async (req) => {
             transaction_no: requestId,
             utr: 'N/A',
             gateway: 'AeronPay',
-            description: 'Unhandled exception occurred', // Changed from remarks to description for consistency
+            remark: 'Unhandled exception occurred', // Changed from remarks to description for consistency
         }
     });
 
