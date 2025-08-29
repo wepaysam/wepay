@@ -236,7 +236,6 @@ export const AeronpayStatus = async (req, res) => {
 };
 
 export const AeronpayBalance = async (req, res) => {
-    const { unique_id } = await req.json();
 
     try {
         const response = await fetch(`https://api.aeronpay.in/api/serviceapi-prod/api/balance/check_balance`, {
@@ -247,7 +246,7 @@ export const AeronpayBalance = async (req, res) => {
                 'client-secret': process.env.AERONPAY_CLIENT_SECRET ,
             },
             body: JSON.stringify({
-                client_referenceId: unique_id,
+                client_referenceId: Date.now().toString(),
                 accountNumber:"9001770984",
                 account_type:"Merchant",
                 merchant_id:"97009362986"
@@ -256,10 +255,9 @@ export const AeronpayBalance = async (req, res) => {
 
         const text = await response.text();
         const data = JSON.parse(text);
-// console.log("Balance response:", data);
+
         if (response.ok) {
             return NextResponse.json(data, { status: 200 });
-            // console.log("Balance response:", data);
         } else {
             return NextResponse.json(data, { status: response.status });
         }
