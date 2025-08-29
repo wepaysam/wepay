@@ -106,17 +106,13 @@ export const upiPayment = async (req) => {
     console.log(`[${requestId}] AeronPay UPI API response received. Status: ${response.status}, Body:`, payoutResult);
 
     // --- Step 5: Process API Response ---
-    // Adjust success condition based on AeronPay UPI API response
-    if ( payoutResult.statusCode === 200 && (payoutResult.status === 'SUCCESS' || payoutResult.status === 'PENDING') ) {
-      // SUCCESS PATH: Record the transaction and update balance
-      console.log(`[${requestId}] AeronPay UPI reported SUCCESS. Starting database transaction.`);
+    // Modified condition to accept both 200 and 201 status codes
+    if ((payoutResult.statusCode === '200' || payoutResult.statusCode === '201') && 
+        (payoutResult.status === 'SUCCESS' || payoutResult.status === 'PENDING')) {
+      
+      console.log(`[${requestId}] AeronPay UPI reported ${payoutResult.status}. Starting database transaction.`);
+      
       await prisma.$transaction(async (tx) => {
-        // if(payoutResult.status === 'SUCCESS'){
-        //   await tx.user.update({
-        //   where: { id: userId },
-        //   data: { balance: { decrement: totalDebitAmount } },
-        // });
-        // }
         await tx.transactions.create({
           data: {
             upiBeneficiaryId: upiBeneficiary?.id,
@@ -124,16 +120,30 @@ export const upiPayment = async (req) => {
             chargesAmount: 0,
             transactionType: 'UPI',
             description: 'AeronPay UPI Payout',
-            transactionStatus: payoutResult.status, // Set to PENDING until confirmed
-            senderAccount: user.email || user.phoneNumber, // Or another identifier
-            transaction_no: utr, // Adjust based on AeronPay response
-            utr: payoutResult.utr || payoutResult.transaction_no || 'N/A', // Adjust based on AeronPay response
+            transactionStatus: payoutResult.status, // This will now store 'PENDING' status
+            senderAccount: user.email || user.phoneNumber,
+            transaction_no: payoutResult.data?.transactionId || utr, // Using AeronPay transactionId
+            utr: payoutResult.data?.utr || 'PENDING', // UTR will be updated later
             gateway: 'AeronPay',
+            remarks: payoutResult.message || 'Transaction Under Process',
+            aeronpayTransactionId: payoutResult.data?.transactionId, // Store AeronPay's transaction ID
+            clientReferenceId: payoutResult.data?.client_referenceId
           },
         });
       });
-      console.log(`[${requestId}] Database transaction completed successfully.`);
-      return NextResponse.json(payoutResult);
+
+      console.log(`[${requestId}] Database transaction completed successfully with PENDING status.`);
+      
+      // Return success response even for PENDING status
+      return NextResponse.json({
+        status: 'SUCCESS',
+        message: 'Transaction initiated successfully',
+        data: {
+          ...payoutResult.data,
+          status: payoutResult.status,
+          transaction_no: payoutResult.data?.transactionId
+        }
+      });
     }
     
     // FAILURE PATH: Record the failed attempt, but DO NOT update balance
@@ -195,4 +205,85 @@ export const upiPayment = async (req) => {
     const errorMessage = error.message || 'An unexpected error occurred.';
     return NextResponse.json({ message: errorMessage }, { status: 500 });
   }
+};
+
+export const AeronpayStatus = async (req, res) => {
+    const { unique_id } = await req.json();
+
+    try {
+        const response = await fetch(`https://api.aeronpay.in/api/serviceapi-prod/api/reports/transactionStatus`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'client-id': process.env.AERONPAY_CLIENT_ID ,
+                'client-secret': process.env.AERONPAY_CLIENT_SECRET ,
+            },
+            body: JSON.stringify({
+                client_referenceId: unique_id,
+                accountNumber:"9001770984"
+            })
+        });
+
+        const text = await response.text();
+        const data = JSON.parse(text);
+
+        if (response.ok) {
+             await prisma.transactions.update({
+                where: {
+                    id: id
+                },
+                data: {
+                    transactionStatus: data.data.status === 'SUCCESS' ? 'COMPLETED' : data.data.status === 'PENDING' ? 'PENDING' : 'FAILED',
+                    utr: data.data.third_party_no || data.data.transaction_no,
+                }
+            });
+            return NextResponse.json(data, { status: 200 });
+        } else {
+            return NextResponse.json(data, { status: response.status });
+        }
+    } catch (error) {
+        return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
+    }
+};
+
+export const AeronpayBalance = async (req, res) => {
+    const { unique_id } = await req.json();
+
+    try {
+        const response = await fetch(`https://api.aeronpay.in/api/serviceapi-prod/api/balance/check_balance`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'client-id': process.env.AERONPAY_CLIENT_ID ,
+                'client-secret': process.env.AERONPAY_CLIENT_SECRET ,
+            },
+            body: JSON.stringify({
+                client_referenceId: unique_id,
+                accountNumber:"9001770984",
+                account_type:"Merchant",
+                merchant_id:"97009362986"
+
+            })
+        });
+
+        const text = await response.text();
+        const data = JSON.parse(text);
+
+        if (response.ok) {
+             await prisma.transactions.update({
+                where: {
+                    id: id
+                },
+                data: {
+                    transactionStatus: data.data.status === 'SUCCESS' ? 'COMPLETED' : data.data.status === 'PENDING' ? 'PENDING' : 'FAILED',
+                    utr: data.data.third_party_no || data.data.transaction_no,
+                }
+            });
+            return NextResponse.json(data, { status: 200 });
+        } else {
+            return NextResponse.json(data, { status: response.status });
+        }
+    } catch (error) {
+        return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
+    }
 };
