@@ -237,7 +237,14 @@ const StatementPage = () => {
     setCheckingStatusId(transaction.id);
 
     try {
-      const response = await fetch('/api/sevapay/status', {
+      let url = '/api/sevapay/status';
+      if (transaction.gateway === 'DMT') {
+        url = '/api/dmt/status';
+      } else if (transaction.gateway === 'AERONPAY') {
+        url = '/api/aeronpay/check-status';
+      }
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -399,6 +406,7 @@ const StatementPage = () => {
                         <option value="ALL">All</option>
                         <option value="UPI">UPI</option>
                         <option value="IMPS">IMPS</option>
+                        <option value="DMT">DMT</option>
                         <option value="DMT">DMT</option>
                         </select>
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground">

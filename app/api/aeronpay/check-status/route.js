@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-// import { checkStatus } from '../../../controllers/aeronpayController';
+import { checkStatus } from '../../../../controllers/aeronpayController';
 import { authMiddleware } from '../../../middleware/authMiddleware';
 
 export async function POST(req) {

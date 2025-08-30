@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import prisma from '../lib/prisma';
-import crypto from 'crypto';
+import crypto, { hash } from 'crypto';
 
 function generateHash(mid, parameters, hashingMethod = 'sha512', secretKey) {
   let hashData = mid;
@@ -112,6 +112,7 @@ export const dmtPayment = async (req) => {
                     transactionType: 'DMT',
                     transactionStatus: data.status === 'SUCCESS' ? 'COMPLETED' : data.status === 'PENDING' ? 'PENDING' : 'FAILED',
                     referenceNo: unique_id,
+                    dmthash: generatedHash,
                     sender: {
                         connect: {
                             id: beneficiary.userId
@@ -136,16 +137,23 @@ export const dmtPayment = async (req) => {
 };
 
 export const dmtStatus = async (req, res) => {
-    const { unique_id, id, gateway } = await req.json();
+    const { unique_id, id } = await req.json();
 
-    let token;
-    if (gateway === 'sevapay_weshubh') {
-        token = process.env.SEVAPAY_API_TOKEN;
-    } else if (gateway === 'sevapay_kelta') {
-        token = process.env.KETLA_API_TOKEN;
-    } else {
-        // Default to SEVAPAY_API_TOKEN if gateway is not provided or invalid
-        token = process.env.SEVAPAY_API_TOKEN;
+    const merchantId = process.env.KATLA_MERCHANT_ID; 
+    const secretKey = process.env.KATLA_SECRET_KEY;
+
+    const transaction = await prisma.transactions.findUnique({
+        where: {
+            id: id
+        }
+    });
+
+    if (!transaction) {
+        return NextResponse.json({ message: 'Transaction not found' }, { status: 404 });
+    }
+
+    if (transaction.transactionType !== 'DMT') {
+        return NextResponse.json({ message: 'Not a DMT transaction' }, { status: 400 });
     }
 
     try {
@@ -153,11 +161,12 @@ export const dmtStatus = async (req, res) => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'web_code': 'SEVAPAY_X',
-                'Authorization': `Bearer ${token}`
+                'merchantID': merchantId,
+                'secretkey': secretKey
             },
             body: JSON.stringify({
-                unique_id: unique_id
+                paymentReferenceNo: unique_id,
+                hash: transaction.dmthash
             })
         });
 
@@ -206,7 +215,7 @@ export const getBalances = async () => {
     const fetchBalance = async () => {
         try {
             const response = await fetch(`https://api.ketlacollect.com/v1/pg/balance`, {
-                method: 'POST',
+                method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
                     'merchantID': merchantId,

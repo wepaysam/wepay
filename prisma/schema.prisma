@@ -117,6 +117,7 @@ model Transactions {
   utr               String?
   gateway           String?
   dmtBeneficiaryId  String?
+  dmthash              String?
   beneficiary       Beneficiary?      @relation(fields: [beneficiaryId], references: [id])
   dmtBeneficiary    DmtBeneficiary?   @relation(fields: [dmtBeneficiaryId], references: [id])
   sender            User?             @relation("SenderTransactions", fields: [senderId], references: [id])

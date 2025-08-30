@@ -195,8 +195,8 @@ export const upiPayment = async (req) => {
     return NextResponse.json({ message: errorMessage }, { status: 500 });
   }
 };
-export const AeronpayStatus = async (req, res) => {
-    // const { unique_id } = await req.json();
+export const checkStatus = async (req, res) => {
+    const { unique_id, id } = await req.json();
 
     try {
         const response = await fetch(`https://api.aeronpay.in/api/serviceapi-prod/api/reports/transactionStatus`, {
@@ -207,7 +207,7 @@ export const AeronpayStatus = async (req, res) => {
                 'client-secret': process.env.AERONPAY_CLIENT_SECRET ,
             },
             body: JSON.stringify({
-                client_referenceId: process.env.AERONPAY_CLIENT_ID,
+                client_referenceId: unique_id,
                 accountNumber:"9001770984"
             })
         });
