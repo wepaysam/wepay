@@ -146,6 +146,7 @@ export async function getUserTransactions(userId, searchTerm, transactionBasis) 
         utr: true,
         transaction_no: true,
         transactionType: true,
+        gateway: true,
       },
       orderBy: {
         transactionTime: 'desc',
