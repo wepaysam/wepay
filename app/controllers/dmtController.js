@@ -110,7 +110,7 @@ export const dmtPayment = async (req) => {
                         }
                     },
                     transactionType: 'DMT',
-                    transactionStatus: data.status === 'SUCCESS' ? 'COMPLETED' : data.status === 'PENDING' ? 'PENDING' : 'FAILED',
+                    transactionStatus: data.success ? 'COMPLETED' :  'PENDING' ,
                     referenceNo: unique_id,
                     dmthash: generatedHash,
                     sender: {
@@ -122,8 +122,8 @@ export const dmtPayment = async (req) => {
                     websiteUrl: websiteUrl,
                     transactionId: transactionId,
                     transaction_no: data.transaction_no || paymentReferenceNo,
-                    utr: data.utr || data.transaction_no, 
-                    gateway: gateway,
+                    utr: data.clientRefNo, 
+                    gateway: 'DMT',
                 }
             });
             return NextResponse.json({ ...data, transaction_no: data.transaction_no || transactionId }, { status: 200 });
