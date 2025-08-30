@@ -16,6 +16,13 @@ const UpiPaymentConfirmationPopup: React.FC<UpiPaymentConfirmationPopupProps> = 
   const [websiteUrl, setWebsiteUrl] = React.useState("");
   const [utr, setUtr] = React.useState("");
 
+  React.useEffect(() => {
+    if (open) {
+      setWebsiteUrl("");
+      setUtr("");
+    }
+  }, [open]);
+
   if (!open || !beneficiary) return null;
 
   return (

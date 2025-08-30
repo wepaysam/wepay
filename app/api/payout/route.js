@@ -22,6 +22,16 @@ export async function POST(request) {
     // Ensure amount is a valid number
     const amount = new Decimal(rawAmount);
 
+    const existingTransaction = await prisma.transactions.findFirst({
+        where: {
+            transactionId,
+        },
+    });
+
+    if (existingTransaction) {
+        return NextResponse.json({ message: 'Transaction ID already exists' }, { status: 400 });
+    }
+
     console.log(`[${requestId}] Processing payout. UserID: ${userId}, BeneficiaryID: ${beneficiaryId}, Amount: ${amount}`);
 
     if (amount.isNaN() || amount.isNegative() || amount.isZero() || !beneficiaryId) {
