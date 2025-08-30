@@ -917,6 +917,7 @@ const ServicesPage = () => {
         });
         setIsSuccessModalOpen(true);
         fetchUpiBeneficiaries(false);
+        // setPayoutAmounts(prev => ({ ...prev, [beneficiary.id]: "" }));
         setPayoutAmounts(prev => ({ ...prev, [selectedBeneficiary.id]: "" }));
       } else {
         throw new Error(result.message || 'Failed to initiate AeronPay UPI payment');
