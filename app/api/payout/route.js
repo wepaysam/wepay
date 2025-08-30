@@ -56,10 +56,10 @@ export async function POST(request) {
     console.log(`[${requestId}] Amount: ${amount}, Charge: ${transactionCharge}, Total Debit: ${totalDebitAmount}`);
 
     // --- Step 3: Validate User Balance ---
-    if (user.balance < totalDebitAmount) {
-      console.warn(`[${requestId}] Insufficient balance for UserID: ${userId}. Balance: ${user.balance}, Required: ${totalDebitAmount}`);
-      return NextResponse.json({ message: 'Insufficient balance' }, { status: 400 });
-    }
+    // if (user.balance < totalDebitAmount) {
+    //   console.warn(`[${requestId}] Insufficient balance for UserID: ${userId}. Balance: ${user.balance}, Required: ${totalDebitAmount}`);
+    //   return NextResponse.json({ message: 'Insufficient balance' }, { status: 400 });
+    // }
 
     // --- Step 4: Call External Payout API ---
     const cleanAccountNumber = String(beneficiary.accountNumber).replace(/\D/g, '');
@@ -105,15 +105,15 @@ export async function POST(request) {
     console.log(`[${requestId}] Aeronpay API response received. Status: ${response.status}, Body:`, payoutResult);
 
     // --- Step 5: Process API Response ---
-    if (response.ok && payoutResult.status === 'SUCCESS') {
+    if (response.ok && payoutResult.status === 'SUCCESS' || payoutResult.status === 'PENDING') {
       // SUCCESS PATH: Record the transaction and update balance
       console.log(`[${requestId}] Aeronpay reported SUCCESS. Starting database transaction.`);
       try {
         await prisma.$transaction(async (tx) => {
-          await tx.user.update({
-            where: { id: userId },
-            data: { balance: { decrement: totalDebitAmount } },
-          });
+          // await tx.user.update({
+          //   where: { id: userId },
+          //   data: { balance: { decrement: totalDebitAmount } },
+          // });
 
           await tx.transactions.create({
             data: {
@@ -122,10 +122,11 @@ export async function POST(request) {
               amount: amount,
               chargesAmount: transactionCharge,
               transactionType: 'IMPS',
-              transactionStatus: 'COMPLETED',
+              transactionStatus: payoutResult.status === 'SUCCESS' ? 'COMPLETED' : 'PENDING',
               senderAccount: user.email, // Or another identifier
               websiteUrl: websiteUrl,
               transactionId: transactionId,
+              gateway: 'Aeronpay'
               // Keep other fields from your model if they exist
             },
           });

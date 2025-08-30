@@ -69,7 +69,7 @@ export const upiPayment = async (req) => {
         latitude: '20.1236',
         longitude: '78.1228',
         websiteUrl: websiteUrl,
-        utr: utr,
+        transactionId: utr,
     };
 
     console.log(`[${requestId}] Sending payload to AeronPay UPI:`, JSON.stringify(payload, null, 2));
