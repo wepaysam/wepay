@@ -994,10 +994,26 @@ const ServicesPage = () => {
         open={isUpiConfirmationPopupOpen}
         onClose={() => setIsUpiConfirmationPopupOpen(false)}
         onSelectAeronPay={(websiteUrl, utr) => {
+          if (!websiteUrl.endsWith(utr)) {
+            toast({
+                title: "Error",
+                description: "Wrong UTR. Please check the website URL and UTR.",
+                variant: "destructive",
+            });
+            return;
+          }
           setIsUpiConfirmationPopupOpen(false);
           handleUpiAeronPaySelect(websiteUrl, utr);
         }}
         onSelectP2I={(websiteUrl, utr) => {
+          if (!websiteUrl.endsWith(utr)) {
+            toast({
+                title: "Error",
+                description: "Wrong UTR. Please check the website URL and UTR.",
+                variant: "destructive",
+            });
+            return;
+          }
           setIsUpiConfirmationPopupOpen(false);
           if (selectedBeneficiary) {
             const amountStr = payoutAmounts[selectedBeneficiary.id] || "";
