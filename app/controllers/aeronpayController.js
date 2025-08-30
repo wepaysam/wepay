@@ -197,6 +197,7 @@ export const upiPayment = async (req) => {
 };
 export const checkStatus = async (req, res) => {
     const { unique_id, id } = await req.json();
+    console.log("AeronPay checkStatus request received:", { unique_id, id });
 
     try {
         const response = await fetch(`https://api.aeronpay.in/api/serviceapi-prod/api/reports/transactionStatus`, {
@@ -214,6 +215,7 @@ export const checkStatus = async (req, res) => {
 
         const text = await response.text();
         const data = JSON.parse(text);
+        console.log("AeronPay API response:", data);
 
         if (response.ok) {
              await prisma.transactions.update({
@@ -227,9 +229,11 @@ export const checkStatus = async (req, res) => {
             });
             return NextResponse.json(data, { status: 200 });
         } else {
+            console.error("AeronPay API error:", data);
             return NextResponse.json(data, { status: response.status });
         }
     } catch (error) {
+        console.error("Error in AeronPay checkStatus:", error);
         return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
     }
 };
