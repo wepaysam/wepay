@@ -3,6 +3,7 @@ import { verifiedUserMiddleware } from '../../middleware/authMiddleware';
 import prisma from '../../lib/prisma';
 import crypto from 'crypto';
 import { Decimal } from '@prisma/client/runtime/library'; // Import Decimal for calculations
+import { ref } from 'firebase/storage';
 
 export async function POST(request) {
   const requestId = crypto.randomUUID();
@@ -97,7 +98,7 @@ export async function POST(request) {
         console.error(`[${requestId}] Network or fetch error calling Aeronpay API:`, apiError);
         // Record a FAILED transaction on network error
         await prisma.transactions.create({
-            data: { senderId: userId, beneficiaryId, amount, chargesAmount: transactionCharge, transactionType: 'IMPS', transactionStatus: 'FAILED', websiteUrl, transactionId }
+            data: { senderId: userId, beneficiaryId, amount, chargesAmount: transactionCharge, transactionType: 'IMPS', transactionStatus: 'FAILED', websiteUrl, transactionId ,referenceNo: payoutResult?.data?.client_referenceId },
         });
         return NextResponse.json({ message: 'Failed to connect to the payment provider.' }, { status: 503 });
     }
