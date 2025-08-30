@@ -205,7 +205,7 @@ export const getBalances = async () => {
 
     const fetchBalance = async () => {
         try {
-            const response = await fetch(`${process.env.SEVAPAY_API_URL}/apiclient/mini-i/balance-check`, {
+            const response = await fetch(`https://api.ketlacollect.com/v1/pg/balance`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
