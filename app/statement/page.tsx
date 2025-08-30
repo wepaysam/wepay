@@ -240,7 +240,7 @@ const StatementPage = () => {
       let url = '/api/sevapay/status';
       if (transaction.gateway === 'DMT') {
         url = '/api/dmt/status';
-      } else if (transaction.gateway === 'AERONPAY') {
+      } else if (transaction.gateway === 'AeronPay') {
         url = '/api/aeronpay/check-status';
       }
 
