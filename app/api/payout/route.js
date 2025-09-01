@@ -140,7 +140,6 @@ export async function POST(request) {
               referenceNo: requestId,
               transaction_no: payoutResult.data?.transactionId,
               transactionId: transactionId,
-              transactionId: utr,
               gateway: 'Aeronpay'
               // Keep other fields from your model if they exist
             },
