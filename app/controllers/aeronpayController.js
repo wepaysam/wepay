@@ -6,7 +6,8 @@ import { Decimal } from '@prisma/client/runtime/library'; // Import Decimal for 
 import { se } from 'date-fns/locale';
 
 export const upiPayment = async (req) => {
-  const requestId = crypto.randomUUID();
+//   const requestId = crypto.randomUUID();
+    const requestId = Date.now().toString() + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
 //   console.log(`[${requestId}] AeronPay UPI payout request received.`);
 
   try {
