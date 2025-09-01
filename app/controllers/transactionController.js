@@ -142,6 +142,8 @@ export async function getUserTransactions(userId, searchTerm, transactionBasis) 
         transactionTime: true,
         transactionStatus: true,
         beneficiary: true,
+        upiBeneficiary: true,
+        dmtBeneficiary: true,
         referenceNo: true,
         utr: true,
         transaction_no: true,

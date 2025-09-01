@@ -88,8 +88,10 @@ const StatementPage = () => {
   const [isCheckingAllStatuses, setIsCheckingAllStatuses] = useState(false);
   const [withWatermark, setWithWatermark] = useState<boolean>(false);
   const [watermarkBase64, setWatermarkBase64] = useState<string | null>(null);
+  const [isTableLoading, setIsTableLoading] = useState(false);
 
   const fetchAllData = useCallback(async () => {
+    setIsTableLoading(true);
     try {
       const [transactionsResponse, balanceRequestsResponse] = await Promise.all([
         fetch(`/api/transactions?searchTerm=${searchTerm}&transactionBasis=${transactionBasis}`),
@@ -111,7 +113,7 @@ const StatementPage = () => {
           return {
             id: txn.id,
             date: txn.transactionTime,
-            description: txn.beneficiary ? txn.beneficiary.accountHolderName : 'N/A',
+            description: txn.beneficiary ? txn.beneficiary.accountHolderName : (txn.upiBeneficiary ? txn.upiBeneficiary.accountHolderName : (txn.dmtBeneficiary ? txn.dmtBeneficiary.accountHolderName : 'N/A')),
             amount: parseFloat(txn.amount),
             type: type,
             status: txn.transactionStatus,
@@ -123,7 +125,15 @@ const StatementPage = () => {
               accountHolderName: txn.beneficiary.accountHolderName,
               accountNumber: txn.beneficiary.accountNumber,
               ifscCode: txn.beneficiary.ifscCode,
-            } : undefined,
+            } : (txn.upiBeneficiary ? {
+              accountHolderName: txn.upiBeneficiary.accountHolderName,
+              accountNumber: txn.upiBeneficiary.upiId,
+              ifscCode: 'N/A',
+            } : (txn.dmtBeneficiary ? {
+              accountHolderName: txn.dmtBeneficiary.accountHolderName,
+              accountNumber: txn.dmtBeneficiary.accountNumber,
+              ifscCode: txn.dmtBeneficiary.ifscCode,
+            } : undefined)),
             gateway: txn.gateway,
             transactionBasis: txn.transactionType,
           };
@@ -162,9 +172,9 @@ const StatementPage = () => {
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
-      setLoading(false);
+      setIsTableLoading(false);
     }
-  }, [setTransactions, setLoading, searchTerm, transactionBasis]);
+  }, [setTransactions, searchTerm, transactionBasis]);
 
   useEffect(() => {
     const fetchWatermark = async () => {
@@ -177,7 +187,7 @@ const StatementPage = () => {
     };
     fetchWatermark();
 
-    fetchAllData();
+    fetchAllData().then(() => setLoading(false));
   }, [fetchAllData]);
 
   const filteredTransactions = useMemo(() => {
@@ -458,7 +468,6 @@ const StatementPage = () => {
 
                 {/* Transactions List */}
                 <div className="overflow-x-auto rounded-lg border border-border">
-                    {filteredTransactions.length > 0 ? (
                     <table className="min-w-full divide-y divide-border">
                         <thead className="bg-muted/50">
                         <tr>
@@ -474,7 +483,17 @@ const StatementPage = () => {
                         </tr>
                         </thead>
                         <tbody className="bg-card divide-y divide-border">
-                        {filteredTransactions.map((txn) => (
+                        {isTableLoading ? (
+                          <tr>
+                            <td colSpan={9} className="text-center py-10">
+                              <div className="flex justify-center items-center">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                <p className="ml-4 text-muted-foreground">Loading transactions...</p>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : filteredTransactions.length > 0 ? (
+                          filteredTransactions.map((txn) => (
                             <tr key={txn.id} className="hover:bg-muted/30 transition-colors">
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
                                 {new Date(txn.date).toLocaleDateString()}
@@ -514,20 +533,22 @@ const StatementPage = () => {
                                 )}
                             </td>
                             </tr>
-                        ))}
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={9} className="text-center py-10">
+                              <Info className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
+                              <p className="text-muted-foreground">No transactions found for the selected criteria.</p>
+                            </td>
+                          </tr>
+                        )}
                         </tbody>
                     </table>
-                    ) : (
-                    <div className="text-center py-10">
-                        <Info className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
-                        <p className="text-muted-foreground">No transactions found for the selected criteria.</p>
-                    </div>
-                    )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-4 text-center">
                     Showing {filteredTransactions.length} of {transactions.length} transactions.
                 </p>
-                </motion.div>
+            </motion.div>
             )}
         </div>
     </DashboardLayout>
