@@ -6,7 +6,8 @@ import { Decimal } from '@prisma/client/runtime/library'; // Import Decimal for 
 import { ref } from 'firebase/storage';
 
 export async function POST(request) {
-  const requestId = crypto.randomUUID();
+  // const requestId = crypto.randomUUID();
+  const requestId = Date.now().toString() + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
   console.log(`[${requestId}] Payout request received.`);
 
   try {
@@ -136,7 +137,10 @@ export async function POST(request) {
               transactionStatus: payoutResult.status === 'SUCCESS' ? 'COMPLETED' : 'PENDING',
               senderAccount: user.email, // Or another identifier
               websiteUrl: websiteUrl,
+              referenceNo: requestId,
+              transaction_no: payoutResult.data?.transactionId,
               transactionId: transactionId,
+              transactionId: utr,
               gateway: 'Aeronpay'
               // Keep other fields from your model if they exist
             },

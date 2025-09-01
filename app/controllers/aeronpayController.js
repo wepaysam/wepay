@@ -225,8 +225,8 @@ export const checkStatus = async (req, res) => {
                     id: id
                 },
                 data: {
-                    transactionStatus: data.data.status === 'SUCCESS' ? 'COMPLETED' : data.data.status === 'PENDING' ? 'PENDING' : 'FAILED',
-                    utr: data.data.third_party_no || data.data.transaction_no,
+                    transactionStatus: data.status === 'SUCCESS' ? 'COMPLETED' : data.status === 'PENDING' ? 'PENDING' : 'FAILED',
+                    utr: data.utr 
                 }
             });
             return NextResponse.json(data, { status: 200 });
