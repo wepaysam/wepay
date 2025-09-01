@@ -152,6 +152,7 @@ const Dashboard = () => {
         }
       });
       const data = await response.json();
+      console.log("DMT Balance Response:", data);
       if (response.ok && data && data.data) {
         setState(prevState => ({ 
           ...prevState,
