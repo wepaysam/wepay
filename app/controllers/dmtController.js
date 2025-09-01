@@ -226,7 +226,7 @@ export const getBalances = async () => {
             const data = await response.json();
             console.log("Balance response:", data);
 
-            if (response.ok && data.code === 200) {
+            if (response.ok ) {
                 return data;
             } else {
                 console.error(`Failed to fetch balance`, data);
