@@ -113,8 +113,8 @@ export const upiPayment = async (req) => {
             transactionType: 'UPI',
             transactionStatus: transactionStatus, // Set to PENDING or SUCCESS based on payoutResult.status
             senderAccount: beneficiary.upiId,
-            transaction_no: utr,
-            referenceNo: payoutResult.data?.transactionId,
+            transaction_no: payoutResult.data?.transactionId,
+            referenceNo: requestId,
             websiteUrl: websiteUrl,
             transactionId: utr, // Use AeronPay // Use payoutResult.data.utr or transactionId
             gateway: 'AeronPay',
