@@ -199,6 +199,11 @@ export const checkStatus = async (req, res) => {
     console.log("AeronPay checkStatus request received:", { unique_id, id });
 
     try {
+        const payload = {
+            client_referenceId: unique_id,
+            mobile:"9001770984"
+        };
+        console.log('payload',payload)
         const response = await fetch(`https://api.aeronpay.in/api/serviceapi-prod/api/reports/transactionStatus`, {
             method: 'POST',
             headers: {
@@ -206,10 +211,7 @@ export const checkStatus = async (req, res) => {
                 'client-id': process.env.AERONPAY_CLIENT_ID ,
                 'client-secret': process.env.AERONPAY_CLIENT_SECRET ,
             },
-            body: JSON.stringify({
-                client_referenceId: unique_id,
-                mobile:"9001770984"
-            })
+            body: JSON.stringify(payload)
         });
 
         const text = await response.text();
