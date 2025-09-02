@@ -274,6 +274,23 @@ export const AeronpayBalance = async (req, res) => {
 export const AeronpayUPIVerification = async (req, res) => {
     const { vpa} = await req.json();
     console.log("AeronpayUPIVerification request received:", { vpa });
+
+    // Mocked response for testing
+    const mockResponse = {
+        status: "success",
+        statusCode: "101",
+        partner_id: "ARNPY84XXXXXXX",
+        name: "Mock User",
+        description: "VPA verification successful (simulated)",
+        accountExists: "YES",
+        clientData: {
+            client_id: "942wq52xdx82"
+        }
+    };
+
+    return NextResponse.json(mockResponse, { status: 200 });
+
+    /*
     try {
         const response = await fetch(`https://api.aeronpay.in/api/serviceapi-prod/api/verification/upiverify`, {
             method: 'POST',
@@ -284,9 +301,8 @@ export const AeronpayUPIVerification = async (req, res) => {
             },
             body: JSON.stringify({
                 vpa,
-                consent:'Y',
                 clientData:{
-                    client_id: Date.now().toString(),
+                    client_referenceId: Date.now().toString(),
                 }
             })
         });
@@ -294,18 +310,6 @@ export const AeronpayUPIVerification = async (req, res) => {
         const text = await response.text();
         const data = JSON.parse(text);
         console.log("AeronpayUPIVerification response:", data);
-
-        //     resonpse from aeronpay  {
-            //   "status": "success",
-            //   "statusCode": "101",
-            //   "partner_id": "ARNPY84XXXXXXX",
-            //   "name": "Abhijeet",
-            //   "description": "VPA verification successful",
-            //   "accountExists": "YES",
-            //   "clientData": {
-            //     "client_id": "942wq52xdx82"
-            //   }
-            //}
 
         if (response.ok) {
             return NextResponse.json(data, { status: 200 });
@@ -317,6 +321,7 @@ export const AeronpayUPIVerification = async (req, res) => {
         console.error("Error in AeronpayUPIVerification:", error);
         return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
     }
+    */
 };
 
 export const AeronpayGSTVerification = async (req, res) => {

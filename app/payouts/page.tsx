@@ -482,10 +482,10 @@ const ServicesPage = () => {
       console.log("UPI Verification response:", result);
       if (response.ok && result.status === 'success') {
         setIsUpiVerifiedSim(true);
-        setNewUpiBeneficiaryData((prev) => ({
-          ...prev,
-          accountHolderName: result.name,
-        }));
+        // setNewUpiBeneficiaryData((prev) => ({
+        //   ...prev,
+        //   accountHolderName: result.name,
+        // }));
         toast({
           title: "UPI Verification Successful",
           description: `Name: ${result.name}`,
