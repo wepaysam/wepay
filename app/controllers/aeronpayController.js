@@ -286,7 +286,7 @@ export const AeronpayUPIVerification = async (req, res) => {
                 vpa,
                 consent:'Y',
                 clientData:{
-                    client_referenceId: process.env.AERONPAY_CLIENT_ID,
+                    client_id: Date.now().toString(),
                 }
             })
         });
