@@ -13,6 +13,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { formatDate } from '../../lib/utils';
 
+import { Input } from '../../components/ui/input';
+
 // Add proper type for transactions
 interface Transaction {
   id: string;
@@ -30,12 +32,26 @@ interface Transaction {
   };
 }
 
+const getBeneficiaryName = (transaction) => {
+  if (transaction.beneficiary) {
+    return transaction.beneficiary.accountHolderName;
+  }
+  if (transaction.upiBeneficiary) {
+    return transaction.upiBeneficiary.accountHolderName;
+  }
+  if (transaction.dmtBeneficiary) {
+    return transaction.dmtBeneficiary.accountHolderName;
+  }
+  return 'N/A';
+};
+
 export default function TransactionsPage() {
   const router = useRouter();
   const { toast } = useToast();
   // Initialize as empty array
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchTransactions();
@@ -64,7 +80,7 @@ export default function TransactionsPage() {
       const data = await response.json();
       console.log("Transactions:", data);
       // Ensure data is an array before setting
-      setTransactions(Array.isArray(data) ? data : []);
+      setTransactions(Array.isArray(data.transactions) ? data.transactions : []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching transactions:', error);
@@ -73,52 +89,79 @@ export default function TransactionsPage() {
     }
   };
 
-  if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-        {/* <p className="ml-3 text-gray-700 dark:text-gray-300">Loading...</p> */}
-      </div>;
-  }
+  const filteredTransactions = transactions.filter((transaction) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      transaction.id.toLowerCase().includes(query) ||
+      transaction.sender.phoneNumber.toLowerCase().includes(query) ||
+      transaction.sender.email.toLowerCase().includes(query)
+    );
+  });
 
   return (
     <div className="container mx-auto py-6">
       <Card>
         <CardHeader>
           <CardTitle>Transactions</CardTitle>
+          <Input
+            placeholder="Search by ID, phone, or email"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="max-w-sm"
+          />
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Transaction ID</TableHead>
-                <TableHead>User</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {transactions.length === 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center">
-                    No transactions found
-                  </TableCell>
+                  <TableHead>Transaction ID</TableHead>
+                  <TableHead>User</TableHead>
+                  <TableHead>Beneficiary</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Date</TableHead>
                 </TableRow>
-              ) : (
-                transactions.map((transaction: Transaction) => (
-                  <TableRow key={transaction.id}>
-                    <TableCell>{transaction.id}</TableCell>
-                    <TableCell>{transaction.sender?.phoneNumber}</TableCell>
-                    <TableCell>₹{transaction.amount}</TableCell>
-                    <TableCell>{transaction.transactionType}</TableCell>
-                    <TableCell>{transaction.transactionStatus}</TableCell>
-                    <TableCell>{formatDate(transaction.createdAt)}</TableCell>
+              </TableHeader>
+              <TableBody>
+                {filteredTransactions.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center">
+                      No transactions found
+                    </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  filteredTransactions.map((transaction: Transaction) => (
+                    <TableRow key={transaction.id}>
+                      <TableCell>{transaction.id}</TableCell>
+                      <TableCell>{transaction.sender?.phoneNumber}</TableCell>
+                      <TableCell>{getBeneficiaryName(transaction)}</TableCell>
+                      <TableCell>₹{transaction.amount}</TableCell>
+                      <TableCell>{transaction.transactionType}</TableCell>
+                      <TableCell>
+                        <span
+                          className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                            transaction.transactionStatus === 'COMPLETED'
+                              ? 'bg-green-100 text-green-800'
+                              : transaction.transactionStatus === 'PENDING'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                          {transaction.transactionStatus}
+                        </span>
+                      </TableCell>
+                      <TableCell>{formatDate(transaction.createdAt)}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

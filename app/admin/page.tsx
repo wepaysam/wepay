@@ -16,6 +16,19 @@ interface DashboardStat {
   href: string;
 }
 
+const getBeneficiaryName = (transaction) => {
+  if (transaction.beneficiary) {
+    return transaction.beneficiary.accountHolderName;
+  }
+  if (transaction.upiBeneficiary) {
+    return transaction.upiBeneficiary.accountHolderName;
+  }
+  if (transaction.dmtBeneficiary) {
+    return transaction.dmtBeneficiary.accountHolderName;
+  }
+  return 'N/A';
+};
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStat[]>([
     { title: "Unverified Users", value: 0, icon: <Users className="h-8 w-8" />, href: "/admin/unverified-users" },
@@ -24,6 +37,7 @@ export default function AdminDashboard() {
   ]);
 
   const [isLoading, setIsLoading] = useState(true);
+  const [recentTransactions, setRecentTransactions] = useState([]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -72,7 +86,33 @@ export default function AdminDashboard() {
       }
     };
 
+    const fetchRecentTransactions = async () => {
+      try {
+        const token = document.cookie.replace(/(?:(?:^|.*;\s*)token\s*\=\s*([^;]*).*$)|^.*$/, "$1");
+        if (!token) {
+          console.error("No auth token found");
+          return;
+        }
+
+        const response = await fetch('/api/admin/transactions?limit=10&days=2', {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data.transactions)) {
+            setRecentTransactions(data.transactions);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching recent transactions:", error);
+      }
+    };
+
     fetchDashboardData();
+    fetchRecentTransactions();
   }, []);
 
   return (
@@ -130,7 +170,7 @@ export default function AdminDashboard() {
           <CardHeader>
             <CardTitle>Recent Transactions</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent style={{ maxHeight: '300px', overflowY: 'auto' }}>
             {isLoading ? (
               <div className="space-y-2">
                 {[...Array(3)].map((_, i) => (
@@ -138,9 +178,34 @@ export default function AdminDashboard() {
                 ))}
               </div>
             ) : (
-              <div className="flex items-center justify-center min-h-screen">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-                {/* <p className="ml-3 text-gray-700 dark:text-gray-300">Loading...</p> */}
+              <div>
+                {recentTransactions.length > 0 ? (
+                  recentTransactions.map((transaction) => (
+                    <div key={transaction.id} className="flex items-center justify-between py-2 border-b">
+                      <div>
+                        <p className="font-medium">{transaction.transactionType} - {getBeneficiaryName(transaction)}</p>
+                        <p className="text-sm text-muted-foreground">{new Date(transaction.createdAt).toLocaleString()}</p>
+                      </div>
+                      <div className="flex items-center">
+                        <p className="font-medium mr-4">₹{transaction.amount}</p>
+                        <span
+                          className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                            transaction.transactionStatus === 'COMPLETED'
+                              ? 'bg-green-100 text-green-800'
+                              : transaction.transactionStatus === 'PENDING'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                          {transaction.transactionStatus}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-center py-8 text-muted-foreground">
+                    No recent transactions
+                  </p>
+                )}
               </div>
             )}
           </CardContent>
