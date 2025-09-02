@@ -459,32 +459,54 @@ const ServicesPage = () => {
     setIsUpiVerifiedSim(null); 
   };
 
-  const handleVerifyUpiSimulated = async () => { 
-    if (!newUpiBeneficiaryData.upiId.match(/^[\w.-]+@[\w.-]+$/)) { 
-      toast({ 
-        title: "Error", 
-        description: "Invalid UPI ID format.", 
-        variant: "destructive" 
-      }); 
-      setIsUpiVerifiedSim(false); 
-      return; 
-    } 
-    setFormLoading(true); 
-    await new Promise(resolve => setTimeout(resolve, 1000)); 
-    const success = Math.random() > 0.2; 
-    setIsUpiVerifiedSim(success); 
-    setFormLoading(false); 
-    toast({ 
-      title: success ? "UPI Verification Successful" : "UPI Verification Failed", 
-      description: success ? `Name: Mock User ${Math.floor(Math.random()*100)} (Simulated)` : "Could not verify UPI ID.", 
-      variant: success ? "default" : "destructive", 
-    }); 
-    if (success && !newUpiBeneficiaryData.accountHolderName) { 
-      setNewUpiBeneficiaryData(prev => ({
-        ...prev, 
-        accountHolderName: `Mock User ${Math.floor(Math.random()*100)}`
-      })); 
-    } 
+  const handleVerifyUpi = async () => {
+    if (!newUpiBeneficiaryData.upiId.match(/^[\w.-]+@[\w.-]+$/)) {
+      toast({
+        title: "Error",
+        description: "Invalid UPI ID format.",
+        variant: "destructive",
+      });
+      setIsUpiVerifiedSim(false);
+      return;
+    }
+    setFormLoading(true);
+    try {
+      const response = await fetch('/api/aeronpay/verify-upi', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ vpa: newUpiBeneficiaryData.upiId }),
+      });
+      const result = await response.json();
+      if (response.ok && result.status === 'success') {
+        setIsUpiVerifiedSim(true);
+        setNewUpiBeneficiaryData((prev) => ({
+          ...prev,
+          accountHolderName: result.name,
+        }));
+        toast({
+          title: "UPI Verification Successful",
+          description: `Name: ${result.name}`,
+        });
+      } else {
+        setIsUpiVerifiedSim(false);
+        toast({
+          title: "UPI Verification Failed",
+          description: result.description || "Could not verify UPI ID.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      setIsUpiVerifiedSim(false);
+      toast({
+        title: "Error",
+        description: "An error occurred during UPI verification.",
+        variant: "destructive",
+      });
+    } finally {
+      setFormLoading(false);
+    }
   };
 
   const handleAddUpiBeneficiary = async (e: React.FormEvent) => { 
@@ -1633,7 +1655,7 @@ const ServicesPage = () => {
                           <Button 
                             type="button" 
                             variant="secondary" 
-                            onClick={handleVerifyUpiSimulated} 
+                            onClick={handleVerifyUpi} 
                             disabled={formLoading || !newUpiBeneficiaryData.upiId || isUpiVerifiedSim === true}
                           >
                             {formLoading && isUpiVerifiedSim === null ? (

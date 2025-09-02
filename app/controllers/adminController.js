@@ -197,10 +197,23 @@ export async function rejectBalanceRequest(requestId) {
 /**
  * Get all transactions
  */
-export async function getAllTransactions() {
+export async function getAllTransactions({ days } = {}) {
   try {
+    let where = {};
+    if (days) {
+      const date = new Date();
+      date.setDate(date.getDate() - days);
+      where.createdAt = { gte: date };
+    }
+
     const transactions = await prisma.transactions.findMany({
-      include: {
+      where,
+      select: {
+        id: true,
+        amount: true,
+        transactionType: true,
+        createdAt: true,
+        transactionStatus: true,
         sender: {
           select: {
             phoneNumber: true,
@@ -209,7 +222,16 @@ export async function getAllTransactions() {
         },
         beneficiary: {
           select: {
-            accountNumber: true,
+            accountHolderName: true
+          }
+        },
+        upiBeneficiary: {
+          select: {
+            accountHolderName: true
+          }
+        },
+        dmtBeneficiary: {
+          select: {
             accountHolderName: true
           }
         }
