@@ -479,6 +479,7 @@ const ServicesPage = () => {
         body: JSON.stringify({ vpa: newUpiBeneficiaryData.upiId }),
       });
       const result = await response.json();
+      console.log("UPI Verification response:", result);
       if (response.ok && result.status === 'success') {
         setIsUpiVerifiedSim(true);
         setNewUpiBeneficiaryData((prev) => ({
