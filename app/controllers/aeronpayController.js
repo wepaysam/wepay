@@ -273,6 +273,7 @@ export const AeronpayBalance = async (req, res) => {
 
 export const AeronpayUPIVerification = async (req, res) => {
     const { vpa} = await req.json();
+    console.log("AeronpayUPIVerification request received:", { vpa });
     try {
         const response = await fetch(`https://api.aeronpay.in/api/serviceapi-prod/api/verification/upiverify`, {
             method: 'POST',
@@ -291,6 +292,7 @@ export const AeronpayUPIVerification = async (req, res) => {
 
         const text = await response.text();
         const data = JSON.parse(text);
+        console.log("AeronpayUPIVerification response:", data);
 
         //     resonpse from aeronpay  {
             //   "status": "success",
@@ -307,9 +309,11 @@ export const AeronpayUPIVerification = async (req, res) => {
         if (response.ok) {
             return NextResponse.json(data, { status: 200 });
         } else {
+            console.error("AeronpayUPIVerification error response:", data);
             return NextResponse.json(data, { status: response.status });
         }
     } catch (error) {
+        console.error("Error in AeronpayUPIVerification:", error);
         return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
     }
 };

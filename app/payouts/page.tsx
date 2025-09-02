@@ -1672,7 +1672,7 @@ const ServicesPage = () => {
 
                         {isUpiVerifiedSim === true && (
                           <p className="text-xs text-green-600 dark:text-green-400">
-                            UPI ID Verified. Name: {newUpiBeneficiaryData.accountHolderName || 'Fetched Name (Simulated)'}
+                            UPI ID Verified. Name: {newUpiBeneficiaryData.accountHolderName}
                           </p>
                         )}
                         {isUpiVerifiedSim === false && (
