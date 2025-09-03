@@ -10,6 +10,11 @@ export async function getDashboardStats() {
       where: { userType: 'UNVERIFIED' }
     });
 
+    // Get count of verified users
+    const verifiedUsersCount = await prisma.user.count({
+      where: { userType: 'VERIFIED' }
+    });
+
     // Get count of balance requests
     const balanceRequestsCount = await prisma.balanceRequest.count();
 
@@ -18,6 +23,7 @@ export async function getDashboardStats() {
 
     return {
       unverifiedUsers: unverifiedUsersCount,
+      verifiedUsers: verifiedUsersCount,
       balanceRequests: balanceRequestsCount,
       transactions: transactionsCount
     };
@@ -222,17 +228,20 @@ export async function getAllTransactions({ days } = {}) {
         },
         beneficiary: {
           select: {
-            accountHolderName: true
+            accountHolderName: true,
+            accountNumber: true
           }
         },
         upiBeneficiary: {
           select: {
-            accountHolderName: true
+            accountHolderName: true,
+            upiId: true
           }
         },
         dmtBeneficiary: {
           select: {
-            accountHolderName: true
+            accountHolderName: true,
+            accountNumber: true
           }
         }
       },
@@ -305,3 +314,50 @@ export async function createTransactionCharge({ minAmount, maxAmount, charge }) 
     throw new Error(`Failed to create transaction charge: ${error.message}`);
   }
 };
+
+/**
+ * Get all verified users
+ */
+export async function getVerifiedUsers() {
+  try {
+    const users = await prisma.user.findMany({
+      where: {
+        userType: 'VERIFIED',
+      },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        phoneNumber: true,
+        balance: true,
+        _count: {
+          select: {
+            sentTransactions: true,
+          },
+        },
+      },
+    });
+
+    const usersWithTransactionValue = await Promise.all(
+      users.map(async (user) => {
+        const result = await prisma.transactions.aggregate({
+          _sum: {
+            amount: true,
+          },
+          where: {
+            senderId: user.id,
+          },
+        });
+        return {
+          ...user,
+          transactionCount: user._count.sentTransactions,
+          totalTransactionValue: result._sum.amount || 0,
+        };
+      })
+    );
+
+    return usersWithTransactionValue;
+  } catch (error) {
+    throw new Error(`Failed to get verified users: ${error.message}`);
+  }
+}

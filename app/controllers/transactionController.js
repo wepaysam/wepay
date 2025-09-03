@@ -209,11 +209,13 @@ export async function getAllTransactions() {
         sender: {
           select: {
             id: true,
-            username: true,
+            phoneNumber: true,
             email: true,
           },
         },
         beneficiary: true,
+        upiBeneficiary: true,
+        dmtBeneficiary: true,
       },
       orderBy: {
         transactionTime: 'desc',
