@@ -37,6 +37,7 @@
     "@radix-ui/react-toggle-group": "^1.1.2",
     "@radix-ui/react-tooltip": "^1.1.8",
     "@types/js-cookie": "^3.0.6",
+    "@types/recharts": "^1.8.29",
     "bcrypt": "^5.1.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -58,11 +59,12 @@
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.54.2",
     "react-resizable-panels": "^2.1.7",
-    "recharts": "^2.15.1",
+    "recharts": "^2.15.4",
     "tailwind-merge": "^3.0.2",
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^11.1.0",
     "vaul": "^1.1.2",
+    "xlsx": "^0.18.5",
     "zod": "^3.24.2"
   },
   "devDependencies": {
