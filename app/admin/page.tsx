@@ -32,6 +32,7 @@ const getBeneficiaryName = (transaction) => {
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStat[]>([
     { title: "Unverified Users", value: 0, icon: <Users className="h-8 w-8" />, href: "/admin/unverified-users" },
+    { title: "Verified Users", value: 0, icon: <Users className="h-8 w-8" />, href: "/admin/verified-users" },
     { title: "Balance Requests", value: 0, icon: <CreditCard className="h-8 w-8" />, href: "/admin/balance-requests" },
     { title: "Transactions", value: 0, icon: <FileText className="h-8 w-8" />, href: "/admin/transactions" }
   ]);
@@ -75,6 +76,7 @@ export default function AdminDashboard() {
           const data = await response.json();
           setStats([
             { title: "Unverified Users", value: data.unverifiedUsers, icon: <Users className="h-8 w-8" />, href: "/admin/unverified-users" },
+            { title: "Verified Users", value: data.verifiedUsers, icon: <Users className="h-8 w-8" />, href: "/admin/verified-users" },
             { title: "Balance Requests", value: data.balanceRequests, icon: <CreditCard className="h-8 w-8" />, href: "/admin/balance-requests" },
             { title: "Transactions", value: data.transactions, icon: <FileText className="h-8 w-8" />, href: "/admin/transactions" }
           ]);

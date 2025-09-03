@@ -44,6 +44,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ open, toggleSidebar }) => {
   const links = [
     { href: "/admin", icon: <Home />, label: "Dashboard" },
     { href: "/admin/unverified-users", icon: <Users />, label: "Unverified Users" },
+    { href: "/admin/verified-users", icon: <Users />, label: "Verified Users" },
     { href: "/admin/balance-requests", icon: <CreditCard />, label: "Balance Requests" },
     { href: "/admin/transactions", icon: <FileText />, label: "Transactions" },
     { href: "/admin/transaction-charges", icon: <Receipt />, label: "Transaction Charges" },
