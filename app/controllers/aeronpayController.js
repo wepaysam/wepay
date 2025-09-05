@@ -355,3 +355,96 @@ export const AeronpayGSTVerification = async (req, res) => {
         return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
     }
 };
+
+
+export const AeronpayMobileOperatorFetch = async (req, res) => {
+    const { mobile} = await req.json();
+    try {
+        const response = await fetch(`https://api.aeronpay.in/api/serviceapi-prod/api/verification/mobile_operator`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'client-id': process.env.AERONPAY_CLIENT_ID ,
+                'client-secret': process.env.AERONPAY_CLIENT_SECRET ,
+            },
+            body: JSON.stringify({
+                consent:"Y",
+                mobile,
+            })
+        });
+
+        const text = await response.text();
+        const data = JSON.parse(text);
+        // sample output
+        // {
+        //     "status": "success",
+        //     "status-code": "101",
+        //     "customer_mobile": "6633663399",
+        //     "operator_name": "Jio",
+        //     "operator_circle": "Rajasthan",
+        //     "postpaid_status": false,
+        //     "operator_status": "",
+        //     "mnp_status": null,
+        //     "partner_id": "ARNPY17385967753735",
+        //     "clientData": {
+        //     "client_id": "APAY1738596774RAVn6T3GDZ"
+        //     }
+        // }
+
+            
+
+        if (response.ok) {
+            return NextResponse.json(data, { status: 200 });
+        } else {
+            return NextResponse.json(data, { status: response.status });
+        }
+    } catch (error) {
+        return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
+    }
+};
+
+export const AeronpayMobilePlanFetch = async (req, res) => {
+    const { mobile} = await req.json();
+    try {
+        const response = await fetch(`https://api.aeronpay.in/api/serviceapi-prod/api/utility/recharge/plan_fetch/operator_code={operator_name}/circle_id={circle_id}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'client-id': process.env.AERONPAY_CLIENT_ID ,
+                'client-secret': process.env.AERONPAY_CLIENT_SECRET ,
+            },
+            body: JSON.stringify({
+                consent:"Y",
+                mobile,
+            })
+        });
+
+        const text = await response.text();
+        const data = JSON.parse(text);
+        // sample output
+        // {
+        //     "status": "success",
+        //     "status-code": "101",
+        //     "customer_mobile": "6633663399",
+        //     "operator_name": "Jio",
+        //     "operator_circle": "Rajasthan",
+        //     "postpaid_status": false,
+        //     "operator_status": "",
+        //     "mnp_status": null,
+        //     "partner_id": "ARNPY17385967753735",
+        //     "clientData": {
+        //     "client_id": "APAY1738596774RAVn6T3GDZ"
+        //     }
+        // }
+
+            
+
+        if (response.ok) {
+            return NextResponse.json(data, { status: 200 });
+        } else {
+            return NextResponse.json(data, { status: response.status });
+        }
+    } catch (error) {
+        return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
+    }
+};
