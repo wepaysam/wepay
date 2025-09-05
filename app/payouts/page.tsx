@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   Search, Plus, User, Hash, Building, CheckCircle, XCircle, Banknote, Trash2, Loader2,
   ArrowRightLeft, Zap, Wifi, Smartphone, CreditCard as CreditCardIcon, ListChecks, Send, AtSign,
-  ArrowLeft, Plane, Film
+  ArrowLeft, Plane, Film, Phone
 } from "lucide-react";
 import DashboardLayout from "../dashboard/layout";
 import { motion, AnimatePresence } from "framer-motion";
@@ -1011,6 +1011,112 @@ const ServicesPage = () => {
     }
   };
 
+  const RechargeForm = () => {
+    const [mobileNumber, setMobileNumber] = useState('');
+    const [operator, setOperator] = useState('');
+    const [circle, setCircle] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [operatorFetched, setOperatorFetched] = useState(false);
+
+    const handleFetchOperator = async (e) => {
+      e.preventDefault();
+      setLoading(true);
+      setOperatorFetched(false);
+      try {
+        const response = await fetch('/api/aeronpay/mobile-operator-fetch', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ mobile: mobileNumber }),
+        });
+        const result = await response.json();
+        if (response.ok && result.status === 'success') {
+          setOperator(result.operator_name);
+          setCircle(result.operator_circle);
+          setOperatorFetched(true);
+          toast({
+            title: "Operator Fetched",
+            description: `Operator: ${result.operator_name}, Circle: ${result.operator_circle}`,
+          });
+        } else {
+          throw new Error(result.message || 'Failed to fetch operator');
+        }
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    return (
+      <motion.div
+        key="recharge-content"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="max-w-2xl mx-auto bg-card p-6 sm:p-8 rounded-xl border border-border/40 shadow-sm"
+      >
+        <h3 className="text-lg font-semibold mb-6 text-foreground">Mobile Recharge</h3>
+        <form onSubmit={handleFetchOperator} className="space-y-5">
+          <div>
+            <label htmlFor="mobileNumber" className="block text-sm font-medium text-muted-foreground mb-1">
+              Mobile Number
+            </label>
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <input
+                type="text"
+                id="mobileNumber"
+                name="mobileNumber"
+                value={mobileNumber}
+                onChange={(e) => setMobileNumber(e.target.value)}
+                required
+                autoComplete="off"
+                className="pl-10 pr-4 py-2 w-full bg-background border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="Enter 10-digit mobile number"
+              />
+            </div>
+          </div>
+
+          {operatorFetched && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-1">
+                  Operator
+                </label>
+                <p className="text-lg font-semibold">{operator}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-1">
+                  Circle
+                </label>
+                <p className="text-lg font-semibold">{circle}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-3">
+            <Button type="submit" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                  Fetching...
+                </>
+              ) : (
+                'Fetch Operator'
+              )}
+            </Button>
+          </div>
+        </form>
+      </motion.div>
+    );
+  };
+
   return (
     <DashboardLayout>
       <UpiPaymentConfirmationPopup
@@ -1708,7 +1814,7 @@ const ServicesPage = () => {
                 </motion.div>
               )}
 
-              {selectedService === "Recharge" && renderPlaceholder("Mobile & DTH Recharge")}
+              {selectedService === "Recharge" && <RechargeForm />}
               {selectedService === "DMT" && (
                 <motion.div key="dmt-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
                   <div className="mb-4 p-4 bg-card border border-border/40 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
