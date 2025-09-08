@@ -112,7 +112,7 @@ export const dmtPayment = async (req) => {
                     transactionType: 'DMT',
                     transactionStatus: data.success ? 'COMPLETED' :  'PENDING' ,
                     referenceNo: unique_id,
-                    dmthash: generatedHash,
+                    dmthash: data.clientRefNo,
                     sender: {
                         connect: {
                             id: beneficiary.userId
@@ -157,6 +157,17 @@ export const dmtStatus = async (req, res) => {
     }
 
     try {
+        // Generate hash for status check request
+        const statusCheckParameters = {
+            paymentReferenceNo: unique_id
+        };
+        
+        const statusCheckHash = generateHash(merchantId, statusCheckParameters, 'sha512', secretKey);
+
+        if (!statusCheckHash) {
+            return NextResponse.json({ message: 'Failed to generate status check hash' }, { status: 500 });
+        }
+
         const response = await fetch(`https://api.ketlacollect.com/v1/pg/check-payout-transaction-status`, {
             method: 'POST',
             headers: {
@@ -166,7 +177,7 @@ export const dmtStatus = async (req, res) => {
             },
             body: JSON.stringify({
                 paymentReferenceNo: unique_id,
-                hash: transaction.dmthash
+                hash: statusCheckHash  // Use the newly generated hash
             })
         });
 
@@ -174,7 +185,7 @@ export const dmtStatus = async (req, res) => {
         const data = JSON.parse(text);
 
         if (response.ok) {
-            const transaction = await prisma.transactions.update({
+            const updatedTransaction = await prisma.transactions.update({
                 where: {
                     id: id
                 },
@@ -184,21 +195,6 @@ export const dmtStatus = async (req, res) => {
                 }
             });
 
-            // if (data.data.status === 'SUCCESS') {
-            //     const balanceUpdate = transaction.gateway === 'sevapay_weshubh'
-            //         ? { vishubhBalance: data.data.balance }
-            //         : { kotalBalance: data.data.balance };
-
-            //     await prisma.balance.upsert({
-            //         where: { id: "1" },
-            //         update: balanceUpdate,
-            //         create: {
-            //             id: "1",
-            //             vishubhBalance: transaction.gateway === 'sevapay_weshubh' ? data.data.balance : 0,
-            //             kotalBalance: transaction.gateway === 'sevapay_kelta' ? data.data.balance : 0,
-            //         }
-            //     });
-            // }
             return NextResponse.json(data, { status: 200 });
         } else {
             return NextResponse.json(data, { status: response.status });
@@ -207,7 +203,6 @@ export const dmtStatus = async (req, res) => {
         return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
     }
 };
-
 export const getBalances = async () => {
     const merchantId = process.env.KATLA_MERCHANT_ID; 
     const secretKey = process.env.KATLA_SECRET_KEY;
