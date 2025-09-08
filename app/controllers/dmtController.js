@@ -110,7 +110,7 @@ export const dmtPayment = async (req) => {
                         }
                     },
                     transactionType: 'DMT',
-                    transactionStatus: data.success ? 'COMPLETED' :  'PENDING' ,
+                    transactionStatus: 'PENDING' ,
                     referenceNo: unique_id,
                     dmthash: data.clientRefNo,
                     sender: {
@@ -190,7 +190,7 @@ export const dmtStatus = async (req, res) => {
                     id: id
                 },
                 data: {
-                    transactionStatus: data.data.status === 'SUCCESS' ? 'COMPLETED' : data.data.status === 'PENDING' ? 'PENDING' : 'FAILED',
+                    transactionStatus: data.data.updatedStatus === 'Success' ? 'COMPLETED' : data.data.updatedStatus === 'PENDING' ? 'PENDING' : 'FAILED',
                     utr: data.data.third_party_no || data.data.transaction_no,
                 }
             });
