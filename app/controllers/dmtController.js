@@ -187,6 +187,11 @@ export const dmtStatus = async (req, res) => {
         console.log("Katla status check response:", data);
         const status = data.data[0].updatedStatus?.toUpperCase();
 
+        if(data.data[0].updatedStatus === 'Accepted By Portal' || data.data[0].utrId === null){
+            return NextResponse.json({ message: 'Transaction is still pending' }, { status: 200 });
+        }
+
+
         if (response.ok) {
             const updatedTransaction = await prisma.transactions.update({
                 where: {
