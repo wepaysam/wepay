@@ -184,14 +184,17 @@ export const dmtStatus = async (req, res) => {
         const text = await response.text();
         const data = JSON.parse(text);
 
+        console.log("Katla status check response:", data);
+        const status = data.data[0].updatedStatus?.toUpperCase();
+
         if (response.ok) {
             const updatedTransaction = await prisma.transactions.update({
                 where: {
                     id: id
                 },
                 data: {
-                    transactionStatus: data.data.updatedStatus === 'Success' ? 'COMPLETED' : data.data.updatedStatus === 'PENDING' ? 'PENDING' : 'FAILED',
-                    utr: data.data.utrId ,
+                    transactionStatus: status === 'SUCCESS' ? 'COMPLETED' : status === 'PENDING' ? 'PENDING' : 'FAILED',
+                    utr: data.data[0].utrId ,
                 }
             });
 
