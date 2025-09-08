@@ -191,7 +191,7 @@ export const dmtStatus = async (req, res) => {
                 },
                 data: {
                     transactionStatus: data.data.updatedStatus === 'Success' ? 'COMPLETED' : data.data.updatedStatus === 'PENDING' ? 'PENDING' : 'FAILED',
-                    utr: data.data.third_party_no || data.data.transaction_no,
+                    utr: data.data.utrId ,
                 }
             });
 
