@@ -289,7 +289,7 @@ export const AeronpayUPIVerification = async (req, res) => {
     // };
 
     // return NextResponse.json(mockResponse, { status: 200 });
-
+    const requestId = Date.now().toString() + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
     
     try {
         const response = await fetch(`https://api.aeronpay.in/api/serviceapi-prod/api/verification/upiverify`, {
@@ -303,7 +303,7 @@ export const AeronpayUPIVerification = async (req, res) => {
                 consent:"Y",
                 vpa,
                 clientData:{
-                    client_referenceId: Date.now().toString(),
+                    client_referenceId: requestId,
                 }
             })
         });
