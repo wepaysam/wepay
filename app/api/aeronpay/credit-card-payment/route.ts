@@ -22,8 +22,7 @@ export async function POST(request: Request) {
         transactionType: 'CREDIT_CARD_PAYMENT',
         transactionStatus: 'COMPLETED',
         beneficiaryName: cardHolderName,
-        beneficiaryIdentifier: cardNumber,
-        userId: request.user.id,
+        beneficiaryIdentifier: cardNumber
       },
     });
 
