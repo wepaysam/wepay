@@ -220,6 +220,7 @@ const ServicesPage = () => {
         body: JSON.stringify({
           accountNumber: beneficiaryToVerify.accountNumber,
           ifsc: beneficiaryToVerify.ifscCode,
+          beneficiaryType: 'transactionType' in beneficiaryToVerify ? 'bank' : 'dmt',
         }),
       });
 
