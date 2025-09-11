@@ -28,7 +28,7 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Invalid request body.' }, { status: 400 });
     }
     
-    const { accountNumber, ifsc } = body;
+    const { accountNumber, ifsc, beneficiaryType } = body;
     const userId = request.user.id;
 
     console.log(`Verifying account for userId: ${userId}`);
@@ -81,9 +81,16 @@ export async function POST(request) {
         return NextResponse.json({ message: 'Account verification failed: Account name not found or invalid' }, { status: 400 });
       }
 
-      const beneficiary = await prisma.beneficiary.findFirst({
-        where: { accountNumber, userId },
-      });
+      let beneficiary;
+      if (beneficiaryType === 'dmt') {
+        beneficiary = await prisma.dmtBeneficiary.findFirst({
+          where: { accountNumber, userId },
+        });
+      } else {
+        beneficiary = await prisma.beneficiary.findFirst({
+          where: { accountNumber, userId },
+        });
+      }
 
       if (!beneficiary) {
         return NextResponse.json({ message: 'Beneficiary not found in your records.' }, { status: 404 });
@@ -94,10 +101,17 @@ export async function POST(request) {
         updateData.accountHolderName = verifiedName;
       }
 
-      await prisma.beneficiary.updateMany({
-        where: { accountNumber, userId },
-        data: updateData,
-      });
+      if (beneficiaryType === 'dmt') {
+        await prisma.dmtBeneficiary.updateMany({
+          where: { accountNumber, userId },
+          data: updateData,
+        });
+      } else {
+        await prisma.beneficiary.updateMany({
+          where: { accountNumber, userId },
+          data: updateData,
+        });
+      }
 
       return NextResponse.json({ message: 'Account verified successfully', accountName: verifiedName });
     } else {
