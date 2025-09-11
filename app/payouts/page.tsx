@@ -20,6 +20,7 @@ import PaymentGatewayPopup from "../components/PaymentGatewayPopup";
 import BankTransferBeneficiaryModal from "../components/BankTransferBeneficiaryModal";
 import DmtPaymentConfirmationPopup from "../components/DmtPaymentConfirmationPopup";
 import UpiPaymentConfirmationPopup from "../components/UpiPaymentConfirmationPopup";
+import CreditCardPaymentForm from "../components/CreditCardPaymentForm";
 
 // --- Interface Definitions (same as before) ---
 interface BankBeneficiary { 
@@ -141,11 +142,11 @@ const ServicesPage = () => {
   const [isUpiVerifiedSim, setIsUpiVerifiedSim] = useState<boolean | null>(null);
 
   const [isVerificationPopupOpen, setIsVerificationPopupOpen] = useState(false);
-  const [beneficiaryToVerify, setBeneficiaryToVerify] = useState<BankBeneficiary | null>(null);
+  const [beneficiaryToVerify, setBeneficiaryToVerify] = useState<BankBeneficiary | DmtBeneficiary | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [beneficiaryToDelete, setBeneficiaryToDelete] = useState<BankBeneficiary | UpiBeneficiary | DmtBeneficiary | null>(null);
 
-  const handleVerificationClick = (beneficiary: BankBeneficiary) => {
+  const handleVerificationClick = (beneficiary: BankBeneficiary | DmtBeneficiary) => {
     setBeneficiaryToVerify(beneficiary);
     setIsVerificationPopupOpen(true);
   };
@@ -230,6 +231,7 @@ const ServicesPage = () => {
           description: result.message,
         });
         fetchBankBeneficiaries(false);
+        fetchDmtBeneficiaries(false);
       } else {
         throw new Error(result.message || 'Failed to verify account');
       }
@@ -482,10 +484,10 @@ const ServicesPage = () => {
       console.log("UPI Verification response:", result);
       if (response.ok && result.status === 'success') {
         setIsUpiVerifiedSim(true);
-        // setNewUpiBeneficiaryData((prev) => ({
-        //   ...prev,
-        //   accountHolderName: result.name,
-        // }));
+        setNewUpiBeneficiaryData((prev) => ({
+          ...prev,
+          accountHolderName: result.name,
+        }));
         toast({
           title: "UPI Verification Successful",
           description: `Name: ${result.name}`,
@@ -1884,9 +1886,12 @@ const ServicesPage = () => {
                                 <CheckCircle className="h-3 w-3" /> Verified
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400">
+                              <button
+                                onClick={() => handleVerificationClick(row)}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-500/30"
+                              >
                                 <XCircle className="h-3 w-3" /> Not Verified
-                              </span>
+                              </button>
                             )
                           },
                           { 
@@ -1947,8 +1952,25 @@ const ServicesPage = () => {
                   </motion.div>
                 </motion.div>
               )}
+              {selectedService === "CreditCardPayment" && (
+                <motion.div
+                  key="credit-card-payment-content"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="max-w-2xl mx-auto bg-card p-6 sm:p-8 rounded-xl border border-border/40 shadow-sm"
+                >
+                  <h3 className="text-lg font-semibold mb-6 text-foreground">Credit Card Bill Payment</h3>
+                  <CreditCardPaymentForm
+                    onSuccess={() => {
+                      toast({ title: "Success", description: "Credit card payment successful." });
+                      setSelectedService(null);
+                    }}
+                    onCancel={() => setSelectedService(null)}
+                  />
+                </motion.div>
+              )}
               {selectedService === "BillPayments" && renderPlaceholder("Utility Bill Payments")}
-              {selectedService === "CreditCardPayment" && renderPlaceholder("Credit Card Bill Payment")}
               {selectedService === "Flights" && renderPlaceholder("Book Flights", "Flight booking feature is coming soon!")}
               {selectedService === "MovieTickets" && renderPlaceholder("Movie Tickets", "Movie ticket booking feature is coming soon!")}
               {selectedService === "Transactions" && (
@@ -2005,8 +2027,8 @@ const ServicesPage = () => {
                             }`}>
                               {row.transactionStatus}
                             </span>
-                          ) 
-                        },
+                          )
+                        }
                       ]} 
                     />
                   )}
