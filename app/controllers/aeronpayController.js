@@ -303,7 +303,7 @@ export const AeronpayUPIVerification = async (req, res) => {
                 consent:"Y",
                 vpa,
                 clientData:{
-                    client_referenceId: requestId,
+                    client_id: requestId,
                 }
             })
         });
