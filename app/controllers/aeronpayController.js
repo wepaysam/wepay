@@ -5,6 +5,15 @@ import crypto from 'crypto';
 import { Decimal } from '@prisma/client/runtime/library'; // Import Decimal for calculations
 import { se } from 'date-fns/locale';
 
+const cardTypes = {
+  CRDVSA: "Visa Card",
+  CRDMST: "Master Card",
+  CRDRUPAY: "Rupay Card",
+  CRDAMX: "American Express",
+  CRDDC: "Diners Club Card"
+};
+
+
 export const upiPayment = async (req) => {
 //   const requestId = crypto.randomUUID();
     const requestId = Date.now().toString() + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
@@ -470,22 +479,11 @@ export const AeronpaycreditcardVerification = async (req, res) => {
 
         const text = await response.text();
         const data = JSON.parse(text);
-        // sample output
-        // {
-        //     "status": "SUCCESS",
-        //     "statusCode": "200",
-        //     "message": "Card Fetch Successful",
-        //     "last4Digit": "4326",
-        //     "cardNetwork": "MasterCard",
-        //     "cardType": "credit",
-        //     "bankName": "INDUSIND BANK LIMITED",
-        //     "cardCategory": "consumer",
-        //     "acknowledged": "1"
-        //     }
-
-            
 
         if (response.ok) {
+            if (data.cardType !== 'credit') {
+                return NextResponse.json({ message: 'Please use a credit card.' }, { status: 400 });
+            }
             return NextResponse.json(data, { status: 200 });
         } else {
             return NextResponse.json(data, { status: response.status });
@@ -496,7 +494,7 @@ export const AeronpaycreditcardVerification = async (req, res) => {
 };
 
 export const AeronpayCreditPayment = async (req, res) => {
-    const { mobile} = await req.json();
+    const { mobile,cardNumber,name,email,amount,cardNetwork} = await req.json();
     try {
         const response = await fetch(`https://api.aeronpay.in/api/serviceapi-prod/api/utility/ccpayment/creditcard`, {
             method: 'POST',
@@ -508,6 +506,11 @@ export const AeronpayCreditPayment = async (req, res) => {
             body: JSON.stringify({
                 consent:"Y",
                 mobile,
+                cardNumber,
+                name,
+                email,
+                amount,
+                cardNetwork
             })
         });
 
