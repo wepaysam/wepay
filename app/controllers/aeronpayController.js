@@ -369,6 +369,9 @@ export const AeronpayGSTVerification = async (req, res) => {
 
 export const AeronpayMobileOperatorFetch = async (req, res) => {
     const { mobile} = await req.json();
+
+    const requestId = Date.now().toString() + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
+
     try {
         const response = await fetch(`https://api.aeronpay.in/api/serviceapi-prod/api/verification/mobile_operator`, {
             method: 'POST',
@@ -380,6 +383,9 @@ export const AeronpayMobileOperatorFetch = async (req, res) => {
             body: JSON.stringify({
                 consent:"Y",
                 mobile,
+                clientData:{
+                    client_id: requestId,
+                }
             })
         });
 
