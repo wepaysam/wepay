@@ -479,6 +479,7 @@ export const AeronpaycreditcardVerification = async (req, res) => {
 
         const text = await response.text();
         const data = JSON.parse(text);
+        console.log("AeronpaycreditcardVerification response:", data);
 
         if (response.ok) {
             if (data.cardType !== 'credit') {
@@ -516,6 +517,7 @@ export const AeronpayCreditPayment = async (req, res) => {
 
         const text = await response.text();
         const data = JSON.parse(text);
+        console.log("AeronpayCreditPayment response:", data);
                 // sample output
                 // {
                 //     "status": "SUCCESS",
