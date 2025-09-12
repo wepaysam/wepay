@@ -14,15 +14,18 @@ interface CreditCardPaymentFormProps {
 const CreditCardPaymentForm: React.FC<CreditCardPaymentFormProps> = ({ onSuccess, onCancel }) => {
   const [cardNumber, setCardNumber] = useState('');
   const [cardHolderName, setCardHolderName] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [email, setEmail] = useState('');
   const [amount, setAmount] = useState('');
+  const [cardNetwork, setCardNetwork] = useState('');
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const { toast } = useToast();
 
   const handleVerify = async () => {
-    if (!cardNumber) {
-      toast({ title: 'Error', description: 'Please enter a card number.', variant: 'destructive' });
+    if (!cardNumber || !cardHolderName || !mobile) {
+      toast({ title: 'Error', description: 'Please enter card number, card holder name, and mobile number.', variant: 'destructive' });
       return;
     }
     setVerifying(true);
@@ -30,12 +33,12 @@ const CreditCardPaymentForm: React.FC<CreditCardPaymentFormProps> = ({ onSuccess
       const response = await fetch('/api/aeronpay/verify-credit-card', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cardNumber }),
+        body: JSON.stringify({ cardNumber, name: cardHolderName, mobile }),
       });
       const result = await response.json();
-      if (response.ok && result.status === 'success') {
-        setCardHolderName(result.name);
+      if (response.ok && result.status === 'SUCCESS') {
         setIsVerified(true);
+        setCardNetwork(result.cardNetwork);
         toast({ title: 'Success', description: 'Credit card verified successfully.' });
       } else {
         setIsVerified(false);
@@ -60,7 +63,7 @@ const CreditCardPaymentForm: React.FC<CreditCardPaymentFormProps> = ({ onSuccess
       const response = await fetch('/api/aeronpay/credit-card-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cardNumber, cardHolderName, amount: parseFloat(amount) }),
+        body: JSON.stringify({ cardNumber, name: cardHolderName, mobile, email, amount: parseFloat(amount), cardNetwork }),
       });
       const result = await response.json();
       if (response.ok && result.status === 'success') {
@@ -80,26 +83,15 @@ const CreditCardPaymentForm: React.FC<CreditCardPaymentFormProps> = ({ onSuccess
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label htmlFor="cardNumber" className="block text-sm font-medium text-muted-foreground mb-1">Credit Card Number</label>
-        <div className="flex items-center gap-2">
-          <Input
-            id="cardNumber"
-            type="text"
-            value={cardNumber}
-            onChange={(e) => setCardNumber(e.target.value)}
-            placeholder="Enter Credit Card Number"
-            required
-          />
-          <Button type="button" onClick={handleVerify} disabled={verifying || !cardNumber}>
-            {verifying ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Verify'}
-          </Button>
-        </div>
+        <Input
+          id="cardNumber"
+          type="text"
+          value={cardNumber}
+          onChange={(e) => setCardNumber(e.target.value)}
+          placeholder="Enter Credit Card Number"
+          required
+        />
       </div>
-      {isVerified === true && (
-        <p className="text-xs text-green-600 dark:text-green-400">Credit card verified. Name: {cardHolderName}</p>
-      )}
-      {isVerified === false && (
-        <p className="text-xs text-red-600 dark:text-red-400">Credit card verification failed. Please check the number and try again.</p>
-      )}
       <div>
         <label htmlFor="cardHolderName" className="block text-sm font-medium text-muted-foreground mb-1">Card Holder Name</label>
         <Input
@@ -109,7 +101,37 @@ const CreditCardPaymentForm: React.FC<CreditCardPaymentFormProps> = ({ onSuccess
           onChange={(e) => setCardHolderName(e.target.value)}
           placeholder="Card Holder Name"
           required
-          disabled
+        />
+      </div>
+      <div>
+        <label htmlFor="mobile" className="block text-sm font-medium text-muted-foreground mb-1">Mobile Number</label>
+        <Input
+          id="mobile"
+          type="text"
+          value={mobile}
+          onChange={(e) => setMobile(e.target.value)}
+          placeholder="Enter Mobile Number"
+          required
+        />
+      </div>
+      <Button type="button" onClick={handleVerify} disabled={verifying || !cardNumber || !cardHolderName || !mobile}>
+        {verifying ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Verify'}
+      </Button>
+      {isVerified === true && (
+        <p className="text-xs text-green-600 dark:text-green-400">Credit card verified.</p>
+      )}
+      {isVerified === false && (
+        <p className="text-xs text-red-600 dark:text-red-400">Credit card verification failed. Please check the details and try again.</p>
+      )}
+      <div>
+        <label htmlFor="email" className="block text-sm font-medium text-muted-foreground mb-1">Email</label>
+        <Input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Enter Email"
+          required
         />
       </div>
       <div>
