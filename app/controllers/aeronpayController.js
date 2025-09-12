@@ -385,6 +385,7 @@ export const AeronpayMobileOperatorFetch = async (req, res) => {
 
         const text = await response.text();
         const data = JSON.parse(text);
+        console.log("AeronpayMobileOperatorFetch response:", data);
         // sample output
         // {
         //     "status": "success",
@@ -431,6 +432,7 @@ export const AeronpayMobilePlanFetch = async (req, res) => {
 
         const text = await response.text();
         const data = JSON.parse(text);
+        console.log("AeronpayMobilePlanFetch response:", data);
         // sample output
         // {
         //     "status": "success",
