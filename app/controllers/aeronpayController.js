@@ -471,7 +471,7 @@ export const AeronpaycreditcardVerification = async (req, res) => {
             },
             body: JSON.stringify({
                 consent:"Y",
-                mobile,
+                phone:mobile,
                 cardNumber,
                 name,
             })
