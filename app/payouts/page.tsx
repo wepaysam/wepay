@@ -140,6 +140,7 @@ const ServicesPage = () => {
     accountHolderName: "" 
   });
   const [isUpiVerifiedSim, setIsUpiVerifiedSim] = useState<boolean | null>(null);
+  const [isNameCheckLoading, setIsNameCheckLoading] = useState(false);
 
   const [isVerificationPopupOpen, setIsVerificationPopupOpen] = useState(false);
   const [beneficiaryToVerify, setBeneficiaryToVerify] = useState<BankBeneficiary | DmtBeneficiary | null>(null);
@@ -462,17 +463,16 @@ const ServicesPage = () => {
     setIsUpiVerifiedSim(null); 
   };
 
-  const handleVerifyUpi = async () => {
+  const handleCheckName = async () => {
     if (!newUpiBeneficiaryData.upiId.match(/^[\w.-]+@[\w.-]+$/)) {
       toast({
         title: "Error",
         description: "Invalid UPI ID format.",
         variant: "destructive",
       });
-      setIsUpiVerifiedSim(false);
       return;
     }
-    setFormLoading(true);
+    setIsNameCheckLoading(true);
     try {
       const response = await fetch('/api/aeronpay/verify-upi', {
         method: 'POST',
@@ -484,7 +484,6 @@ const ServicesPage = () => {
       const result = await response.json();
       console.log("UPI Verification response:", result);
       if (response.ok && result.status === 'success') {
-        setIsUpiVerifiedSim(true);
         setNewUpiBeneficiaryData((prev) => ({
           ...prev,
           accountHolderName: result.name,
@@ -494,7 +493,6 @@ const ServicesPage = () => {
           description: `Name: ${result.name}`,
         });
       } else {
-        setIsUpiVerifiedSim(false);
         toast({
           title: "UPI Verification Failed",
           description: result.description || "Could not verify UPI ID.",
@@ -502,15 +500,27 @@ const ServicesPage = () => {
         });
       }
     } catch (error) {
-      setIsUpiVerifiedSim(false);
       toast({
         title: "Error",
         description: "An error occurred during UPI verification.",
         variant: "destructive",
       });
     } finally {
-      setFormLoading(false);
+      setIsNameCheckLoading(false);
     }
+  };
+
+  const handleVerify = () => {
+    if (!newUpiBeneficiaryData.upiId.match(/^[\w.-]+@[\w.-]+$/)) {
+      toast({
+        title: "Error",
+        description: "Invalid UPI ID format.",
+        variant: "destructive",
+      });
+      setIsUpiVerifiedSim(false);
+      return;
+    }
+    setIsUpiVerifiedSim(true);
   };
 
   const handleAddUpiBeneficiary = async (e: React.FormEvent) => { 
@@ -1765,18 +1775,24 @@ const ServicesPage = () => {
                           <Button 
                             type="button" 
                             variant="secondary" 
-                            onClick={handleVerifyUpi} 
-                            disabled={formLoading || !newUpiBeneficiaryData.upiId || isUpiVerifiedSim === true}
+                            onClick={handleCheckName} 
+                            disabled={formLoading || !newUpiBeneficiaryData.upiId}
                           >
-                            {formLoading && isUpiVerifiedSim === null ? (
+                            {formLoading && isNameCheckLoading ? (
                               <Loader2 className="animate-spin h-4 w-4 mr-2"/>
                             ) : null}
+                            Check Name
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="secondary" 
+                            onClick={handleVerify} 
+                            disabled={formLoading || !newUpiBeneficiaryData.upiId || isUpiVerifiedSim === true}
+                          >
                             {isUpiVerifiedSim === true ? (
                               <CheckCircle className="h-4 w-4 text-green-500"/>
-                            ) : (isUpiVerifiedSim === false ? (
-                              <XCircle className="h-4 w-4 text-red-500"/>
-                            ) : null)}
-                            {isUpiVerifiedSim === null ? 'Verify' : (isUpiVerifiedSim === true ? 'Verified' : 'Retry Verify')}
+                            ) : null}
+                            {isUpiVerifiedSim === true ? 'Verified' : 'Verify'}
                           </Button>
                         </div>
 
