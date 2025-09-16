@@ -306,7 +306,7 @@ export const dmtStatus = async (req, res) => {
 
         if (['SUCCESS', 'COMPLETED', 'SETTLED'].includes(rawStatus)) {
             mappedStatus = 'COMPLETED';
-        } else if (['FAILED', 'REJECTED', 'DECLINED'].includes(rawStatus)) {
+        } else if (['FAILED', 'REJECTED', 'DECLINED','FAILURE'].includes(rawStatus)) {
             mappedStatus = 'FAILED';
         } else if (['PENDING', 'PROCESSING', 'ACCEPTED BY PORTAL'].includes(rawStatus)) {
             return NextResponse.json({ message: 'Transaction is still in process', rawStatus }, { status: 200 });
