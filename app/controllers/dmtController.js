@@ -136,81 +136,81 @@ export const dmtPayment = async (req) => {
     }
 };
 
-export const dmtStatus = async (req, res) => {
-    const { unique_id, id } = await req.json();
+// export const dmtStatus = async (req, res) => {
+//     const { unique_id, id } = await req.json();
 
-    const merchantId = process.env.KATLA_MERCHANT_ID; 
-    const secretKey = process.env.KATLA_SECRET_KEY;
+//     const merchantId = process.env.KATLA_MERCHANT_ID; 
+//     const secretKey = process.env.KATLA_SECRET_KEY;
 
-    const transaction = await prisma.transactions.findUnique({
-        where: {
-            id: id
-        }
-    });
+//     const transaction = await prisma.transactions.findUnique({
+//         where: {
+//             id: id
+//         }
+//     });
 
-    if (!transaction) {
-        return NextResponse.json({ message: 'Transaction not found' }, { status: 404 });
-    }
+//     if (!transaction) {
+//         return NextResponse.json({ message: 'Transaction not found' }, { status: 404 });
+//     }
 
-    if (transaction.transactionType !== 'DMT') {
-        return NextResponse.json({ message: 'Not a DMT transaction' }, { status: 400 });
-    }
+//     if (transaction.transactionType !== 'DMT') {
+//         return NextResponse.json({ message: 'Not a DMT transaction' }, { status: 400 });
+//     }
 
-    try {
-        // Generate hash for status check request
-        const statusCheckParameters = {
-            paymentReferenceNo: unique_id
-        };
+//     try {
+//         // Generate hash for status check request
+//         const statusCheckParameters = {
+//             paymentReferenceNo: unique_id
+//         };
         
-        const statusCheckHash = generateHash(merchantId, statusCheckParameters, 'sha512', secretKey);
+//         const statusCheckHash = generateHash(merchantId, statusCheckParameters, 'sha512', secretKey);
 
-        if (!statusCheckHash) {
-            return NextResponse.json({ message: 'Failed to generate status check hash' }, { status: 500 });
-        }
+//         if (!statusCheckHash) {
+//             return NextResponse.json({ message: 'Failed to generate status check hash' }, { status: 500 });
+//         }
 
-        const response = await fetch(`https://api.ketlacollect.com/v1/pg/check-payout-transaction-status`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'merchantID': merchantId,
-                'secretkey': secretKey
-            },
-            body: JSON.stringify({
-                paymentReferenceNo: unique_id,
-                hash: statusCheckHash  // Use the newly generated hash
-            })
-        });
+//         const response = await fetch(`https://api.ketlacollect.com/v1/pg/check-payout-transaction-status`, {
+//             method: 'POST',
+//             headers: {
+//                 'Content-Type': 'application/json',
+//                 'merchantID': merchantId,
+//                 'secretkey': secretKey
+//             },
+//             body: JSON.stringify({
+//                 paymentReferenceNo: unique_id,
+//                 hash: statusCheckHash  // Use the newly generated hash
+//             })
+//         });
 
-        const text = await response.text();
-        const data = JSON.parse(text);
+//         const text = await response.text();
+//         const data = JSON.parse(text);
 
-        console.log("Katla status check response:", data);
-        const status = data.data[0].updatedStatus?.toUpperCase();
+//         console.log("Katla status check response:", data);
+//         const status = data.data[0].updatedStatus?.toUpperCase();
 
-        if(data.data[0].updatedStatus === 'Accepted By Portal' || data.data[0].utrId === null){
-            return NextResponse.json({ message: 'Transaction is still pending' }, { status: 200 });
-        }
+//         if(data.data[0].updatedStatus === 'Accepted By Portal' || data.data[0].utrId === null){
+//             return NextResponse.json({ message: 'Transaction is still pending' }, { status: 200 });
+//         }
 
 
-        if (response.ok) {
-            const updatedTransaction = await prisma.transactions.update({
-                where: {
-                    id: id
-                },
-                data: {
-                    transactionStatus: status === 'SUCCESS' ? 'COMPLETED' : status === 'PENDING' ? 'PENDING' : 'FAILED',
-                    utr: data.data[0].utrId ,
-                }
-            });
+//         if (response.ok) {
+//             const updatedTransaction = await prisma.transactions.update({
+//                 where: {
+//                     id: id
+//                 },
+//                 data: {
+//                     transactionStatus: status === 'SUCCESS' ? 'COMPLETED' : status === 'PENDING' ? 'PENDING' : 'FAILED',
+//                     utr: data.data[0].utrId ,
+//                 }
+//             });
 
-            return NextResponse.json(data, { status: 200 });
-        } else {
-            return NextResponse.json(data, { status: response.status });
-        }
-    } catch (error) {
-        return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
-    }
-};
+//             return NextResponse.json(data, { status: 200 });
+//         } else {
+//             return NextResponse.json(data, { status: response.status });
+//         }
+//     } catch (error) {
+//         return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
+//     }
+// };
 export const getBalances = async () => {
     const merchantId = process.env.KATLA_MERCHANT_ID; 
     const secretKey = process.env.KATLA_SECRET_KEY;
@@ -247,5 +247,87 @@ export const getBalances = async () => {
     } catch (error) {
         console.error("Error fetching balances in parallel:", error);
         return { data: { currentBalance: 0 } };
+    }
+};
+
+export const dmtStatus = async (req, res) => {
+    const { unique_id, id } = await req.json();
+
+    const merchantId = process.env.KATLA_MERCHANT_ID; 
+    const secretKey = process.env.KATLA_SECRET_KEY;
+
+    const transaction = await prisma.transactions.findUnique({
+        where: { id }
+    });
+
+    if (!transaction) {
+        return NextResponse.json({ message: 'Transaction not found' }, { status: 404 });
+    }
+
+    if (transaction.transactionType !== 'DMT') {
+        return NextResponse.json({ message: 'Not a DMT transaction' }, { status: 400 });
+    }
+
+    try {
+        // Generate hash
+        const statusCheckParameters = { paymentReferenceNo: unique_id };
+        const statusCheckHash = generateHash(merchantId, statusCheckParameters, 'sha512', secretKey);
+
+        if (!statusCheckHash) {
+            return NextResponse.json({ message: 'Failed to generate status check hash' }, { status: 500 });
+        }
+
+        const response = await fetch(`https://api.ketlacollect.com/v1/pg/check-payout-transaction-status`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'merchantID': merchantId,
+                'secretkey': secretKey
+            },
+            body: JSON.stringify({
+                paymentReferenceNo: unique_id,
+                hash: statusCheckHash
+            })
+        });
+
+        const text = await response.text();
+        const data = JSON.parse(text);
+
+        console.log("Katla status check response:", data);
+
+        const rawStatus = data?.data?.[0]?.updatedStatus?.toUpperCase() || null;
+        const utrId = data?.data?.[0]?.utrId || null;
+
+        if (!rawStatus) {
+            return NextResponse.json({ message: 'Unknown status received', raw: data }, { status: 200 });
+        }
+
+        let mappedStatus = null;
+
+        if (['SUCCESS', 'COMPLETED', 'SETTLED'].includes(rawStatus)) {
+            mappedStatus = 'COMPLETED';
+        } else if (['FAILED', 'REJECTED', 'DECLINED'].includes(rawStatus)) {
+            mappedStatus = 'FAILED';
+        } else if (['PENDING', 'PROCESSING', 'ACCEPTED BY PORTAL'].includes(rawStatus)) {
+            return NextResponse.json({ message: 'Transaction is still in process', rawStatus }, { status: 200 });
+        } else {
+            // Unknown status → treat as "in process"
+            return NextResponse.json({ message: 'Transaction in process (unmapped status)', rawStatus }, { status: 200 });
+        }
+
+        // Only update if COMPLETED or FAILED
+        const updatedTransaction = await prisma.transactions.update({
+            where: { id },
+            data: {
+                transactionStatus: mappedStatus,
+                utr: utrId,
+            }
+        });
+
+        return NextResponse.json({ message: 'Transaction updated', status: mappedStatus, utr: utrId }, { status: 200 });
+
+    } catch (error) {
+        console.error("Error in dmtStatus:", error);
+        return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
     }
 };
