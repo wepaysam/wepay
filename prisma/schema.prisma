@@ -36,6 +36,9 @@ model User {
   officePhotos      OfficePhoto[]
   sentTransactions  Transactions[]    @relation("SenderTransactions")
   upiBeneficiaries  UpiBeneficiary[]
+  impsPermissions   Json? // Stores IMPS permissions as JSON
+  upiPermissions    Json? // Stores UPI permissions as JSON
+  dmtPermissions    Json? // Stores DMT permissions as JSON
 }
 
 model Director {

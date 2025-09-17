@@ -38,16 +38,17 @@ export async function getDashboardStats() {
 export async function getUnverifiedUsers() {
   try {
     const users = await prisma.user.findMany({
-      where: { userType: 'UNVERIFIED' },
-      select: {
-        id: true,
-        phoneNumber: true,
-        email: true,
-        aadhaarNumber: true,
-        aadhaarCardUrl: true,
-        panCardNumber: true,
-        panCardUrl: true
-      }
+      where: {
+        OR: [
+          { userType: 'PROPRIETOR_UNVERIFIED' },
+          { userType: 'COMPANY_UNVERIFIED' },
+        ],
+      },
+      include: {
+        directors: true,
+        documents: true,
+        officePhotos: true,
+      },
     });
 
     return users;
@@ -70,11 +71,20 @@ export async function verifyUser(userId) {
       throw new Error('User not found');
     }
 
+    let newUserType;
+    if (user.userType === 'PROPRIETOR_UNVERIFIED') {
+      newUserType = 'PROPRIETOR_VERIFIED';
+    } else if (user.userType === 'COMPANY_UNVERIFIED') {
+      newUserType = 'COMPANY_VERIFIED';
+    } else {
+      throw new Error('User is already verified or has an invalid user type.');
+    }
+
     // Update user's type to VERIFIED
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
-        userType: 'VERIFIED',
+        userType: newUserType,
         isKycVerified: true
       }
     });
@@ -315,6 +325,25 @@ export async function createTransactionCharge({ minAmount, maxAmount, charge }) 
   }
 };
 
+export async function updatePermissions(userId, permissions) {
+  try {
+    const { imps, upi, dmt } = permissions;
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        impsPermissions: imps,
+        upiPermissions: upi,
+        dmtPermissions: dmt,
+      },
+    });
+
+    return updatedUser;
+  } catch (error) {
+    throw new Error(`Failed to update permissions: ${error.message}`);
+  }
+}
+
 /**
  * Get all verified users
  */
@@ -322,7 +351,11 @@ export async function getVerifiedUsers() {
   try {
     const users = await prisma.user.findMany({
       where: {
-        userType: 'VERIFIED',
+        OR: [
+          { userType: 'VERIFIED' },
+          { userType: 'PROPRIETOR_VERIFIED' },
+          { userType: 'COMPANY_VERIFIED' },
+        ],
       },
       select: {
         id: true,
@@ -330,6 +363,17 @@ export async function getVerifiedUsers() {
         email: true,
         phoneNumber: true,
         balance: true,
+        userType: true,
+        aadhaarNumber: true,
+        panCardNumber: true,
+        companyName: true,
+        companyCIN: true,
+        directors: true,
+        documents: true,
+        officePhotos: true,
+        impsPermissions: true,
+        upiPermissions: true,
+        dmtPermissions: true,
         _count: {
           select: {
             sentTransactions: true,
@@ -338,9 +382,9 @@ export async function getVerifiedUsers() {
       },
     });
 
-    const usersWithTransactionValue = await Promise.all(
+    const usersWithTransactionData = await Promise.all(
       users.map(async (user) => {
-        const result = await prisma.transactions.aggregate({
+        const totalTransactionValue = await prisma.transactions.aggregate({
           _sum: {
             amount: true,
           },
@@ -348,15 +392,16 @@ export async function getVerifiedUsers() {
             senderId: user.id,
           },
         });
+
         return {
           ...user,
           transactionCount: user._count.sentTransactions,
-          totalTransactionValue: result._sum.amount || 0,
+          totalTransactionValue: totalTransactionValue._sum.amount || 0,
         };
       })
     );
 
-    return usersWithTransactionValue;
+    return usersWithTransactionData;
   } catch (error) {
     throw new Error(`Failed to get verified users: ${error.message}`);
   }

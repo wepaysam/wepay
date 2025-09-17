@@ -43,12 +43,19 @@ export const upiPayment = async (req) => {
 
 
     const [user] = await Promise.all([
-      prisma.user.findUnique({ where: { id: userId } })
+      prisma.user.findUnique({ where: { id: userId }, select: { upiPermissions: true } })
     ]);
 
     if (!user) {
       console.error(`[${requestId}] CRITICAL: Authenticated UserID: ${userId} not found.`);
       return NextResponse.json({ message: 'User not found' }, { status: 404 });
+    }
+
+    // Check if user has UPI Aeronpay permission
+    if (!user.upiPermissions?.enabled || !user.upiPermissions?.aeronpay) {
+        console.log("akash asmple",user.upiPermissions);
+      console.warn(`[${requestId}] User ${userId} does not have UPI Aeronpay permission.`);
+      return NextResponse.json({ message: 'You do not have permission to perform UPI Aeronpay transactions.' }, { status: 403 });
     }
     // if (!upiBeneficiary) {
     //   console.warn(`[${requestId}] UPI Beneficiary with ID: ${beneficiary.id} not found.`);
