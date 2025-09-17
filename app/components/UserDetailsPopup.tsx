@@ -24,6 +24,8 @@ export interface OfficePhoto {
 
 export interface User {
   id: string;
+  fullName: string;
+  balance: number;
   phoneNumber: string;
   email: string | null;
   userType: string;
