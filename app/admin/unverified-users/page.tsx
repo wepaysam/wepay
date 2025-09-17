@@ -6,30 +6,12 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { useToast } from '../../hooks/use-toast'; // You'll use this later
-import {
-  CreditCard,
-  FileText,
-  User,
-  CheckCircle,
-  XCircle, // For a potential reject button in future
-  Eye,
-  Search,
-  Trash2, // Icon for delete button
-  Loader2 // For loading state on buttons
-} from "lucide-react";
+import { User as UserIcon, CreditCard, FileText, CheckCircle, XCircle, Eye, Search, Trash2, Loader2 } from "lucide-react";
 // Link and Image are not used currently, can be removed if not planned
 // import Link from "next/link";
 // import Image from "next/image";
 
-interface User {
-  id: string;
-  phoneNumber: string;
-  email: string | null;
-  aadhaarNumber: string;
-  aadhaarCardUrl: string;
-  panCardNumber: string;
-  panCardUrl: string;
-}
+import UserDetailsPopup, { User } from '../../components/UserDetailsPopup';
 
 export default function UnverifiedUsers() {
   const { toast } = useToast(); // Prepare for future use
@@ -39,6 +21,7 @@ export default function UnverifiedUsers() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [actionLoading, setActionLoading] = useState<{ [key: string]: 'verify' | 'delete' | null }>({});
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
 
   useEffect(() => {
@@ -88,8 +71,7 @@ export default function UnverifiedUsers() {
     const filtered = users.filter(user =>
       user.phoneNumber.includes(query) ||
       (user.email && user.email.toLowerCase().includes(query)) ||
-      user.aadhaarNumber.includes(query) ||
-      user.panCardNumber.toLowerCase().includes(query)
+      (user.userType && user.userType.toLowerCase().includes(query))
     );
     setFilteredUsers(filtered);
   };
@@ -119,6 +101,7 @@ export default function UnverifiedUsers() {
       console.log("User verified successfully.");
       setUsers(prevUsers => prevUsers.filter(user => user.id !== userId));
       setFilteredUsers(prevFiltered => prevFiltered.filter(user => user.id !== userId));
+      setSelectedUser(null);
 
     } catch (error: any) {
       // toast({ title: "Error", description: error.message || "Failed to verify user.", variant: "destructive" }); // For next update
@@ -201,7 +184,7 @@ export default function UnverifiedUsers() {
 
         {filteredUsers?.length === 0 ? (
           <div className="text-center py-16"> {/* Increased padding */}
-            <User className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                        <UserIcon className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
             <p className="text-xl text-muted-foreground">
               {searchQuery ? "No users match your search." : "No unverified users found."}
             </p>
@@ -226,36 +209,22 @@ export default function UnverifiedUsers() {
                           </div>
                         )}
                         <div className="space-y-1">
-                          <p className="text-xs text-muted-foreground">Aadhaar Number</p>
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium">{user.aadhaarNumber}</p>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => openDocumentInNewTab(user.aadhaarCardUrl)}
-                              title="View Aadhaar Card"
-                            > <FileText className="h-4 w-4 text-primary" /> </Button>
-                          </div>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-xs text-muted-foreground">PAN Number</p>
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium">{user.panCardNumber}</p>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => openDocumentInNewTab(user.panCardUrl)}
-                              title="View PAN Card"
-                            > <CreditCard className="h-4 w-4 text-primary" /> </Button>
-                          </div>
+                          <p className="text-xs text-muted-foreground">User Type</p>
+                          <p className="font-medium">{user.userType}</p>
                         </div>
                       </div>
                     </div>
 
                     {/* Actions Section */}
                     <div className="flex flex-col sm:flex-row lg:flex-col items-stretch sm:items-center lg:items-end justify-center gap-2 lg:w-auto shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 lg:border-l border-border pt-4 lg:pl-6">
+                      <Button
+                        onClick={() => setSelectedUser(user)}
+                        variant="outline"
+                        className="w-full sm:w-auto lg:w-full"
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Details
+                      </Button>
                       <Button
                         onClick={() => handleVerifyUser(user.id)}
                         disabled={actionLoading[user.id] === 'verify' || actionLoading[user.id] === 'delete'}
@@ -290,6 +259,9 @@ export default function UnverifiedUsers() {
           </div>
         )}
       </div>
+      {selectedUser && (
+        <UserDetailsPopup user={selectedUser} onClose={() => setSelectedUser(null)} />
+      )}
     </div>
   );
 }

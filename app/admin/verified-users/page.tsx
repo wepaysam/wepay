@@ -13,14 +13,9 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Info } from 'lucide-react';
-import UserPermissionsPopup from '../../components/UserPermissionsPopup';
+import UserDetailsPopup, { User, Director, CompanyDocument, OfficePhoto } from '../../components/UserDetailsPopup';
 
-interface VerifiedUser {
-  id: string;
-  fullName: string;
-  email: string;
-  phoneNumber: string;
-  balance: number;
+interface VerifiedUser extends User {
   transactionCount: number;
   totalTransactionValue: number;
 }
@@ -90,7 +85,9 @@ export default function VerifiedUsersPage() {
                   <TableHead>Email</TableHead>
                   <TableHead>Phone Number</TableHead>
                   <TableHead>Wallet Balance</TableHead>
+                  <TableHead>User Type</TableHead>
                   <TableHead>Total Transactions</TableHead>
+                  <TableHead>Total Transaction Value</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -108,7 +105,9 @@ export default function VerifiedUsersPage() {
                       <TableCell>{user.email}</TableCell>
                       <TableCell>{user.phoneNumber}</TableCell>
                       <TableCell>₹{Number(user.balance).toLocaleString()}</TableCell>
+                      <TableCell>{user.userType}</TableCell>
                       <TableCell>{user.transactionCount}</TableCell>
+                      <TableCell>₹{Number(user.totalTransactionValue).toLocaleString()}</TableCell>
                       <TableCell>
                         <Button variant="outline" size="icon" onClick={() => handleOpenPopup(user)}>
                           <Info className="h-4 w-4" />
@@ -123,7 +122,7 @@ export default function VerifiedUsersPage() {
         </CardContent>
       </Card>
       {selectedUser && (
-        <UserPermissionsPopup user={selectedUser} onClose={handleClosePopup} />
+        <UserDetailsPopup user={selectedUser} onClose={handleClosePopup} />
       )}
     </div>
   );
