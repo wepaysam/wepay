@@ -23,7 +23,12 @@ export const upiPayment = async (req) => {
     const { amount: rawAmount, beneficiary, websiteUrl, utr } = await req.json();
     const userId =  req.user.id ;
 
-    
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { upiPermissions: true ,balance:true} });
+
+    if (!user) {
+      console.error(`[${requestId}] CRITICAL: Authenticated UserID: ${userId} not found.`);
+      return NextResponse.json({ message: 'User not found' }, { status: 404 });
+    }
 
     const existingTransaction = await prisma.transactions.findFirst({
         where: {
@@ -39,23 +44,6 @@ export const upiPayment = async (req) => {
 
     if(user?.balance<amount){
       return NextResponse.json({ message: 'Insufficient Balance' }, { status: 403 });
-    }
-
-    console.log(`[${requestId}] Processing AeronPay UPI payout. UserID: ${userId}, Beneficiary: ${beneficiary.upiId}, Amount: ${amount}`);
-
-    if (amount.isNaN() || amount.isNegative() || amount.isZero() || !beneficiary || !beneficiary.id || !beneficiary.upiId || !beneficiary.accountHolderName) {
-        console.warn(`[${requestId}] Invalid request body. Amount or Beneficiary details invalid.`);
-        return NextResponse.json({ message: 'A valid Amount and Beneficiary details are required.' }, { status: 400 });
-    }
-
-
-    const [user] = await Promise.all([
-      prisma.user.findUnique({ where: { id: userId }, select: { upiPermissions: true ,balance:true} })
-    ]);
-
-    if (!user) {
-      console.error(`[${requestId}] CRITICAL: Authenticated UserID: ${userId} not found.`);
-      return NextResponse.json({ message: 'User not found' }, { status: 404 });
     }
 
     
