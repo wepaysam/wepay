@@ -24,10 +24,19 @@ export const dmtPayment = async (req) => {
         const { name, accountNumber, ifsc, amount, remarks, paymentMode, paymentReferenceNo, beneficiary, gateway, websiteUrl, transactionId } = await req.json();
 
         const userId = req.user?.id; // Get userId from req.user
+        // --- Step 1: Fetch User and Beneficiary ---
+        const [user] = await Promise.all([
+        prisma.user.findUnique({ where: { id: userId } })
+        ]);
+        console.log("Fetched user:", user);
         // Assuming req.user is populated by middleware and contains dmtPermissions
-        if (!req.user || !req.user.dmtPermissions?.enabled) {
+        if (!user || !user.dmtPermissions) {
             console.warn(`User ${userId || 'Unknown'} does not have DMT permission.`);
             return NextResponse.json({ message: 'You do not have permission to perform DMT transactions.' }, { status: 403 });
+        }
+
+        if(user?.balance<parseFloat(amount)){
+        return NextResponse.json({ message: 'Insufficient Balance' }, { status: 403 });
         }
 
         const bankDetails = await prisma.BankInfo.findUnique({
@@ -71,11 +80,17 @@ export const dmtPayment = async (req) => {
             paymentReferenceNo: unique_id
         };
 
+        
+
         const generatedHash = generateHash(merchantId, parametersForHash, 'sha512', secretKey);
 
         if (!generatedHash) {
             return NextResponse.json({ message: 'Failed to generate hash' }, { status: 500 });
         }
+
+        if(user?.balance < parseFloat(amount)){
+            return NextResponse.json({ message: 'Insufficient Balance' }, { status: 403 });
+            }
 
         const payload = {
             name,

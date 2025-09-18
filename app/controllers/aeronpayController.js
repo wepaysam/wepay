@@ -22,6 +22,9 @@ export const upiPayment = async (req) => {
   try {
     const { amount: rawAmount, beneficiary, websiteUrl, utr } = await req.json();
     const userId =  req.user.id ;
+
+    
+
     const existingTransaction = await prisma.transactions.findFirst({
         where: {
             transactionId: utr,
@@ -34,6 +37,10 @@ export const upiPayment = async (req) => {
 
     const amount = new Decimal(rawAmount);
 
+    if(user?.balance<amount){
+      return NextResponse.json({ message: 'Insufficient Balance' }, { status: 403 });
+    }
+
     console.log(`[${requestId}] Processing AeronPay UPI payout. UserID: ${userId}, Beneficiary: ${beneficiary.upiId}, Amount: ${amount}`);
 
     if (amount.isNaN() || amount.isNegative() || amount.isZero() || !beneficiary || !beneficiary.id || !beneficiary.upiId || !beneficiary.accountHolderName) {
@@ -43,13 +50,15 @@ export const upiPayment = async (req) => {
 
 
     const [user] = await Promise.all([
-      prisma.user.findUnique({ where: { id: userId }, select: { upiPermissions: true } })
+      prisma.user.findUnique({ where: { id: userId }, select: { upiPermissions: true ,balance:true} })
     ]);
 
     if (!user) {
       console.error(`[${requestId}] CRITICAL: Authenticated UserID: ${userId} not found.`);
       return NextResponse.json({ message: 'User not found' }, { status: 404 });
     }
+
+    
 
     // console.log("akash asmple",user);
     // Check if user has UPI Aeronpay permission
@@ -307,7 +316,7 @@ export const AeronpayUPIVerification = async (req, res) => {
 
     // return NextResponse.json(mockResponse, { status: 200 });
     const requestId = Date.now().toString() + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
-    
+
     
     try {
         const response = await fetch(`https://api.aeronpay.in/api/serviceapi-prod/api/verification/upiverify`, {
