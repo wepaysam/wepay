@@ -1,6 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { X, User, DollarSign, CreditCard, Smartphone, ArrowRight } from 'lucide-react';
+import { useToast } from '../../hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 // Mock Switch component
 const Switch = ({ checked, onCheckedChange, disabled = false }) => {
@@ -78,6 +80,9 @@ export default function UserPermissionsPopup({ user, onClose }: UserPermissionsP
     upi: { enabled: true, aeronpay: true, p2i: true },
     dmt: { enabled: true },
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+  const router = useRouter();
 
   const handlePermissionChange = (type: string, subType?: string) => {
     setPermissions(prev => {
@@ -110,9 +115,38 @@ export default function UserPermissionsPopup({ user, onClose }: UserPermissionsP
     });
   };
 
-  const handleSaveChanges = () => {
-    console.log('Saving permissions:', permissions);
-    onClose();
+  const handleSaveChanges = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/admin/update-permissions/${currentUser.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ permissions }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update permissions');
+      }
+
+      toast({
+        title: 'Success',
+        description: 'User permissions updated successfully.',
+        variant: 'default',
+      });
+      onClose();
+      router.refresh(); // Refresh the page to reflect changes
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'An unexpected error occurred.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Mock user data if none provided
@@ -246,7 +280,7 @@ export default function UserPermissionsPopup({ user, onClose }: UserPermissionsP
         {/* Footer */}
         <div className="flex justify-end gap-4 p-6 border-t border-gray-200 mt-auto">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSaveChanges}>Save Changes</Button>
+          <Button onClick={handleSaveChanges} disabled={isLoading}>Save Changes</Button>
         </div>
       </div>
     </div>

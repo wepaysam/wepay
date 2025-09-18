@@ -149,6 +149,7 @@ export async function getUserTransactions(userId, searchTerm, transactionBasis) 
         transaction_no: true,
         transactionType: true,
         gateway: true,
+        createdAt: true,
       },
       orderBy: {
         transactionTime: 'desc',

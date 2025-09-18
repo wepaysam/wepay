@@ -18,7 +18,12 @@ export async function POST(request) {
     }
 
     const { amount: rawAmount, beneficiaryId, websiteUrl, transactionId } = await request.json();
-    const userId = request.user.id;
+    const userId = req.user?.id; // Get userId from req.user
+        // Assuming req.user is populated by middleware and contains dmtPermissions
+        if (!req.user || !req.user.impsPermissions?.enabled || !req.user.impsPermissions?.aeronpay) {
+            console.warn(`User ${userId || 'Unknown'} does not have DMT permission.`);
+            return NextResponse.json({ message: 'You do not have permission to perform DMT transactions.' }, { status: 403 });
+        }
     
     // Ensure amount is a valid number
     const amount = new Decimal(rawAmount);

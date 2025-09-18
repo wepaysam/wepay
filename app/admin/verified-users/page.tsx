@@ -122,7 +122,7 @@ export default function VerifiedUsersPage() {
         </CardContent>
       </Card>
       {selectedUser && (
-        <UserDetailsPopup user={selectedUser} onClose={handleClosePopup} />
+        <UserDetailsPopup user={selectedUser} onClose={handleClosePopup} onSaveSuccess={fetchVerifiedUsers} />
       )}
     </div>
   );

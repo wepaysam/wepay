@@ -273,20 +273,21 @@ export function GlobalProvider({ children }: GlobalProviderProps) {
       // Instead, fetch additional data directly here
       
       // Fetch user's transactions
-      try {
-        const transactionsResponse = await fetch('/api/transactions', {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
+      // try {
+      //   const transactionsResponse = await fetch('/api/transactions', {
+      //     headers: {
+      //       Authorization: `Bearer ${token}`
+      //     }
+      //   });
 
-        if (transactionsResponse.ok) {
-          const transactionsData = await transactionsResponse.json();
-          setTransactions(transactionsData.transactions || []);
-        }
-      } catch (txnError) {
-        console.error('Error fetching transactions:', txnError);
-      }
+      //   if (transactionsResponse.ok) {
+      //     const transactionsData = await transactionsResponse.json();
+      //     console.log("Transactions fetched:", transactionsData);
+      //     setTransactions(transactionsData.transactions || []);
+      //   }
+      // } catch (txnError) {
+      //   console.error('Error fetching transactions:', txnError);
+      // }
 
       // Fetch user's beneficiaries
       try {
