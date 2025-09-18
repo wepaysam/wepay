@@ -35,7 +35,7 @@ export async function POST(request) {
     // Ensure amount is a valid number
     const amount = new Decimal(rawAmount);
 
-    if(user?.balance<amount){
+    if(user?.balance < parseInt(rawAmount)){
       return NextResponse.json({ message: 'Insufficient Balance' }, { status: 403 });
     }
 
