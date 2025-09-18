@@ -42,8 +42,9 @@ export const upiPayment = async (req) => {
 
     const amount = new Decimal(rawAmount);
 
-    if(user?.balance<amount){
-      return NextResponse.json({ message: 'Insufficient Balance' }, { status: 403 });
+    if(user?.balance < parseInt(amount)){
+        console.log("your balance is",user?.balance);
+      return NextResponse.json({ message: `Insufficient Balance ${user.balance}` }, { status: 403 });
     }
 
     
