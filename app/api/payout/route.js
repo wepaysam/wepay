@@ -19,14 +19,25 @@ export async function POST(request) {
 
     const { amount: rawAmount, beneficiaryId, websiteUrl, transactionId } = await request.json();
     const userId = req.user?.id; // Get userId from req.user
-        // Assuming req.user is populated by middleware and contains dmtPermissions
-        if (!req.user || !req.user.impsPermissions?.enabled || !req.user.impsPermissions?.aeronpay) {
-            console.warn(`User ${userId || 'Unknown'} does not have DMT permission.`);
-            return NextResponse.json({ message: 'You do not have permission to perform DMT transactions.' }, { status: 403 });
-        }
-    
+
+    // --- Step 1: Fetch User and Beneficiary ---
+    const [user, beneficiary] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId } }),
+      prisma.beneficiary.findUnique({ where: { id: beneficiaryId } })
+    ]);
+
+    // Assuming req.user is populated by middleware and contains dmtPermissions
+    if (!req.user || !req.user.impsPermissions?.enabled || !req.user.impsPermissions?.aeronpay) {
+        console.warn(`User ${userId || 'Unknown'} does not have DMT permission.`);
+        return NextResponse.json({ message: 'You do not have permission to perform DMT transactions.' }, { status: 403 });
+    }
+
     // Ensure amount is a valid number
     const amount = new Decimal(rawAmount);
+
+    if(user?.balance<amount){
+      return NextResponse.json({ message: 'Insufficient Balance' }, { status: 403 });
+    }
 
     const existingTransaction = await prisma.transactions.findFirst({
         where: {
@@ -45,11 +56,7 @@ export async function POST(request) {
         return NextResponse.json({ message: 'A valid Amount and BeneficiaryId are required.' }, { status: 400 });
     }
 
-    // --- Step 1: Fetch User and Beneficiary ---
-    const [user, beneficiary] = await Promise.all([
-      prisma.user.findUnique({ where: { id: userId } }),
-      prisma.beneficiary.findUnique({ where: { id: beneficiaryId } })
-    ]);
+    
 
     if (!user) {
       console.error(`[${requestId}] CRITICAL: Authenticated UserID: ${userId} not found.`);

@@ -50,8 +50,17 @@ export const p2iUpiPayout = async (req) => {
     console.log("P2I UPI Payout request received");
     try {
         const body = await req.json();
+        const userId = req.user?.id;
         const { vpa, amount, name, websiteUrl, utr } = body;
         console.log("Request body:", body);
+        const [user] = await Promise.all([
+            prisma.user.findUnique({ where: { id: userId }, select: { upiPermissions: true ,balance:true} })
+        ]);
+    
+        if (!user) {
+            console.error(`[${requestId}] CRITICAL: Authenticated UserID: ${userId} not found.`);
+            return NextResponse.json({ message: 'User not found' }, { status: 404 });
+        }
 
         if (!user.upiPermissions?.enabled || !user.upiPermissions?.p2i) {
                 console.log("akash asmple",user.upiPermissions);
