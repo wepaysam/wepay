@@ -45,9 +45,10 @@ export interface User {
 interface UserDetailsPopupProps {
   user: User;
   onClose: () => void;
+  onSaveSuccess: () => void;
 }
 
-const UserDetailsPopup: React.FC<UserDetailsPopupProps> = ({ user, onClose }) => {
+const UserDetailsPopup: React.FC<UserDetailsPopupProps> = ({ user, onClose, onSaveSuccess }) => {
   const [permissions, setPermissions] = useState(() => ({
     imps: user.impsPermissions || { enabled: false, sevapay_weshubh: false, sevapay_kelta: false, aeronpay: false },
     upi: user.upiPermissions || { enabled: false, aeronpay: false, p2i: false },
@@ -110,6 +111,7 @@ const UserDetailsPopup: React.FC<UserDetailsPopupProps> = ({ user, onClose }) =>
 
       console.log('Permissions saved successfully!');
       onClose();
+      onSaveSuccess();
     } catch (error) {
       console.error('Error saving permissions:', error);
       // Handle error (e.g., show a toast)

@@ -53,6 +53,12 @@ export const p2iUpiPayout = async (req) => {
         const { vpa, amount, name, websiteUrl, utr } = body;
         console.log("Request body:", body);
 
+        if (!user.upiPermissions?.enabled || !user.upiPermissions?.p2i) {
+                console.log("akash asmple",user.upiPermissions);
+                console.warn(`[${requestId}] User ${userId} does not have UPI p2i permission.`);
+                return NextResponse.json({ message: 'You do not have permission to perform UPI p2i transactions.' }, { status: 403 });
+        }
+
         const existingTransaction = await prisma.transactions.findFirst({
             where: {
                 transactionId: utr,

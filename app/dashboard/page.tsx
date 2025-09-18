@@ -23,6 +23,7 @@ interface Transaction {
   utr?: string;
   transaction_no?: string;
   referenceNo?: string;
+  createdAt: string;
 }
 
 interface DashboardData {
@@ -561,12 +562,16 @@ const Dashboard = () => {
                   key: "date",
                   header: "Date",
                   render: (row) => (
-                    <span>
-                      {row.date}
-                      <span className="block text-xs text-muted-foreground">
-                        {row.time}
-                      </span>
-                    </span>
+                    // <span>
+                    //   {row.date}
+                    //   <span className="block text-xs text-muted-foreground">
+                    //     {row.time}
+                    //   </span>
+                    // </span>
+                    <>
+                      {new Date(row.createdAt).toLocaleString()}
+                    </>
+                    
                   ),
                 },
                 {

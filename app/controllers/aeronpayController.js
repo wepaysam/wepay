@@ -51,7 +51,7 @@ export const upiPayment = async (req) => {
       return NextResponse.json({ message: 'User not found' }, { status: 404 });
     }
 
-    console.log("akash asmple",user);
+    // console.log("akash asmple",user);
     // Check if user has UPI Aeronpay permission
     if (!user.upiPermissions?.enabled || !user.upiPermissions?.aeronpay) {
         console.log("akash asmple",user.upiPermissions);
@@ -307,6 +307,7 @@ export const AeronpayUPIVerification = async (req, res) => {
 
     // return NextResponse.json(mockResponse, { status: 200 });
     const requestId = Date.now().toString() + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
+    
     
     try {
         const response = await fetch(`https://api.aeronpay.in/api/serviceapi-prod/api/verification/upiverify`, {

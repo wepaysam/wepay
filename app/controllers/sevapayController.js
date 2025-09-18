@@ -8,6 +8,10 @@ export const sevapayPayment = async (req, res) => {
     try {
         const { amount, beneficiary, gateway, websiteUrl, transactionId } = await req.json();
 
+        const userId = req.user?.id;
+
+        
+
         const existingTransaction = await prisma.transactions.findFirst({
             where: {
                 transactionId: transactionId,
@@ -33,8 +37,18 @@ export const sevapayPayment = async (req, res) => {
 
         let token;
         if (gateway === 'sevapay_weshubh') {
+             // Get userId from req.user
+        // Assuming req.user is populated by middleware and contains dmtPermissions
+            if (!req.user || !req.user.impsPermissions?.enabled || !req.user.impsPermissions?.sevapay_weshubh) {
+                console.warn(`User ${userId || 'Unknown'} does not have DMT permission.`);
+                return NextResponse.json({ message: 'You do not have permission to perform DMT transactions.' }, { status: 403 });
+            }
             token = process.env.SEVAPAY_API_TOKEN;
         } else if (gateway === 'sevapay_kelta') {
+            if (!req.user || !req.user.impsPermissions?.enabled || !req.user.impsPermissions?.sevapay_kelta) {
+                console.warn(`User ${userId || 'Unknown'} does not have DMT permission.`);
+                return NextResponse.json({ message: 'You do not have permission to perform DMT transactions.' }, { status: 403 });
+            }
             token = process.env.KETLA_API_TOKEN;
         } else {
             // Default to SEVAPAY_API_TOKEN if gateway is not provided or invalid

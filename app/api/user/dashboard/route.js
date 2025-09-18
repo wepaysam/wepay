@@ -3,12 +3,15 @@ import { getUserProfile } from '../../../controllers/userController';
 import { getUserTransactions } from '../../../controllers/transactionController';
 import prisma from '../../../lib/prisma';
 import { authMiddleware } from '../../../middleware/authMiddleware';
+import { create } from 'domain';
 
 export async function GET(request) {
   try {
     // Use the authMiddleware to verify the token
     const authError = await authMiddleware(request);
     if (authError) return authError;
+
+    console.log('hello',request.user);
     
     // At this point, request.user contains the decoded token data
     const userId = request.user.id;
@@ -79,6 +82,7 @@ export async function GET(request) {
         totalAmount: (txn.amount && txn.chargesAmount) 
           ? (parseFloat(txn.amount) + parseFloat(txn.chargesAmount)).toFixed(2) 
           : '0.00',
+        createdAt: txn.createdAt,  
         status: txn.transactionStatus || 'UNKNOWN',
         date: txn.transactionTime ? new Date(txn.transactionTime).toLocaleDateString('en-IN') : 'Unknown',
         time: txn.transactionTime ? new Date(txn.transactionTime).toLocaleTimeString('en-IN', { 

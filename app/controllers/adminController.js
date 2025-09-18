@@ -326,6 +326,8 @@ export async function createTransactionCharge({ minAmount, maxAmount, charge }) 
 };
 
 export async function updatePermissions(userId, permissions) {
+  console.log("updatePermissions function reached for userId:", userId);
+  console.log("Permissions received:", permissions);
   try {
     const { imps, upi, dmt } = permissions;
 
@@ -338,8 +340,10 @@ export async function updatePermissions(userId, permissions) {
       },
     });
 
+    console.log("User permissions updated in DB:", updatedUser.id);
     return updatedUser;
   } catch (error) {
+    console.error("Error in updatePermissions:", error);
     throw new Error(`Failed to update permissions: ${error.message}`);
   }
 }
