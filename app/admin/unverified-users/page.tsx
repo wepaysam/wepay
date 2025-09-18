@@ -23,43 +23,47 @@ export default function UnverifiedUsers() {
   const [actionLoading, setActionLoading] = useState<{ [key: string]: 'verify' | 'delete' | null }>({});
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
+  const fetchUnverifiedUsers = async () => {
+    setIsLoading(true); // Set loading at the start of the fetch
+    try {
+      const token = typeof document !== 'undefined'
+        ? document.cookie.replace(/(?:(?:^|.*;\s*)token\s*\=\s*([^;]*).*$)|^.*$/, "$1")
+        : null;
+      if (!token) {
+        // toast({ title: "Authentication Error", description: "Please log in.", variant: "destructive" }); // For next update
+        console.error("Authentication Error: Please log in.");
+        router.push('/Auth/login');
+        return;
+      }
+
+      const response = await fetch('/api/admin/unverified-users', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Failed to fetch unverified users: ${errorData.message || response.statusText}`);
+      }
+
+      const data = await response.json();
+      setUsers(data);
+      setFilteredUsers(data);
+    } catch (error: any) {
+      // toast({ title: "Error", description: error.message || "Failed to load users.", variant: "destructive" }); // For next update
+      console.error("Fetch Unverified Users Error:", error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchUnverifiedUsers = async () => {
-      setIsLoading(true); // Set loading at the start of the fetch
-      try {
-        const token = typeof document !== 'undefined'
-          ? document.cookie.replace(/(?:(?:^|.*;\s*)token\s*\=\s*([^;]*).*$)|^.*$/, "$1")
-          : null;
-        if (!token) {
-          // toast({ title: "Authentication Error", description: "Please log in.", variant: "destructive" }); // For next update
-          console.error("Authentication Error: Please log in.");
-          router.push('/Auth/login');
-          return;
-        }
-
-        const response = await fetch('/api/admin/unverified-users', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(`Failed to fetch unverified users: ${errorData.message || response.statusText}`);
-        }
-
-        const data = await response.json();
-        setUsers(data);
-        setFilteredUsers(data);
-      } catch (error: any) {
-        // toast({ title: "Error", description: error.message || "Failed to load users.", variant: "destructive" }); // For next update
-        console.error("Fetch Unverified Users Error:", error.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchUnverifiedUsers();
   }, [router]); // Removed toast from dependency for now
+
+  const handleSaveSuccess = () => {
+    setSelectedUser(null); // Close the popup
+    fetchUnverifiedUsers(); // Re-fetch users to update the list
+  };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value.toLowerCase();
@@ -260,7 +264,7 @@ export default function UnverifiedUsers() {
         )}
       </div>
       {selectedUser && (
-        <UserDetailsPopup user={selectedUser} onClose={() => setSelectedUser(null)} />
+        <UserDetailsPopup user={selectedUser} onClose={() => setSelectedUser(null)} onSaveSuccess={handleSaveSuccess} />
       )}
     </div>
   );

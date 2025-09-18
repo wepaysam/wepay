@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { X, User, DollarSign, CreditCard, Smartphone, ArrowRight } from 'lucide-react';
-import { useToast } from '../../hooks/use-toast';
+import { useToast } from '../hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
 // Mock Switch component
