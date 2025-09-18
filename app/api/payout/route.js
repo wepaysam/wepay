@@ -27,7 +27,7 @@ export async function POST(request) {
     ]);
 
     // Assuming req.user is populated by middleware and contains dmtPermissions
-    if (!req.user || !req.user.impsPermissions?.enabled || !req.user.impsPermissions?.aeronpay) {
+    if (!user || !user.impsPermissions?.enabled || !user.impsPermissions?.aeronpay) {
         console.warn(`User ${userId || 'Unknown'} does not have DMT permission.`);
         return NextResponse.json({ message: 'You do not have permission to perform DMT transactions.' }, { status: 403 });
     }
