@@ -18,7 +18,7 @@ export async function POST(request) {
     }
 
     const { amount: rawAmount, beneficiaryId, websiteUrl, transactionId } = await request.json();
-    const userId = req.user?.id; // Get userId from req.user
+    const userId = request.user?.id; // Get userId from req.user
 
     // --- Step 1: Fetch User and Beneficiary ---
     const [user, beneficiary] = await Promise.all([
