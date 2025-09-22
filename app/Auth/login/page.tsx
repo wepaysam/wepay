@@ -105,6 +105,12 @@ const Login = () => {
         setOtpValues(['', '', '', '', '', '']);
         
         setOtpSent(true);
+      } else {
+        toast({
+          title: "Account pending verification",
+          description: "Your account is waiting for verification by an admin. Please try again later.",
+          variant: "destructive",
+        });
       }
     } catch (error: any) {
       toast({

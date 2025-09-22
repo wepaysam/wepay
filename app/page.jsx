@@ -66,7 +66,7 @@ export default function RootPage() {
         // Redirect based on user type
         if (data.user.userType === 'ADMIN') {
           router.push('/admin');
-        } else if (data.user.userType === 'VERIFIED') {
+        } else if (data.user.userType === 'VERIFIED' || data.user.userType === 'PROPRIETOR_VERIFIED' || data.user.userType === 'COMPANY_VERIFIED') {
           router.push('/dashboard');
         }
       } catch (error) {
