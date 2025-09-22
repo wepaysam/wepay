@@ -36,7 +36,8 @@ export async function GET(request) {
     // Get recent transactions
     let transactions = [];
     try {
-      transactions = await getUserTransactions(userId) || [];
+      const { transactions: transactionData } = await getUserTransactions(userId, undefined, undefined, 10);
+      transactions = transactionData || [];
       console.log(`Dashboard API: Found ${transactions} transactions`);
     } catch (txnError) {
       console.error('Dashboard API: Error getting transactions', txnError);
@@ -73,7 +74,7 @@ export async function GET(request) {
     });
 
     // Format transactions for the frontend - handle potential null values
-    const formattedTransactions = transactions.slice(0, 5).map(txn => {
+    const formattedTransactions = transactions.map(txn => {
       return {
         txnId: txn.id || 'Unknown',
         chargesAmount: txn.chargesAmount ? parseFloat(txn.chargesAmount).toFixed(2) : '0.00',

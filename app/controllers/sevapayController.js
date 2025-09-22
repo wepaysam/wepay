@@ -75,31 +75,39 @@ export const sevapayPayment = async (req, res) => {
         console.log("Sevapay response:", data);
 
         if (response.ok && !data.original) {
-            await prisma.transactions.create({
-                data: {
-                    amount: amount,
-                    senderAccount: beneficiary.accountNumber,
-                    beneficiary: {
-                        connect: {
-                            id: beneficiary.id
-                        }
-                    },
-                    transactionType: 'IMPS',
-                    transactionStatus: data.data.status === 'SUCCESS' ? 'COMPLETED' : data.data.status === 'PENDING' ? 'PENDING' : 'FAILED',
-                    referenceNo: unique_id,
-                    sender: {
-                        connect: {
-                            id: beneficiary.userId
-                        }
-                    },
-                    chargesAmount: data.data.api_user_charges,
-                    websiteUrl: websiteUrl,
-                    transactionId: transactionId,
-                    transaction_no: data.data.transaction_no,
-                    utr: data.data.transaction_no, 
-                    gateway: gateway,
-                }
+            await prisma.$transaction(async (tx) => {
+                await tx.user.update({
+                    where: { id: userId },
+                    data: { balance: { decrement: amount } },
+                });
+
+                await tx.transactions.create({
+                    data: {
+                        amount: amount,
+                        senderAccount: beneficiary.accountNumber,
+                        beneficiary: {
+                            connect: {
+                                id: beneficiary.id
+                            }
+                        },
+                        transactionType: 'IMPS',
+                        transactionStatus: data.data.status === 'SUCCESS' ? 'COMPLETED' : data.data.status === 'PENDING' ? 'PENDING' : 'FAILED',
+                        referenceNo: unique_id,
+                        sender: {
+                            connect: {
+                                id: beneficiary.userId
+                            }
+                        },
+                        chargesAmount: data.data.api_user_charges,
+                        websiteUrl: websiteUrl,
+                        transactionId: transactionId,
+                        transaction_no: data.data.transaction_no,
+                        utr: data.data.transaction_no, 
+                        gateway: gateway,
+                    }
+                });
             });
+
             return NextResponse.json({ ...data, transaction_no: data.transaction_no || transactionId }, { status: 200 });
         } else {
             if (data.original && data.original.msg) {
@@ -143,31 +151,31 @@ export const sevapayStatus = async (req, res) => {
         const data = JSON.parse(text);
 
         if (response.ok) {
-            const transaction = await prisma.transactions.update({
-                where: {
-                    id: id
-                },
-                data: {
-                    transactionStatus: data.data.status === 'SUCCESS' ? 'COMPLETED' : data.data.status === 'PENDING' ? 'PENDING' : 'FAILED',
-                    utr: data.data.third_party_no || data.data.transaction_no,
+            const transaction = await prisma.transactions.findUnique({ where: { id } });
+
+            if (!transaction) {
+                return NextResponse.json({ message: 'Transaction not found' }, { status: 404 });
+            }
+
+            const newStatus = data.data.status === 'SUCCESS' ? 'COMPLETED' : data.data.status === 'PENDING' ? 'PENDING' : 'FAILED';
+
+            await prisma.$transaction(async (tx) => {
+                await tx.transactions.update({
+                    where: { id: id },
+                    data: {
+                        transactionStatus: newStatus,
+                        utr: data.data.third_party_no || data.data.transaction_no,
+                    }
+                });
+
+                if (newStatus === 'FAILED' && transaction.transactionStatus !== 'FAILED') {
+                    await tx.user.update({
+                        where: { id: transaction.senderId },
+                        data: { balance: { increment: transaction.amount } },
+                    });
                 }
             });
 
-            // if (data.data.status === 'SUCCESS') {
-            //     const balanceUpdate = transaction.gateway === 'sevapay_weshubh'
-            //         ? { vishubhBalance: data.data.balance }
-            //         : { kotalBalance: data.data.balance };
-
-            //     await prisma.balance.upsert({
-            //         where: { id: "1" },
-            //         update: balanceUpdate,
-            //         create: {
-            //             id: "1",
-            //             vishubhBalance: transaction.gateway === 'sevapay_weshubh' ? data.data.balance : 0,
-            //             kotalBalance: transaction.gateway === 'sevapay_kelta' ? data.data.balance : 0,
-            //         }
-            //     });
-            // }
             return NextResponse.json(data, { status: 200 });
         } else {
             return NextResponse.json(data, { status: response.status });

@@ -9,6 +9,7 @@ import DashboardLayout from "../dashboard/layout";
 import { motion, AnimatePresence } from "framer-motion";
 import DataTable from "../components/DataTable";
 import { useToast } from "../hooks/use-toast";
+import { useGlobalContext } from "../context/GlobalContext";
 import { useRouter } from "next/navigation";
 import { generateReceiptPDF } from "../utils/pdfGenerator";
 import TransactionSuccessModal from "../components/TransactionSuccessfull";
@@ -126,6 +127,7 @@ const ServicesPage = () => {
 
   const { toast } = useToast();
   const router = useRouter();
+  const { user } = useGlobalContext();
 
   const [newBankBeneficiaryData, setNewBankBeneficiaryData] = useState({ 
     accountNumber: "", 
@@ -646,9 +648,35 @@ const ServicesPage = () => {
       return;
     }
 
-    const IMPS_LIMIT = 200000;
+    if (('upiId' in beneficiary) && !user?.upiPermissions?.enabled) {
+      toast({
+        title: "Error",
+        description: "You are not currently allowed to use UPI service.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (('accountNumber' in beneficiary && !('transactionType' in beneficiary)) && !user?.dmtPermissions?.enabled) {
+      toast({
+        title: "Error",
+        description: "You are not currently allowed to use DMT service.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!('upiId' in beneficiary) && !('accountNumber' in beneficiary && !('transactionType' in beneficiary)) && !user?.impsPermissions?.enabled) {
+      toast({
+        title: "Error",
+        description: "You are not currently allowed to use this service.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     const UPI_LIMIT = 100000;
-    const DMT_LIMIT = 200000; // Assuming a DMT limit
+    const DMT_LIMIT = 200000;
 
     if ('upiId' in beneficiary) {
       if (amount > UPI_LIMIT) {
@@ -673,14 +701,6 @@ const ServicesPage = () => {
       setSelectedBeneficiary(beneficiary as DmtBeneficiary);
       setIsDmtConfirmationPopupOpen(true);
     } else { // This is a BankBeneficiary (IMPS/NEFT)
-      if (amount > IMPS_LIMIT) {
-        toast({
-          title: "Error",
-          description: `Bank transfer (IMPS/NEFT) limit is ₹${IMPS_LIMIT.toLocaleString()}.`,
-          variant: "destructive"
-        });
-        return;
-      }
       setSelectedBeneficiary(beneficiary as BankBeneficiary);
       setIsGatewayPopupOpen(true);
     }
@@ -780,6 +800,25 @@ const ServicesPage = () => {
 
     const amountStr = payoutAmounts[selectedBeneficiary.id] || "";
     const amount = parseFloat(amountStr);
+
+    const AERONPAY_LIMIT = 500000;
+    const IMPS_LIMIT = 200000;
+
+    if (gateway === 'aeronpay' && amount > AERONPAY_LIMIT) {
+      toast({
+        title: "Error",
+        description: `Aeronpay transaction limit is ₹${AERONPAY_LIMIT.toLocaleString()}.`,
+        variant: "destructive"
+      });
+      return;
+    } else if (gateway !== 'aeronpay' && amount > IMPS_LIMIT) {
+      toast({
+        title: "Error",
+        description: `Bank transfer (IMPS/NEFT) limit is ₹${IMPS_LIMIT.toLocaleString()}.`,
+        variant: "destructive"
+      });
+      return;
+    }
 
     setRowLoading(selectedBeneficiary.id, true);
     try {

@@ -19,7 +19,10 @@ export async function GET(request) {
         phoneNumber: true,
         email: true,
         userType: true,
-        isKycVerified: true
+        isKycVerified: true,
+        impsPermissions: true,
+        upiPermissions: true,
+        dmtPermissions: true,
       }
     });
     

@@ -93,7 +93,7 @@ const Login = () => {
         return;
       }
       
-      if (statusResult.status === 'VERIFIED' || statusResult.status === 'ADMIN') {
+      if (statusResult.status === 'VERIFIED' || statusResult.status === 'ADMIN' || statusResult.status === 'PROPRIETOR_VERIFIED' || statusResult.status === 'COMPANY_VERIFIED') {
         setUserPhone(data.phoneNumber);
         
         toast({

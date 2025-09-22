@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo ,useCallback} from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   FileText,
@@ -40,15 +40,6 @@ const getBase64Image = async (imgUrl: string): Promise<string> => {
   });
 };
 
-// ... (rest of your existing imports and component code like type definitions, sample data) ...
-//   Tooltip,
-//   TooltipContent,
-//   TooltipProvider,
-//   TooltipTrigger,
-// } from "../components/ui/tooltip"; // COMMON PATH FOR SHADCN/UI
-
-// ... (rest of your existing imports and component code like type definitions, sample data) ...
-
 type TransactionStatus = 'PENDING' | 'COMPLETED' | 'FAILED';
 type TransactionDirection = 'DEBIT' | 'CREDIT';
 type TransactionBasis = 'ALL' | 'UPI' | 'IMPS' | 'DMT';
@@ -76,7 +67,6 @@ interface TransactionData {
 }
 
 const StatementPage = () => {
-  // ... (your existing useState, useEffect, useMemo, handleDownload hooks and logic) ...
   const [transactions, setTransactions] = useState<TransactionData[]>([]);
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState("");
@@ -89,19 +79,23 @@ const StatementPage = () => {
   const [withWatermark, setWithWatermark] = useState<boolean>(false);
   const [watermarkBase64, setWatermarkBase64] = useState<string | null>(null);
   const [isTableLoading, setIsTableLoading] = useState(false);
+  const [limit, setLimit] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalTransactions, setTotalTransactions] = useState(0);
 
   const fetchAllData = useCallback(async () => {
     setIsTableLoading(true);
     try {
       const [transactionsResponse, balanceRequestsResponse] = await Promise.all([
-        fetch(`/api/transactions?searchTerm=${searchTerm}&transactionBasis=${transactionBasis}`),
+        fetch(`/api/transactions?searchTerm=${searchTerm}&transactionBasis=${transactionBasis}&limit=${limit}&page=${currentPage}`),
         fetch('/api/balance-requests'),
       ]);
 
-      const transactionsData = await transactionsResponse.json();
+      const { transactions: transactionsData, totalTransactions } = await transactionsResponse.json();
       const balanceRequestsData = await balanceRequestsResponse.json();
 
-      if (transactionsResponse.ok && balanceRequestsResponse.ok) {
+      if (transactionsResponse.ok) {
+        setTotalTransactions(totalTransactions);
         const formattedTransactions = transactionsData.map((txn: any) => {
           let type: TransactionDirection | 'FAILED' | 'PENDING' = 'DEBIT';
           if (txn.transactionStatus === 'FAILED') {
@@ -174,7 +168,7 @@ const StatementPage = () => {
     } finally {
       setIsTableLoading(false);
     }
-  }, [setTransactions, searchTerm, transactionBasis]);
+  }, [setTransactions, searchTerm, transactionBasis, limit, currentPage]);
 
   useEffect(() => {
     const fetchWatermark = async () => {
@@ -189,31 +183,6 @@ const StatementPage = () => {
 
     fetchAllData().then(() => setLoading(false));
   }, [fetchAllData]);
-
-  const filteredTransactions = useMemo(() => {
-    const filtered = transactions.filter(txn => {
-      const transactionDate = new Date(txn.date);
-      const start = startDate ? new Date(startDate) : null;
-      const end = endDate ? new Date(endDate) : null;
-
-      if (start && transactionDate < start) return false;
-      if (end) {
-        const adjustedEndDate = new Date(end);
-        adjustedEndDate.setHours(23, 59, 59, 999);
-        if (transactionDate > adjustedEndDate) return false;
-      }
-      
-      const matchesType = typeFilter === "ALL" || txn.type === typeFilter;
-      const matchesBasis = transactionBasis === "ALL" || txn.transactionBasis === transactionBasis;
-      const matchesSearch = !searchTerm || 
-        txn.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (txn.utr && txn.utr.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (txn.transaction_no && txn.transaction_no.toLowerCase().includes(searchTerm.toLowerCase()));
-
-      return matchesType && matchesBasis && matchesSearch;
-    });
-    return filtered;
-  }, [transactions, startDate, endDate, typeFilter, transactionBasis, searchTerm]);
 
   const handleDownload = () => {
     console.log("Download statement clicked. Implement CSV/PDF generation here.");
@@ -281,8 +250,6 @@ const StatementPage = () => {
     }
   };
 
-
-  // UPDATED FUNCTION
   const getTransactionStatusIcon = (status: TransactionStatus) => {
     let IconComponent: React.ElementType = Info; // Default icon
     let iconClassName = "w-4 h-4";
@@ -307,11 +274,10 @@ const StatementPage = () => {
     }
 
     return (
-      <TooltipProvider delayDuration={100}> {/* delayDuration is optional */}
+      <TooltipProvider delayDuration={100}>
         <Tooltip>
           <TooltipTrigger asChild>
-            {/* Some tooltip triggers work best with a simple element like span directly wrapping the icon */}
-            <span className="inline-flex items-center justify-center"> {/* This span can help with layout if needed */}
+            <span className="inline-flex items-center justify-center">
               <IconComponent className={iconClassName} />
             </span>
           </TooltipTrigger>
@@ -327,12 +293,12 @@ const StatementPage = () => {
     setIsCheckingAllStatuses(true);
     const pendingTransactions = transactions.filter(txn => txn.status === 'PENDING');
     for (const txn of pendingTransactions) {
-      // Await each status check to avoid overwhelming the API or race conditions
-      // In a real app, you might want to batch these or use a queue
       await handleCheckStatus(txn);
     }
     setIsCheckingAllStatuses(false);
   };
+
+  const totalPages = Math.ceil(totalTransactions / limit);
 
   return (
     <DashboardLayout>
@@ -355,7 +321,7 @@ const StatementPage = () => {
                 </div>
 
                 {/* Filters */}
-                <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div className="mb-6 grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                     <div>
                     <label htmlFor="startDate" className="block text-sm font-medium text-muted-foreground mb-1">Start Date</label>
                     <div className="relative">
@@ -417,12 +383,30 @@ const StatementPage = () => {
                         <option value="UPI">UPI</option>
                         <option value="IMPS">IMPS</option>
                         <option value="DMT">DMT</option>
-                        {/* <option value="DMT">DMT</option> */}
                         </select>
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground">
                             <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
                         </div>
                     </div>
+                    </div>
+                    <div>
+                        <label htmlFor="limit" className="block text-sm font-medium text-muted-foreground mb-1">Show</label>
+                        <div className="relative">
+                            <ListChecks className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <select
+                                id="limit"
+                                value={limit}
+                                onChange={(e) => setLimit(parseInt(e.target.value))}
+                                className="pl-10 dark:text-black pr-8 block w-full py-2.5 bg-background border border-border text-foreground focus:border-primary focus:ring-1 focus:ring-primary rounded-md appearance-none"
+                            >
+                                <option value="10">10</option>
+                                <option value="20">20</option>
+                                <option value="50">50</option>
+                            </select>
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground">
+                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div className="mb-6">
@@ -439,31 +423,34 @@ const StatementPage = () => {
                         />
                     </div>
                 </div>
-                <div className="mb-6 flex justify-end items-center space-x-4">
-                    <div className="flex items-center">
-                        <input
-                            type="checkbox"
-                            id="watermarkCheckbox"
-                            checked={withWatermark}
-                            onChange={(e) => setWithWatermark(e.target.checked)}
-                            className="mr-2"
-                        />
-                        <label htmlFor="watermarkCheckbox" className="text-sm text-muted-foreground">Add Watermark to PDF</label>
+                <div className="mb-6 flex justify-between items-center space-x-4">
+                    
+                    <div className="flex items-center space-x-4">
+                        <div className="flex items-center">
+                            <input
+                                type="checkbox"
+                                id="watermarkCheckbox"
+                                checked={withWatermark}
+                                onChange={(e) => setWithWatermark(e.target.checked)}
+                                className="mr-2"
+                            />
+                            <label htmlFor="watermarkCheckbox" className="text-sm text-muted-foreground">Add Watermark to PDF</label>
+                        </div>
+                        <Button 
+                          onClick={handleCheckAllStatuses} 
+                          disabled={isCheckingAllStatuses || transactions.filter(txn => txn.status === 'PENDING').length === 0}
+                        >
+                            {isCheckingAllStatuses ? (
+                                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Checking All...</>
+                            ) : (
+                                <><ListChecks className="h-4 w-4 mr-2" /> Check All Status</>
+                            )}
+                        </Button>
+                        <Button onClick={handleDownload}>
+                            <Download className="h-4 w-4 mr-2" />
+                            Download Statement
+                        </Button>
                     </div>
-                    <Button 
-                      onClick={handleCheckAllStatuses} 
-                      disabled={isCheckingAllStatuses || transactions.filter(txn => txn.status === 'PENDING').length === 0}
-                    >
-                        {isCheckingAllStatuses ? (
-                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Checking All...</>
-                        ) : (
-                            <><ListChecks className="h-4 w-4 mr-2" /> Check All Status</>
-                        )}
-                    </Button>
-                    <Button onClick={handleDownload}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Download Statement
-                    </Button>
                 </div>
 
                 {/* Transactions List */}
@@ -492,8 +479,8 @@ const StatementPage = () => {
                               </div>
                             </td>
                           </tr>
-                        ) : filteredTransactions.length > 0 ? (
-                          filteredTransactions.map((txn) => (
+                        ) : transactions.length > 0 ? (
+                          transactions.map((txn) => (
                             <tr key={txn.id} className="hover:bg-muted/30 transition-colors">
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
                                 {new Date(txn.date).toLocaleDateString()}
@@ -545,9 +532,28 @@ const StatementPage = () => {
                         </tbody>
                     </table>
                 </div>
-                <p className="text-xs text-muted-foreground mt-4 text-center">
-                    Showing {filteredTransactions.length} of {transactions.length} transactions.
-                </p>
+                <div className="flex justify-between items-center mt-4">
+                    <p className="text-xs text-muted-foreground">
+                        Showing {transactions.length} of {totalTransactions} transactions.
+                    </p>
+                    <div className="flex items-center space-x-2">
+                        <Button
+                            onClick={() => setCurrentPage(currentPage - 1)}
+                            disabled={currentPage === 1}
+                        >
+                            Previous
+                        </Button>
+                        <span className="text-sm">
+                            Page {currentPage} of {totalPages}
+                        </span>
+                        <Button
+                            onClick={() => setCurrentPage(currentPage + 1)}
+                            disabled={currentPage === totalPages || totalPages === 0}
+                        >
+                            Next
+                        </Button>
+                    </div>
+                </div>
             </motion.div>
             )}
         </div>

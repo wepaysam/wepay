@@ -2,6 +2,7 @@ import React from 'react';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from './ui/alert-dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { useGlobalContext } from '../context/GlobalContext';
 
 interface UpiPaymentConfirmationPopupProps {
   open: boolean;
@@ -15,6 +16,7 @@ interface UpiPaymentConfirmationPopupProps {
 const UpiPaymentConfirmationPopup: React.FC<UpiPaymentConfirmationPopupProps> = ({ open, onClose, onSelectAeronPay, onSelectP2I, beneficiary, amount }) => {
   const [websiteUrl, setWebsiteUrl] = React.useState("");
   const [utr, setUtr] = React.useState("");
+  const { user } = useGlobalContext();
 
   React.useEffect(() => {
     if (open) {
@@ -49,8 +51,8 @@ const UpiPaymentConfirmationPopup: React.FC<UpiPaymentConfirmationPopupProps> = 
         <AlertDialogFooter className="flex justify-between w-full">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <div className="flex gap-2">
-            <Button onClick={() => onSelectAeronPay(websiteUrl, utr)} className="bg-blue-500 hover:bg-blue-600 text-white">AeronPay</Button>
-            <Button onClick={() => onSelectP2I(websiteUrl, utr)} className="bg-green-500 hover:bg-green-600 text-white">P2I</Button>
+            {user?.upiPermissions?.aeronpay && <Button onClick={() => onSelectAeronPay(websiteUrl, utr)} className="bg-blue-500 hover:bg-blue-600 text-white">AeronPay</Button>}
+            {user?.upiPermissions?.p2i && <Button onClick={() => onSelectP2I(websiteUrl, utr)} className="bg-green-500 hover:bg-green-600 text-white">P2I</Button>}
           </div>
         </AlertDialogFooter>
       </AlertDialogContent>

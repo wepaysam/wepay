@@ -1,9 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
+import { useGlobalContext } from '../context/GlobalContext';
 
 const PaymentGatewayPopup = ({ open, onClose, onSelect, beneficiary, amount }) => {
     const [websiteUrl, setWebsiteUrl] = useState('');
     const [transactionId, setTransactionId] = useState('');
+    const { user } = useGlobalContext();
 
     useEffect(() => {
         if (open) {
@@ -56,9 +58,9 @@ const PaymentGatewayPopup = ({ open, onClose, onSelect, beneficiary, amount }) =
                     />
                 </div>
                 <div className="flex justify-around">
-                    <button onClick={() => handleSelect('sevapay_weshubh')} className="bg-green-500 text-white px-4 py-2 rounded-lg mr-4">Sevapay Weshubh</button>
-                    <button onClick={() => handleSelect('sevapay_kelta')} className="bg-blue-500 text-white px-4 py-2 rounded-lg mr-4">Sevapay Kelta</button>
-                    <button onClick={() => handleSelect('aeronpay')} className="bg-purple-500 text-white px-4 py-2 rounded-lg">AeronPay</button>
+                    {user?.impsPermissions?.sevapay_weshubh && <button onClick={() => handleSelect('sevapay_weshubh')} className="bg-green-500 text-white px-4 py-2 rounded-lg mr-4">Sevapay Weshubh</button>}
+                    {user?.impsPermissions?.sevapay_kelta && <button onClick={() => handleSelect('sevapay_kelta')} className="bg-blue-500 text-white px-4 py-2 rounded-lg mr-4">Sevapay Kelta</button>}
+                    {user?.impsPermissions?.aeronpay && <button onClick={() => handleSelect('aeronpay')} className="bg-purple-500 text-white px-4 py-2 rounded-lg">AeronPay</button>}
                 </div>
                 <button onClick={onClose} className="mt-4 text-red-500">Close</button>
             </div>

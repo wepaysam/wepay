@@ -28,9 +28,8 @@ export const dmtPayment = async (req) => {
         const [user] = await Promise.all([
         prisma.user.findUnique({ where: { id: userId } })
         ]);
-        console.log("Fetched user:", user);
         // Assuming req.user is populated by middleware and contains dmtPermissions
-        if (!user || !user.dmtPermissions) {
+        if (!user || !user.dmtPermissions?.enabled) {
             console.warn(`User ${userId || 'Unknown'} does not have DMT permission.`);
             return NextResponse.json({ message: 'You do not have permission to perform DMT transactions.' }, { status: 403 });
         }
@@ -122,31 +121,38 @@ export const dmtPayment = async (req) => {
         console.log("Katla API response:", data);
 
         if (response.ok ) {
-            await prisma.transactions.create({
-                data: {
-                    amount: parseFloat(amount),
-                    senderAccount: accountNumber,
-                    dmtBeneficiary: {
-                        connect: {
-                            id: beneficiary.id
-                        }
-                    },
-                    transactionType: 'DMT',
-                    transactionStatus: 'PENDING' ,
-                    referenceNo: unique_id,
-                    dmthash: data.clientRefNo,
-                    sender: {
-                        connect: {
-                            id: beneficiary.userId
-                        }
-                    },
-                    chargesAmount: 0, // You need to determine chargesAmount
-                    websiteUrl: websiteUrl,
-                    transactionId: transactionId,
-                    transaction_no: data.transaction_no || paymentReferenceNo,
-                    utr: data.clientRefNo, 
-                    gateway: 'DMT',
-                }
+            await prisma.$transaction(async (tx) => {
+                await tx.user.update({
+                    where: { id: userId },
+                    data: { balance: { decrement: parseFloat(amount) } },
+                });
+
+                await tx.transactions.create({
+                    data: {
+                        amount: parseFloat(amount),
+                        senderAccount: accountNumber,
+                        dmtBeneficiary: {
+                            connect: {
+                                id: beneficiary.id
+                            }
+                        },
+                        transactionType: 'DMT',
+                        transactionStatus: 'PENDING' ,
+                        referenceNo: unique_id,
+                        dmthash: data.clientRefNo,
+                        sender: {
+                            connect: {
+                                id: beneficiary.userId
+                            }
+                        },
+                        chargesAmount: 0, // You need to determine chargesAmount
+                        websiteUrl: websiteUrl,
+                        transactionId: transactionId,
+                        transaction_no: data.transaction_no || paymentReferenceNo,
+                        utr: data.clientRefNo, 
+                        gateway: 'DMT',
+                    }
+                });
             });
             return NextResponse.json({ ...data, transaction_no: data.transaction_no || transactionId }, { status: 200 });
         } else {
@@ -338,11 +344,20 @@ export const dmtStatus = async (req, res) => {
         }
 
         // Only update if COMPLETED or FAILED
-        const updatedTransaction = await prisma.transactions.update({
-            where: { id },
-            data: {
-                transactionStatus: mappedStatus,
-                utr: utrId,
+        await prisma.$transaction(async (tx) => {
+            await tx.transactions.update({
+                where: { id },
+                data: {
+                    transactionStatus: mappedStatus,
+                    utr: utrId,
+                }
+            });
+
+            if (mappedStatus === 'FAILED') {
+                await tx.user.update({
+                    where: { id: transaction.senderId },
+                    data: { balance: { increment: transaction.amount } },
+                });
             }
         });
 

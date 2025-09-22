@@ -15,6 +15,22 @@ interface User {
   aadhaarCardUrl: string | null;
   panCardUrl: string | null;
   isKycVerified: boolean;
+  impsPermissions?: {
+    enabled?: boolean;
+    aeronpay?: boolean;
+    sevapay_kelta?: boolean;
+    sevapay_weshubh?: boolean;
+  };
+  upiPermissions?: {
+    enabled?: boolean;
+    aeronpay?: boolean;
+    p2i?: boolean;
+  };
+  dmtPermissions?: {
+    enabled?: boolean;
+    sevapay_kelta?: boolean;
+    sevapay_weshubh?: boolean;
+  };
 }
 
 interface Transaction {
