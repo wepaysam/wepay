@@ -16,10 +16,14 @@ export async function GET(request) {
     const searchTerm = searchParams.get('searchTerm');
     const transactionBasis = searchParams.get('transactionBasis');
 
-    // Get the user's transactions
-    const transactions = await getUserTransactions(userId, searchTerm, transactionBasis);
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const page = parseInt(searchParams.get('page') || '1');
+    const skip = (page - 1) * limit;
 
-    return NextResponse.json( transactions );
+    // Get the user's transactions
+    const { transactions, totalTransactions } = await getUserTransactions(userId, searchTerm, transactionBasis, limit, skip);
+
+    return NextResponse.json({ transactions, totalTransactions });
   } catch (error) {
     console.error('Transactions API error:', error);
     return NextResponse.json(

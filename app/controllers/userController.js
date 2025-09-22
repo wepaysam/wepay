@@ -160,7 +160,22 @@ export async function loginUser(data) {
 export async function getUserProfile(userId) {
   try {
     const user = await prisma.user.findUnique({
-      where: { id: userId }
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        phoneNumber: true,
+        userType: true,
+        balance: true,
+        aadhaarNumber: true,
+        panCardNumber: true,
+        aadhaarCardUrl: true,
+        panCardUrl: true,
+        isKycVerified: true,
+        impsPermissions: true,
+        upiPermissions: true,
+        dmtPermissions: true,
+      },
     });
 
     if (!user) {

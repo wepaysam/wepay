@@ -114,13 +114,11 @@ export const upiPayment = async (req) => {
       const transactionStatus = payoutResult.status === 'SUCCESS' ? 'SUCCESS' : 'PENDING';
 
       await prisma.$transaction(async (tx) => {
-        // if(payoutResult.status === 'SUCCESS'){
-        //   await tx.user.update({
-        //   where: { id: userId },
-        //   data: { balance: { decrement: totalDebitAmount } },
-        // });
-        // }
-        await tx.transactions.create({
+          await tx.user.update({
+            where: { id: userId },
+            data: { balance: { decrement: amount } },
+          });
+         await tx.transactions.create({
           data: {
             upiBeneficiary: { connect: { id: beneficiary.id } },
             sender:{ connect: { id: userId } },
@@ -235,15 +233,31 @@ export const checkStatus = async (req, res) => {
         console.log("AeronPay API response:", data);
 
         if (response.ok) {
-             await prisma.transactions.update({
-                where: {
-                    id: id
-                },
-                data: {
-                    transactionStatus: data.status === 'SUCCESS' ? 'COMPLETED' : data.status === 'PENDING' ? 'PENDING' : 'FAILED',
-                    utr: data.utr 
+            const transaction = await prisma.transactions.findUnique({ where: { id } });
+
+            if (!transaction) {
+                return NextResponse.json({ message: 'Transaction not found' }, { status: 404 });
+            }
+
+            const newStatus = data.status === 'SUCCESS' ? 'COMPLETED' : data.status === 'PENDING' ? 'PENDING' : 'FAILED';
+
+            await prisma.$transaction(async (tx) => {
+                await tx.transactions.update({
+                    where: { id: id },
+                    data: {
+                        transactionStatus: newStatus,
+                        utr: data.utr 
+                    }
+                });
+
+                if (newStatus === 'FAILED' && transaction.transactionStatus !== 'FAILED') {
+                    await tx.user.update({
+                        where: { id: transaction.senderId },
+                        data: { balance: { increment: transaction.amount } },
+                    });
                 }
             });
+
             return NextResponse.json(data, { status: 200 });
         } else {
             console.error("AeronPay API error:", data);

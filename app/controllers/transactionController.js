@@ -98,7 +98,7 @@ export async function getTransactionCharge(amount) {
   }
 }
 
-export async function getUserTransactions(userId, searchTerm, transactionBasis) {
+export async function getUserTransactions(userId, searchTerm, transactionBasis, limit, skip) {
   try {
     const where = {
       senderId: userId,
@@ -135,6 +135,8 @@ export async function getUserTransactions(userId, searchTerm, transactionBasis) 
 
     const transactions = await prisma.transactions.findMany({
       where,
+      take: limit,
+      skip: skip,
       select: {
         id: true,
         amount: true,
@@ -156,7 +158,9 @@ export async function getUserTransactions(userId, searchTerm, transactionBasis) 
       },
     });
 
-    return transactions;
+    const totalTransactions = await prisma.transactions.count({ where });
+
+    return {transactions, totalTransactions};
   } catch (error) {
     throw new Error(`Failed to get user transactions: ${error.message}`);
   }

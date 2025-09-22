@@ -63,7 +63,7 @@ export async function verifiedUserMiddleware(req) {
   if (authError) return authError;
   
   // Check if user is verified
-  if (req.user.userType !== 'VERIFIED' && req.user.userType !== 'ADMIN') {
+  if (req.user.userType !== 'VERIFIED' && req.user.userType !== 'PROPRIETOR_VERIFIED'  && req.user.userType !== 'COMPANY_VERIFIED' && req.user.userType !== 'ADMIN') {
     return NextResponse.json(
       { message: 'Unauthorized: Verified user access required' },
       { status: 403 }

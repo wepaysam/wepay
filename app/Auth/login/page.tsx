@@ -93,7 +93,7 @@ const Login = () => {
         return;
       }
       
-      if (statusResult.status === 'VERIFIED' || statusResult.status === 'ADMIN') {
+      if (statusResult.status === 'VERIFIED' || statusResult.status === 'ADMIN' || statusResult.status === 'PROPRIETOR_VERIFIED' || statusResult.status === 'COMPANY_VERIFIED') {
         setUserPhone(data.phoneNumber);
         
         toast({
@@ -105,6 +105,12 @@ const Login = () => {
         setOtpValues(['', '', '', '', '', '']);
         
         setOtpSent(true);
+      } else {
+        toast({
+          title: "Account pending verification",
+          description: "Your account is waiting for verification by an admin. Please try again later.",
+          variant: "destructive",
+        });
       }
     } catch (error: any) {
       toast({

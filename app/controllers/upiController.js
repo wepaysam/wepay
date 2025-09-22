@@ -143,21 +143,31 @@ export const p2iUpiPayout = async (req) => {
                 });
             }
 
-            await prisma.transactions.create({
-                data: {
-                    amount: amount,
-                    senderAccount: 'UPI', // Or some other identifier
-                    upiBeneficiaryId: beneficiaryRecord.id,
-                    transactionType: 'UPI',
-                    transactionStatus: data.data.status === 'SUCCESS' ? 'COMPLETED' : data.data.status === 'PENDING' ? 'PENDING' : 'FAILED',
-                    referenceNo: unique_id,
-                    senderId: userId,
-                    transactionId: utr,
-                    websiteUrl: websiteUrl,
-                    utr: utr,
-                    chargesAmount: data.data.api_user_charges || 0,
-                }
+            const newStatus = data.data.status === 'SUCCESS' ? 'COMPLETED' : 'PENDING';
+
+            await prisma.$transaction(async (tx) => {
+                await tx.user.update({
+                    where: { id: userId },
+                    data: { balance: { decrement: amount } },
+                });
+
+                await tx.transactions.create({
+                    data: {
+                        amount: amount,
+                        senderAccount: 'UPI', // Or some other identifier
+                        upiBeneficiaryId: beneficiaryRecord.id,
+                        transactionType: 'UPI',
+                        transactionStatus: newStatus,
+                        referenceNo: unique_id,
+                        senderId: userId,
+                        transactionId: utr,
+                        websiteUrl: websiteUrl,
+                        utr: utr,
+                        chargesAmount: data.data.api_user_charges || 0,
+                    }
+                });
             });
+
             return NextResponse.json(data, { status: 200 });
         } else {
             console.error("P2I UPI Payout API error:", data);
