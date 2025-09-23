@@ -165,7 +165,6 @@ export default function AdminDashboard() {
 
         const data = await response.json();
         setTotalBalances(data);
-        setTotalSumBalance(calculateTotalSum(data, excludedBalances));
       } catch (error) {
         console.error("Error fetching total balances:", error);
       } finally {
