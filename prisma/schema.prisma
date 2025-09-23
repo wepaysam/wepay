@@ -68,7 +68,7 @@ model OfficePhoto {
 model Beneficiary {
   id                String          @id @default(uuid())
   userId            String
-  accountNumber     String          @unique
+  accountNumber     String
   accountHolderName String
   transactionType   TransactionType
   isVerified        Boolean         @default(false)
@@ -76,29 +76,35 @@ model Beneficiary {
   ifscCode          String?
   user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions      Transactions[]
+
+  @@unique([userId, accountNumber])
 }
 
 model UpiBeneficiary {
   id                String         @id @default(uuid())
   userId            String
-  upiId             String         @unique
+  upiId             String
   accountHolderName String
   isVerified        Boolean        @default(false)
   createdAt         DateTime       @default(now())
   transactions      Transactions[]
   user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, upiId])
 }
 
 model DmtBeneficiary {
   id                String         @id @default(uuid())
   userId            String
-  accountNumber     String         @unique
+  accountNumber     String
   accountHolderName String
   ifscCode          String?
   isVerified        Boolean        @default(false)
   createdAt         DateTime       @default(now())
   user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions      Transactions[]
+
+  @@unique([userId, accountNumber])
 }
 
 model Transactions {

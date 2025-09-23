@@ -55,8 +55,9 @@ export async function POST(request) {
 
     if (data.accountNumber) {
       data.accountNumber = data.accountNumber.trim();
-      const existingBeneficiary = await prisma.beneficiary.findUnique({
+      const existingBeneficiary = await prisma.beneficiary.findFirst({
         where: {
+          userId: userId,
           accountNumber: data.accountNumber,
         },
       });
@@ -77,8 +78,9 @@ export async function POST(request) {
 
       return NextResponse.json(newBeneficiary);
     } else if (data.upiId) {
-      const existingUpiBeneficiary = await prisma.upiBeneficiary.findUnique({
+      const existingUpiBeneficiary = await prisma.upiBeneficiary.findFirst({
         where: {
+          userId: userId,
           upiId: data.upiId,
         },
       });
