@@ -12,8 +12,19 @@ import {
 } from '../../components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Info } from 'lucide-react';
+import { Info, MinusCircle, DollarSign } from 'lucide-react';
 import UserDetailsPopup, { User, Director, CompanyDocument, OfficePhoto } from '../../components/UserDetailsPopup';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { Textarea } from "../../components/ui/textarea";
 
 interface VerifiedUser extends User {
   transactionCount: number;
@@ -26,6 +37,10 @@ export default function VerifiedUsersPage() {
   const [users, setUsers] = useState<VerifiedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<VerifiedUser | null>(null);
+  const [isDeductBalanceModalOpen, setIsDeductBalanceModalOpen] = useState(false);
+  const [deductAmount, setDeductAmount] = useState('');
+  const [deductReason, setDeductReason] = useState('');
+  const [userToDeduct, setUserToDeduct] = useState<VerifiedUser | null>(null);
 
   useEffect(() => {
     fetchVerifiedUsers();
@@ -66,6 +81,80 @@ export default function VerifiedUsersPage() {
     setSelectedUser(null);
   };
 
+  const handleOpenDeductModal = (user: VerifiedUser) => {
+    setUserToDeduct(user);
+    setIsDeductBalanceModalOpen(true);
+    setDeductAmount(''); // Clear previous input
+    setDeductReason(''); // Clear previous input
+  };
+
+  const handleCloseDeductModal = () => {
+    setIsDeductBalanceModalOpen(false);
+    setUserToDeduct(null);
+  };
+
+  const handleDeductBalance = async () => {
+    if (!userToDeduct || !deductAmount || !deductReason) {
+      toast({
+        title: "Error",
+        description: "Please enter amount and reason for deduction.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const amount = parseFloat(deductAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid positive amount.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const token = document.cookie.replace(/(?:(?:^|.*;\s*)token\s*\=\s*([^;]*).*$)|^.*$/, "$1");
+      if (!token) {
+        toast({
+          title: "Authentication Error",
+          description: "You're not logged in. Please log in and try again.",
+          variant: "destructive",
+        });
+        router.push('/Auth/login');
+        return;
+      }
+
+      const response = await fetch(`/api/admin/users/${userToDeduct.id}/deduct-balance`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ amount, reason: deductReason }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to deduct balance');
+      }
+
+      toast({
+        title: "Success",
+        description: `Successfully deducted ₹${amount} from ${userToDeduct.fullName || userToDeduct.phoneNumber}'s balance.`, 
+      });
+      handleCloseDeductModal();
+      fetchVerifiedUsers(); // Refresh the user list to show updated balance
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to deduct balance.",
+        variant: "destructive",
+      });
+      console.error('Error deducting balance:', error);
+    }
+  };
+
   return (
     <div className="container mx-auto py-6">
       <Card>
@@ -94,7 +183,7 @@ export default function VerifiedUsersPage() {
               <TableBody>
                 {users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center">
+                    <TableCell colSpan={8} className="text-center">
                       No verified users found
                     </TableCell>
                   </TableRow>
@@ -108,9 +197,12 @@ export default function VerifiedUsersPage() {
                       <TableCell>{user.userType}</TableCell>
                       <TableCell>{user.transactionCount}</TableCell>
                       <TableCell>₹{Number(user.totalTransactionValue).toLocaleString()}</TableCell>
-                      <TableCell>
+                      <TableCell className="flex gap-2">
                         <Button variant="outline" size="icon" onClick={() => handleOpenPopup(user)}>
                           <Info className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={() => handleOpenDeductModal(user)} title="Deduct Balance">
+                          <MinusCircle className="h-4 w-4" />
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -124,6 +216,49 @@ export default function VerifiedUsersPage() {
       {selectedUser && (
         <UserDetailsPopup user={selectedUser} onClose={handleClosePopup} onSaveSuccess={fetchVerifiedUsers} />
       )}
+
+      {/* Deduct Balance Modal */}
+      <Dialog open={isDeductBalanceModalOpen} onOpenChange={setIsDeductBalanceModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Deduct Balance from {userToDeduct?.fullName || userToDeduct?.phoneNumber}</DialogTitle>
+            <DialogDescription>
+              Enter the amount to deduct and a reason for this adjustment.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="deductAmount" className="text-right">
+                Amount
+              </Label>
+              <Input
+                id="deductAmount"
+                type="number"
+                value={deductAmount}
+                onChange={(e) => setDeductAmount(e.target.value)}
+                className="col-span-3"
+                placeholder="e.g., 100.00"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="deductReason" className="text-right">
+                Reason
+              </Label>
+              <Textarea
+                id="deductReason"
+                value={deductReason}
+                onChange={(e) => setDeductReason(e.target.value)}
+                className="col-span-3"
+                placeholder="e.g., Incorrect credit, service charge"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCloseDeductModal}>Cancel</Button>
+            <Button onClick={handleDeductBalance}>Deduct</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

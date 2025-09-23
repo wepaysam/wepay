@@ -39,6 +39,8 @@ model User {
   impsPermissions   Json? // Stores IMPS permissions as JSON
   upiPermissions    Json? // Stores UPI permissions as JSON
   dmtPermissions    Json? // Stores DMT permissions as JSON
+  adjustedBalances  BalanceAdjustment[] @relation("AdjustedUser")
+  madeAdjustments   BalanceAdjustment[] @relation("AdjustingAdmin")
 }
 
 model Director {
@@ -173,6 +175,26 @@ model BankInfo {
   location  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum AdjustmentType {
+  DEDUCTION
+  ADDITION
+}
+
+model BalanceAdjustment {
+  id              String         @id @default(uuid())
+  userId          String
+  adminId         String
+  amount          Decimal
+  type            AdjustmentType
+  reason          String
+  previousBalance Decimal
+  closingBalance  Decimal
+  createdAt       DateTime       @default(now())
+  
+  user            User           @relation("AdjustedUser", fields: [userId], references: [id])
+  admin           User           @relation("AdjustingAdmin", fields: [adminId], references: [id])
 }
 
 enum UserType {

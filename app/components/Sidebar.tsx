@@ -38,7 +38,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open }) => {
     { href: "/", icon: <Home />, label: "Home" },
     { href: "/payouts", icon: <ArrowLeftRight />, label: "Services" },
     { href: "/statement", icon: <Receipt />, label: "Statement" },
-    { href: "/balancerequest", icon: <FileText />, label: "Balance Request" },
+    { href: "/balancerequest", icon: <FileText />, label: "My Wallet" },
     // { href: "/account-statement", icon: <FileText />, label: "Account Statement" },
     // { href: "/contacts", icon: <Users />, label: "Contacts" },
     { href: "/giftcard", icon: <Gift />, label: "Gift Cards" },

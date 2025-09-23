@@ -17,7 +17,8 @@ import {
   LogOut,
   Settings,
   Receipt,
-  Shield
+  Shield,
+  Landmark
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import Cookies from "js-cookie";
@@ -46,6 +47,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ open, toggleSidebar }) => {
     { href: "/admin/unverified-users", icon: <Users />, label: "Unverified Users" },
     { href: "/admin/verified-users", icon: <Users />, label: "Verified Users" },
     { href: "/admin/balance-requests", icon: <CreditCard />, label: "Balance Requests" },
+    { href: "/admin/banking", icon: <Landmark />, label: "Banking" },
     { href: "/admin/transactions", icon: <FileText />, label: "Transactions" },
     { href: "/admin/transaction-charges", icon: <Receipt />, label: "Transaction Charges" },
     { href: "/admin/settings", icon: <Settings />, label: "Settings" },
