@@ -21,6 +21,7 @@ import {
 } from "../components/ui/dialog";
 import { Checkbox } from "../components/ui/checkbox";
 import { Button } from "../components/ui/button";
+import UserBalancePopup from "../components/UserBalancePopup";
 
 interface DashboardStat {
   title: string;
@@ -78,6 +79,7 @@ export default function AdminDashboard() {
   });
   const [totalSumBalance, setTotalSumBalance] = useState(0);
   const [isBalanceDetailsOpen, setIsBalanceDetailsOpen] = useState(false);
+  const [isUserBalancePopupOpen, setIsUserBalancePopupOpen] = useState(false);
   const [excludedBalances, setExcludedBalances] = useState<string[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -209,7 +211,11 @@ export default function AdminDashboard() {
     };
 
     fetchAllData();
-  }, [excludedBalances]); // Recalculate total sum when excludedBalances changes
+  }, []); // Recalculate total sum when excludedBalances changes
+
+  useEffect(() => {
+    setTotalSumBalance(calculateTotalSum(totalBalances, excludedBalances));
+  }, [totalBalances, excludedBalances]);
 
   const handleExcludeChange = (balanceKey: keyof BalancesState, isChecked: boolean) => {
     setExcludedBalances(prev => 
@@ -249,7 +255,10 @@ export default function AdminDashboard() {
         </Card>
         {stats.map((stat, index) => (
           <Link href={stat.href} key={index}>
-            <Card className="cursor-pointer hover:shadow-md transition-shadow">
+            <Card 
+              className="cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => { if (stat.title === 'Total User Balance') setIsUserBalancePopupOpen(true) }}
+            >
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   {stat.title}
@@ -302,6 +311,8 @@ export default function AdminDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <UserBalancePopup isOpen={isUserBalancePopupOpen} onClose={() => setIsUserBalancePopupOpen(false)} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>

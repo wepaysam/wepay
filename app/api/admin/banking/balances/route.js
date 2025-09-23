@@ -30,8 +30,8 @@ export async function GET(request) {
       // Call the AeronpayBalance controller function directly
       const aeronpayNextResponse = await getAeronpayBalanceController(request); // Pass the request object
       const aeronpayData = await aeronpayNextResponse.json(); // Parse the NextResponse
-      if (aeronpayNextResponse.ok && aeronpayData && aeronpayData.data && aeronpayData.data.available_balance !== undefined) {
-        aeronpayBalance = aeronpayData.data.available_balance;
+      if (aeronpayNextResponse.ok && aeronpayData && aeronpayData.available_balance !== undefined) {
+        aeronpayBalance = aeronpayData.available_balance;
       }
     } catch (aeronpayError) {
       console.error("Error fetching Aeronpay balance:", aeronpayError.message);
