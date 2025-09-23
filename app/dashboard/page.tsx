@@ -420,6 +420,7 @@ const Dashboard = () => {
               value="₹50,000"
               icon={<Wallet className="h-5 w-5" />}
             />
+            <div hidden>
             <StatCard
               title="Vishubh Balance"
               value={formatCurrency(state.balances.vishubhBalance.toString())}
@@ -450,9 +451,10 @@ const Dashboard = () => {
                 </button>
               }
             />
-            
+            </div>
           </>
         )}
+         <div hidden>
          <StatCard
               title="DMT Balance"
               value={formatCurrency(state.balances.dmtBalance.toString())}
@@ -483,6 +485,7 @@ const Dashboard = () => {
                 </button>
               }
             />
+            </div>
       </div>
       
       {/* Recent Transactions */}

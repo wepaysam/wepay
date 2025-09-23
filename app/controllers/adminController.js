@@ -21,11 +21,20 @@ export async function getDashboardStats() {
     // Get count of transactions
     const transactionsCount = await prisma.transactions.count();
 
+    // Get total sum of all user balances
+    const totalUserBalanceAggregate = await prisma.user.aggregate({
+      _sum: {
+        balance: true,
+      },
+    });
+    const totalUserBalance = totalUserBalanceAggregate._sum.balance || 0;
+
     return {
       unverifiedUsers: unverifiedUsersCount,
       verifiedUsers: verifiedUsersCount,
       balanceRequests: balanceRequestsCount,
-      transactions: transactionsCount
+      transactions: transactionsCount,
+      totalUserBalance: totalUserBalance,
     };
   } catch (error) {
     throw new Error(`Failed to get dashboard stats: ${error.message}`);
@@ -370,6 +379,65 @@ export async function updatePermissions(userId, permissions) {
   } catch (error) {
     console.error("Error in updatePermissions:", error);
     throw new Error(`Failed to update permissions: ${error.message}`);
+  }
+}
+
+/**
+ * Deduct user balance and record the adjustment
+ */
+export async function deductUserBalance(userId, adminId, amount, reason) {
+  try {
+    if (amount <= 0) {
+      throw new Error('Deduction amount must be positive');
+    }
+
+    return await prisma.$transaction(async (tx) => {
+      // 1. Get user's current balance
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { balance: true },
+      });
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      const previousBalance = user.balance;
+
+      // 2. Validate if user has sufficient balance (optional, depending on business logic)
+      if (previousBalance < amount) {
+        throw new Error('Insufficient balance for deduction');
+      }
+
+      // 3. Deduct amount from user's balance
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          balance: {
+            decrement: amount,
+          },
+        },
+      });
+
+      const closingBalance = updatedUser.balance;
+
+      // 4. Record the balance adjustment
+      await tx.balanceAdjustment.create({
+        data: {
+          userId: userId,
+          adminId: adminId,
+          amount: amount,
+          type: 'DEDUCTION', // Using the AdjustmentType enum
+          reason: reason,
+          previousBalance: previousBalance,
+          closingBalance: closingBalance,
+        },
+      });
+
+      return updatedUser; // Or return the balance adjustment record if preferred
+    });
+  } catch (error) {
+    throw new Error(`Failed to deduct user balance: ${error.message}`);
   }
 }
 

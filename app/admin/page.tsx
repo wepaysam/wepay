@@ -1,13 +1,26 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import Link from "next/link";
+import StatCard from "../components/StatCard";
 import { 
   Users, 
   CreditCard, 
   FileText, 
-  ArrowUpRight
+  ArrowUpRight,
+  Wallet2,
+  Banknote
 } from "lucide-react";
-import Link from "next/link";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import { Checkbox } from "../components/ui/checkbox";
+import { Button } from "../components/ui/button";
 
 interface DashboardStat {
   title: string;
@@ -15,6 +28,24 @@ interface DashboardStat {
   icon: React.ReactNode;
   href: string;
 }
+
+interface BalancesState {
+  vishubhBalance: number;
+  kotalBalance: number;
+  dmtBalance: number;
+  aeronpayBalance: number;
+}
+
+const formatCurrency = (amount: number | string) => {
+  const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  if (isNaN(numericAmount)) {
+    return '₹0.00';
+  }
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+  }).format(numericAmount);
+};
 
 const getBeneficiaryName = (transaction) => {
   if (transaction.beneficiary) {
@@ -29,6 +60,8 @@ const getBeneficiaryName = (transaction) => {
   return 'N/A';
 };
 
+
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStat[]>([
     { title: "Unverified Users", value: 0, icon: <Users className="h-8 w-8" />, href: "/admin/unverified-users" },
@@ -37,8 +70,27 @@ export default function AdminDashboard() {
     { title: "Transactions", value: 0, icon: <FileText className="h-8 w-8" />, href: "/admin/transactions" }
   ]);
 
+  const [totalBalances, setTotalBalances] = useState<BalancesState>({
+    vishubhBalance: 0,
+    kotalBalance: 0,
+    dmtBalance: 0,
+    aeronpayBalance: 0,
+  });
+  const [totalSumBalance, setTotalSumBalance] = useState(0);
+  const [isBalanceDetailsOpen, setIsBalanceDetailsOpen] = useState(false);
+  const [excludedBalances, setExcludedBalances] = useState<string[]>([]);
+
   const [isLoading, setIsLoading] = useState(true);
   const [recentTransactions, setRecentTransactions] = useState([]);
+
+  const calculateTotalSum = (balances: BalancesState, excluded: string[]) => {
+    let sum = 0;
+    if (!excluded.includes('vishubhBalance')) sum += balances.vishubhBalance;
+    if (!excluded.includes('kotalBalance')) sum += balances.kotalBalance;
+    if (!excluded.includes('dmtBalance')) sum += balances.dmtBalance;
+    if (!excluded.includes('aeronpayBalance')) sum += balances.aeronpayBalance;
+    return sum;
+  };
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -73,18 +125,49 @@ export default function AdminDashboard() {
         }
 
         if (response.ok) {
+          if (response.ok) {
           const data = await response.json();
           setStats([
             { title: "Unverified Users", value: data.unverifiedUsers, icon: <Users className="h-8 w-8" />, href: "/admin/unverified-users" },
             { title: "Verified Users", value: data.verifiedUsers, icon: <Users className="h-8 w-8" />, href: "/admin/verified-users" },
             { title: "Balance Requests", value: data.balanceRequests, icon: <CreditCard className="h-8 w-8" />, href: "/admin/balance-requests" },
-            { title: "Transactions", value: data.transactions, icon: <FileText className="h-8 w-8" />, href: "/admin/transactions" }
+            { title: "Transactions", value: data.transactions, icon: <FileText className="h-8 w-8" />, href: "/admin/transactions" },
+            { title: "Total User Balance", value: data.totalUserBalance, icon: <Wallet2 className="h-8 w-8" />, href: "#" } // New stat card
           ]);
+        }
         }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       } finally {
-        setIsLoading(false);
+        // setIsLoading(false); // Moved to combined fetch
+      }
+    };
+
+    const fetchTotalBalances = async () => {
+      try {
+        const token = document.cookie.replace(/(?:(?:^|.*;\s*)token\s*\=\s*([^;]*).*$)|^.*$/, "$1");
+        if (!token) {
+          console.error("No auth token found");
+          return;
+        }
+
+        const response = await fetch('/api/admin/banking/balances', {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch total balances');
+        }
+
+        const data = await response.json();
+        setTotalBalances(data);
+        setTotalSumBalance(calculateTotalSum(data, excludedBalances));
+      } catch (error) {
+        console.error("Error fetching total balances:", error);
+      } finally {
+        // setIsLoading(false); // Moved to combined fetch
       }
     };
 
@@ -110,18 +193,60 @@ export default function AdminDashboard() {
         }
       } catch (error) {
         console.error("Error fetching recent transactions:", error);
+      } finally {
+        // setIsLoading(false); // Moved to combined fetch
       }
     };
 
-    fetchDashboardData();
-    fetchRecentTransactions();
-  }, []);
+    const fetchAllData = async () => {
+      setIsLoading(true);
+      await Promise.all([
+        fetchDashboardData(),
+        fetchTotalBalances(),
+        fetchRecentTransactions()
+      ]);
+      setIsLoading(false);
+    };
+
+    fetchAllData();
+  }, [excludedBalances]); // Recalculate total sum when excludedBalances changes
+
+  const handleExcludeChange = (balanceKey: keyof BalancesState, isChecked: boolean) => {
+    setExcludedBalances(prev => 
+      isChecked 
+        ? prev.filter(key => key !== balanceKey) 
+        : [...prev, balanceKey]
+    );
+  };
 
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Admin Dashboard</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setIsBalanceDetailsOpen(true)}
+        >
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Balance
+            </CardTitle>
+            <Banknote className="h-8 w-8" />
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="text-2xl font-bold">
+                {isLoading ? (
+                  <div className="h-8 w-16 bg-muted animate-pulse rounded"></div>
+                ) : (
+                  formatCurrency(totalSumBalance)
+                )}
+              </div>
+              <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
         {stats.map((stat, index) => (
           <Link href={stat.href} key={index}>
             <Card className="cursor-pointer hover:shadow-md transition-shadow">
@@ -147,6 +272,36 @@ export default function AdminDashboard() {
           </Link>
         ))}
       </div>
+
+      {/* Balance Details Dialog */}
+      <Dialog open={isBalanceDetailsOpen} onOpenChange={setIsBalanceDetailsOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Individual Balances</DialogTitle>
+            <DialogDescription>Select balances to include in the total sum.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            {Object.entries(totalBalances).map(([key, value]) => (
+              <div key={key} className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id={key}
+                    checked={!excludedBalances.includes(key)}
+                    onCheckedChange={(checked) => handleExcludeChange(key as keyof BalancesState, checked as boolean)}
+                  />
+                  <label htmlFor={key} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).replace('Balance', ' Balance')}
+                  </label>
+                </div>
+                <span className="font-medium">{formatCurrency(value)}</span>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setIsBalanceDetailsOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
