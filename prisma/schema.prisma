@@ -134,17 +134,19 @@ model Transactions {
 }
 
 model BalanceRequest {
-  id          String               @id @default(uuid())
-  userId      String
-  amount      Decimal
-  isConfirmed Boolean              @default(false)
-  requestedAt DateTime             @default(now())
-  UTRnumber   String
-  isRejected  Boolean              @default(false)
-  createdAt   DateTime             @default(now())
-  status      BalanceRequestStatus @default(PENDING)
-  updatedAt   DateTime             @default(now()) @updatedAt
-  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String               @id @default(uuid())
+  userId          String
+  amount          Decimal
+  isConfirmed     Boolean              @default(false)
+  requestedAt     DateTime             @default(now())
+  UTRnumber       String
+  isRejected      Boolean              @default(false)
+  createdAt       DateTime             @default(now())
+  status          BalanceRequestStatus @default(PENDING)
+  previousBalance Decimal? // Store user's balance before this request was processed
+  closingBalance  Decimal? // Store user's balance after this request was processed
+  updatedAt       DateTime             @default(now()) @updatedAt
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model TransactionCharge {
