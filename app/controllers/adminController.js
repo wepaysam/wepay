@@ -101,19 +101,19 @@ export async function verifyUser(userId) {
 export async function getBalanceRequests() {
   try {
     const requests = await prisma.balanceRequest.findMany({
-      where: {
-        status: 'PENDING'
-      },
       select: {
         id: true,
         amount: true,
         UTRnumber: true,
         status: true,
         createdAt: true,
+        previousBalance: true,
+        closingBalance: true,
         user: {
           select: {
             phoneNumber: true,
-            email: true
+            email: true,
+            fullName: true, // Added fullName for user number/name
           }
         }
       },
@@ -150,8 +150,15 @@ export async function approveBalanceRequest(requestId) {
 
     // Start a transaction to update balance and request status
     return await prisma.$transaction(async (prisma) => {
+      // Get user's current balance before update
+      const userBeforeUpdate = await prisma.user.findUnique({
+        where: { id: request.userId },
+        select: { balance: true }
+      });
+      const previousBalance = userBeforeUpdate.balance;
+
       // Update the user's balance
-      await prisma.user.update({
+      const updatedUser = await prisma.user.update({
         where: { id: request.userId },
         data: {
           balance: {
@@ -159,11 +166,16 @@ export async function approveBalanceRequest(requestId) {
           }
         }
       });
+      const closingBalance = updatedUser.balance;
 
-      // Update the request status
+      // Update the request status and store balance history
       const updatedRequest = await prisma.balanceRequest.update({
         where: { id: requestId },
-        data: { status: 'APPROVED' }
+        data: {
+          status: 'APPROVED',
+          previousBalance: previousBalance,
+          closingBalance: closingBalance
+        }
       });
 
       // Create a transaction record
@@ -191,17 +203,30 @@ export async function rejectBalanceRequest(requestId) {
   try {
     // Check if request exists
     const request = await prisma.balanceRequest.findUnique({
-      where: { id: requestId }
+      where: { id: requestId },
+      include: { user: true } // Include user to get current balance
     });
 
     if (!request) {
       throw new Error('Balance request not found');
     }
 
-    // Update the request status
+    // Check if request is already processed
+    if (request.status !== 'PENDING') {
+      throw new Error(`Balance request is already ${request.status.toLowerCase()}`);
+    }
+
+    // Get user's current balance (it won't change on rejection)
+    const currentBalance = request.user.balance;
+
+    // Update the request status and store balance history
     const updatedRequest = await prisma.balanceRequest.update({
       where: { id: requestId },
-      data: { status: 'REJECTED' }
+      data: {
+        status: 'REJECTED',
+        previousBalance: currentBalance,
+        closingBalance: currentBalance
+      }
     });
 
     return updatedRequest;

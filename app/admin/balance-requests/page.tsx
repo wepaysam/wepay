@@ -40,9 +40,12 @@ interface BalanceRequest {
   status: string; // 'PENDING', 'APPROVED', 'REJECTED'
   createdAt: string;
   updatedAt: string;
+  previousBalance: number | null;
+  closingBalance: number | null;
   user: {
     phoneNumber: string;
     email: string | null;
+    fullName: string | null;
   };
 }
 
@@ -312,10 +315,12 @@ export default function BalanceRequests() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>User</TableHead>
+                <TableHead>Transaction ID</TableHead>
+                <TableHead>User Info</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>UTR Number</TableHead>
+                <TableHead>Previous Balance</TableHead>
+                <TableHead>Closing Balance</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Requested</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -324,7 +329,7 @@ export default function BalanceRequests() {
             <TableBody>
               {filteredRequests?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-6 text-muted-foreground">
                     No balance requests found
                   </TableCell>
                 </TableRow>
@@ -334,7 +339,7 @@ export default function BalanceRequests() {
                     <TableCell className="font-medium">{request.id.slice(0, 8)}...</TableCell>
                     <TableCell>
                       <div>
-                        <div>{request.user.phoneNumber}</div>
+                        <div>{request.user.fullName || request.user.phoneNumber}</div>
                         {request.user.email && (
                           <div className="text-xs text-muted-foreground">{request.user.email}</div>
                         )}
@@ -346,6 +351,12 @@ export default function BalanceRequests() {
                     <TableCell className="font-medium">
                       {request.UTRnumber || 'N/A'}
                     </TableCell>
+                    <TableCell className="font-medium">
+                      {request.previousBalance !== null ? formatCurrency(request.previousBalance) : 'N/A'}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {request.closingBalance !== null ? formatCurrency(request.closingBalance) : 'N/A'}
+                    </TableCell>
                     <TableCell>
                       {getStatusBadge(request.status)}
                     </TableCell>
@@ -353,7 +364,7 @@ export default function BalanceRequests() {
                       {formatDistanceToNow(new Date(request.createdAt), { addSuffix: true })}
                     </TableCell>
                     <TableCell className="text-right">
-                      {request.status === 'PENDING' && (
+                      {request.status === 'PENDING' ? (
                         <div className="flex items-center justify-end gap-2">
                           <Button 
                             variant="ghost" 
@@ -374,6 +385,8 @@ export default function BalanceRequests() {
                             Reject
                           </Button>
                         </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
                   </TableRow>
