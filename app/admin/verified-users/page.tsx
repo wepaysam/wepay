@@ -25,6 +25,7 @@ import {
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
+import { Switch } from "../../components/ui/switch";
 
 interface VerifiedUser extends User {
   transactionCount: number;
@@ -64,7 +65,21 @@ export default function VerifiedUsersPage() {
         },
       });
       const data = await response.json();
-      setUsers(Array.isArray(data.users) ? data.users : []);
+      const fetchedUsers = Array.isArray(data.users) ? data.users : [];
+      setUsers(fetchedUsers);
+
+      // If a user is currently selected, find the updated version and set it
+      if (selectedUser) {
+        const updatedSelectedUser = fetchedUsers.find(user => user.id === selectedUser.id);
+        if (updatedSelectedUser) {
+          setSelectedUser(updatedSelectedUser);
+          console.log('Updated selectedUser after fetch:', updatedSelectedUser);
+        } else {
+          // If the selected user is no longer in the list (e.g., deleted), close the popup
+          setSelectedUser(null);
+        }
+      }
+
       setLoading(false);
     } catch (error) {
       console.error('Error fetching verified users:', error);
@@ -155,6 +170,8 @@ export default function VerifiedUsersPage() {
     }
   };
 
+  
+
   return (
     <div className="container mx-auto py-6">
       <Card>
@@ -178,6 +195,7 @@ export default function VerifiedUsersPage() {
                   <TableHead>Total Transactions</TableHead>
                   <TableHead>Total Transaction Value</TableHead>
                   <TableHead>Actions</TableHead>
+                  
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -205,6 +223,7 @@ export default function VerifiedUsersPage() {
                           <MinusCircle className="h-4 w-4" />
                         </Button>
                       </TableCell>
+                      
                     </TableRow>
                   ))
                 )}

@@ -14,6 +14,7 @@ export async function GET(request) {
         fullName: true,
         email: true,
         balance: true,
+        isDisabled: true,
       },
       orderBy: {
         balance: 'desc',

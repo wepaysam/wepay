@@ -23,11 +23,35 @@ export const upiPayment = async (req) => {
     const { amount: rawAmount, beneficiary, websiteUrl, utr } = await req.json();
     const userId =  req.user.id ;
 
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { upiPermissions: true ,balance:true} });
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { upiPermissions: true ,balance:true, isDisabled: true } });
+
+        // console.log("user details ak",user);
+
+    if (user.isDisabled) {
+      return NextResponse.json({ message: 'You are not allowed to use this service right now.' }, { status: 403 });
+    }
 
     if (!user) {
       console.error(`[${requestId}] CRITICAL: Authenticated UserID: ${userId} not found.`);
       return NextResponse.json({ message: 'User not found' }, { status: 404 });
+    }
+
+    // New security check: Check last transaction time
+    const lastTransaction = await prisma.transactions.findFirst({
+        where: { senderId: userId },
+        orderBy: { createdAt: 'desc' },
+    });
+
+    if (lastTransaction) {
+        const now = new Date();
+        const lastTransactionTime = new Date(lastTransaction.createdAt);
+        const timeDifference = (now.getTime() - lastTransactionTime.getTime()) / 1000; // in seconds
+
+        if (timeDifference < 10) {
+            return NextResponse.json({ message: 'Please try again after 1 minute.' }, { status: 429 }); // 429 Too Many Requests
+        }
     }
 
     const existingTransaction = await prisma.transactions.findFirst({
@@ -525,6 +549,34 @@ export const AeronpaycreditcardVerification = async (req, res) => {
 
 export const AeronpayCreditPayment = async (req, res) => {
     const { mobile,cardNumber,name,email,amount,cardNetwork} = await req.json();
+    const userId =  req.user.id ;
+
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { isDisabled: true } });
+
+    if (!user) {
+      return NextResponse.json({ message: 'User not found' }, { status: 404 });
+    }
+
+    if (user.isDisabled) {
+      return NextResponse.json({ message: 'You are not allowed to use this service right now.' }, { status: 403 });
+    }
+
+    // New security check: Check last transaction time
+    const lastTransaction = await prisma.transactions.findFirst({
+        where: { senderId: userId },
+        orderBy: { createdAt: 'desc' },
+    });
+
+    if (lastTransaction) {
+        const now = new Date();
+        const lastTransactionTime = new Date(lastTransaction.createdAt);
+        const timeDifference = (now.getTime() - lastTransactionTime.getTime()) / 1000; // in seconds
+
+        if (timeDifference < 10) {
+            return NextResponse.json({ message: 'Please try again after 1 minute.' }, { status: 429 }); // 429 Too Many Requests
+        }
+    }
+
     try {
         const response = await fetch(`https://api.aeronpay.in/api/serviceapi-prod/api/utility/ccpayment/creditcard`, {
             method: 'POST',

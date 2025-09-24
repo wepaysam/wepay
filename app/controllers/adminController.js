@@ -471,6 +471,7 @@ export async function getVerifiedUsers() {
         impsPermissions: true,
         upiPermissions: true,
         dmtPermissions: true,
+        isDisabled: true,
         _count: {
           select: {
             sentTransactions: true,

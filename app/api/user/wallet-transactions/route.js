@@ -30,7 +30,9 @@ export async function GET(request) {
       createdAt: request.createdAt,
       status: request.status,
       UTRnumber: request.UTRnumber,
-      transactionType: 'CREDIT'
+      transactionType: 'CREDIT',
+      previousBalance: request.previousBalance,
+      closingBalance: request.closingBalance
     }));
 
     // Format balance adjustments
