@@ -41,6 +41,7 @@ model User {
   dmtPermissions    Json? // Stores DMT permissions as JSON
   adjustedBalances  BalanceAdjustment[] @relation("AdjustedUser")
   madeAdjustments   BalanceAdjustment[] @relation("AdjustingAdmin")
+  isDisabled        Boolean           @default(false)
 }
 
 model Director {

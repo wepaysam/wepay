@@ -26,8 +26,34 @@ export const dmtPayment = async (req) => {
         const userId = req.user?.id; // Get userId from req.user
         // --- Step 1: Fetch User and Beneficiary ---
         const [user] = await Promise.all([
-        prisma.user.findUnique({ where: { id: userId } })
+        prisma.user.findUnique({ where: { id: userId }, select: { dmtPermissions: true, isDisabled: true } })
         ]);
+
+        if (!user) {
+            console.warn(`User ${userId || 'Unknown'} not found.`);
+            return NextResponse.json({ message: 'User not found' }, { status: 404 });
+        }
+
+        if (user.isDisabled) {
+            return NextResponse.json({ message: 'You are not allowed to use this service right now.' }, { status: 403 });
+        }
+
+        // New security check: Check last transaction time
+        const lastTransaction = await prisma.transactions.findFirst({
+            where: { senderId: userId },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        if (lastTransaction) {
+            const now = new Date();
+            const lastTransactionTime = new Date(lastTransaction.createdAt);
+            const timeDifference = (now.getTime() - lastTransactionTime.getTime()) / 1000; // in seconds
+
+            if (timeDifference < 10) {
+                return NextResponse.json({ message: 'Please try again after 1 minute.' }, { status: 429 }); // 429 Too Many Requests
+            }
+        }
+
         // Assuming req.user is populated by middleware and contains dmtPermissions
         if (!user || !user.dmtPermissions?.enabled) {
             console.warn(`User ${userId || 'Unknown'} does not have DMT permission.`);
