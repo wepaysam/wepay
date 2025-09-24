@@ -226,3 +226,12 @@ enum BalanceRequestStatus {
   APPROVED
   REJECTED
 }
+
+model CronLock {
+  id        String   @id @default(cuid())
+  jobName   String   @unique
+  isLocked  Boolean  @default(false)
+  lockedAt  DateTime?
+  lockedBy  String? // Optional: to identify which instance locked it
+  updatedAt DateTime @updatedAt
+}

@@ -3,6 +3,18 @@ import { NextResponse } from 'next/server';
 
 export async function authMiddleware(req) {
   try {
+    // --- NEW: Internal Cron Request Bypass ---
+    const isInternalCron = req.headers.get('X-Internal-Cron-Request') === 'true';
+    const cronSecret = req.headers.get('X-Cron-Secret'); // Or use Authorization header for cron
+    
+    if (isInternalCron && cronSecret === process.env.CRON_SECRET_KEY) {
+      // Bypass regular authentication for internal cron requests
+      // You might want to set a dummy req.user or ensure subsequent logic handles this
+      req.user = { id: 'cron_system', userType: 'CRON' }; // Dummy user for internal identification
+      return null; 
+    }
+    // --- END NEW ---
+
     // First, try to get token from Authorization header
     let token = req.headers.get('Authorization')?.split(' ')[1];
     console.log("Token from header:", token);

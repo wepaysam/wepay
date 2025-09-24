@@ -5,8 +5,9 @@
   "scripts": {
     "dev": "next dev --port 3001",
     "build": "prisma generate && next build",
-    "start": "next start",
-    "lint": "next lint"
+    "start": "concurrently \"next start\" \"node scripts/trigger-cron.js\"",
+    "lint": "next lint",
+    "trigger-cron": "node scripts/trigger-cron.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.3",
@@ -38,6 +39,7 @@
     "@radix-ui/react-tooltip": "^1.1.8",
     "@types/js-cookie": "^3.0.6",
     "@types/recharts": "^1.8.29",
+    "axios": "^1.12.2",
     "bcrypt": "^5.1.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -54,6 +56,7 @@
     "lucide-react": "^0.483.0",
     "next": "15.2.3",
     "next-themes": "^0.4.6",
+    "node-fetch": "^3.0.0",
     "react": "^19.0.0",
     "react-day-picker": "^9.6.4",
     "react-dom": "^19.0.0",
@@ -73,6 +76,7 @@
     "@types/node": "22.13.13",
     "@types/react": "19.0.12",
     "autoprefixer": "^10.4.16",
+    "concurrently": "^8.0.0",
     "eslint": "^9",
     "eslint-config-next": "15.2.3",
     "postcss": "^8.4.31",
