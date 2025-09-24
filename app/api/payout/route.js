@@ -22,7 +22,7 @@ export async function POST(request) {
 
     // --- Step 1: Fetch User and Beneficiary ---
     const [user, beneficiary] = await Promise.all([
-      prisma.user.findUnique({ where: { id: userId }, select: { impsPermissions: true, isDisabled: true } }), // Select isDisabled
+      prisma.user.findUnique({ where: { id: userId }, select: { impsPermissions: true, isDisabled: true,email: true,phoneNumber: true } }), // Select isDisabled
       prisma.beneficiary.findUnique({ where: { id: beneficiaryId } })
     ]);
 
@@ -168,6 +168,7 @@ export async function POST(request) {
           await tx.transactions.create({
             data: {
               senderId: userId,
+              sender:{ connect: { id: userId } },
               beneficiaryId: beneficiaryId,
               amount: amount,
               chargesAmount: transactionCharge,
@@ -195,6 +196,7 @@ export async function POST(request) {
       await prisma.transactions.create({
         data: {
           senderId: userId,
+          sender:{ connect: { id: userId } },
           beneficiaryId: beneficiaryId,
           amount: amount,
           chargesAmount: transactionCharge,
