@@ -284,7 +284,7 @@ export const getBalances = async () => {
             console.log("Balance response:", data);
 
             if (response.ok ) {
-                return data;
+                return { data: { currentBalance: parseFloat(data.data.currentBalance) } }; // Parse to float
             } else {
                 console.error(`Failed to fetch balance`, data);
                 return { data: { currentBalance: 0 } };

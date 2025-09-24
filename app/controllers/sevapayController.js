@@ -231,7 +231,7 @@ export const getBalances = async () => {
             console.log("Balance response:", data);
 
             if (response.ok && data.code === 200) {
-                return data.data.balance;
+                return parseFloat(data.data.balance); // Parse to float
             } else {
                 console.error(`Failed to fetch balance for token`, data);
                 return 0;

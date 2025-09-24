@@ -25,7 +25,7 @@ import UserBalancePopup from "../components/UserBalancePopup";
 
 interface DashboardStat {
   title: string;
-  value: number;
+  value: string | number;
   icon: React.ReactNode;
   href: string;
 }
@@ -86,8 +86,8 @@ export default function AdminDashboard() {
   const calculateTotalSum = (balances: BalancesState, excluded: string[]) => {
     let sum = 0;
     if (!excluded.includes('vishubhBalance')) sum += balances.vishubhBalance;
-    if (!excluded.includes('dmtBalance')) sum += parseFloat(balances.dmtBalance);
-    if (!excluded.includes('aeronpayBalance')) sum += parseFloat(balances.aeronpayBalance);
+    if (!excluded.includes('dmtBalance')) sum += balances.dmtBalance;
+    if (!excluded.includes('aeronpayBalance')) sum += balances.aeronpayBalance;
     return sum;
   };
 
@@ -160,10 +160,18 @@ export default function AdminDashboard() {
           throw new Error('Failed to fetch total balances');
         }
 
-        const data = await response.json();
-        setTotalBalances(data);
+        const rawData = await response.json(); // Get raw data
+
+        // Parse string balances to numbers before setting state
+        const parsedData: BalancesState = {
+          vishubhBalance: parseFloat(rawData.vishubhBalance),
+          dmtBalance: parseFloat(rawData.dmtBalance),
+          aeronpayBalance: parseFloat(rawData.aeronpayBalance),
+        };
+
+        setTotalBalances(parsedData); // Set parsed data
         // Calculate and set totalSumBalance immediately after fetching balances
-        setTotalSumBalance(calculateTotalSum(data, excludedBalances)); // Pass data directly
+        setTotalSumBalance(calculateTotalSum(parsedData, excludedBalances)); // Pass parsedData directly
       } catch (error) {
         console.error("Error fetching total balances:", error);
       } finally {
