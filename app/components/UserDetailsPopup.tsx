@@ -150,10 +150,10 @@ const UserDetailsPopup: React.FC<UserDetailsPopupProps> = ({ user, onClose, onSa
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-gray-500">Disable User</p>
             <Switch
-              checked={isDisabled}
+              checked={!isDisabled} // Invert the checked prop
               onCheckedChange={(checked) => {
-                console.log('Switch toggled to:', checked);
-                setIsDisabled(checked);
+                console.log('Switch toggled to (raw):', checked);
+                setIsDisabled(!checked); // Invert the value before setting state
               }}
             />
           </div>

@@ -32,7 +32,6 @@ interface DashboardStat {
 
 interface BalancesState {
   vishubhBalance: number;
-  kotalBalance: number;
   dmtBalance: number;
   aeronpayBalance: number;
 }
@@ -73,7 +72,6 @@ export default function AdminDashboard() {
 
   const [totalBalances, setTotalBalances] = useState<BalancesState>({
     vishubhBalance: 0,
-    kotalBalance: 0,
     dmtBalance: 0,
     aeronpayBalance: 0,
   });
@@ -88,7 +86,6 @@ export default function AdminDashboard() {
   const calculateTotalSum = (balances: BalancesState, excluded: string[]) => {
     let sum = 0;
     if (!excluded.includes('vishubhBalance')) sum += balances.vishubhBalance;
-    if (!excluded.includes('kotalBalance')) sum += balances.kotalBalance;
     if (!excluded.includes('dmtBalance')) sum += balances.dmtBalance;
     if (!excluded.includes('aeronpayBalance')) sum += balances.aeronpayBalance;
     return sum;
