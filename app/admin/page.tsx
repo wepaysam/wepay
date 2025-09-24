@@ -86,8 +86,8 @@ export default function AdminDashboard() {
   const calculateTotalSum = (balances: BalancesState, excluded: string[]) => {
     let sum = 0;
     if (!excluded.includes('vishubhBalance')) sum += balances.vishubhBalance;
-    if (!excluded.includes('dmtBalance')) sum += balances.dmtBalance;
-    if (!excluded.includes('aeronpayBalance')) sum += balances.aeronpayBalance;
+    if (!excluded.includes('dmtBalance')) sum += parseFloat(balances.dmtBalance);
+    if (!excluded.includes('aeronpayBalance')) sum += parseFloat(balances.aeronpayBalance);
     return sum;
   };
 
