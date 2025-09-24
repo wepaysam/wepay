@@ -315,7 +315,12 @@ export const AeronpayBalance = async (req, res) => {
         const data = JSON.parse(text);
 
         if (response.ok) {
-            return NextResponse.json(data, { status: 200 });
+            // Parse available_balance to float before returning
+            const parsedData = { ...data };
+            if (parsedData.available_balance !== undefined) {
+                parsedData.available_balance = parseFloat(parsedData.available_balance);
+            }
+            return NextResponse.json(parsedData, { status: 200 });
         } else {
             return NextResponse.json(data, { status: response.status });
         }
