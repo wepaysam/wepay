@@ -212,6 +212,9 @@ export default function AdminDashboard() {
   }, []); // Recalculate total sum when excludedBalances changes
 
   useEffect(() => {
+    console.log('Calculating total sum...');
+    console.log('  totalBalances:', totalBalances);
+    console.log('  excludedBalances:', excludedBalances);
     setTotalSumBalance(calculateTotalSum(totalBalances, excludedBalances));
   }, [totalBalances, excludedBalances]);
 
