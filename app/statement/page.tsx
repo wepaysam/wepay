@@ -50,6 +50,17 @@ interface BeneficiaryData {
   ifscCode: string;
 }
 
+interface UpiBeneficiaryData {
+  accountHolderName: string;
+  upiId: string;
+}
+
+interface DmtBeneficiaryData {
+  accountHolderName: string;
+  accountNumber: string;
+  ifscCode: string;
+}
+
 interface TransactionData {
   id: string;
   date: string; // ISO date string
@@ -62,6 +73,8 @@ interface TransactionData {
   utr?: string;
   transactionId?: string;
   beneficiary?: BeneficiaryData;
+  upiBeneficiary?: UpiBeneficiaryData;
+  dmtBeneficiary?: DmtBeneficiaryData;
   gateway?: string;
   transactionBasis?: string;
 }
@@ -119,15 +132,16 @@ const StatementPage = () => {
               accountHolderName: txn.beneficiary.accountHolderName,
               accountNumber: txn.beneficiary.accountNumber,
               ifscCode: txn.beneficiary.ifscCode,
-            } : (txn.upiBeneficiary ? {
+            } : undefined,
+            upiBeneficiary: txn.upiBeneficiary ? {
               accountHolderName: txn.upiBeneficiary.accountHolderName,
-              accountNumber: txn.upiBeneficiary.upiId,
-              ifscCode: 'N/A',
-            } : (txn.dmtBeneficiary ? {
+              upiId: txn.upiBeneficiary.upiId,
+            } : undefined,
+            dmtBeneficiary: txn.dmtBeneficiary ? {
               accountHolderName: txn.dmtBeneficiary.accountHolderName,
               accountNumber: txn.dmtBeneficiary.accountNumber,
               ifscCode: txn.dmtBeneficiary.ifscCode,
-            } : undefined)),
+            } : undefined,
             gateway: txn.gateway,
             transactionBasis: txn.transactionType,
           };
@@ -499,7 +513,7 @@ const StatementPage = () => {
                                 {new Date(txn.date).toLocaleString()}
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
-                                {txn.beneficiary?.accountNumber || txn.beneficiary?.upiId || '-'}
+                                {txn.upiBeneficiary?.upiId || txn.beneficiary?.accountNumber || txn.dmtBeneficiary?.accountNumber || '-'}
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">{txn.utr || '-'}</td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
