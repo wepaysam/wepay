@@ -54,7 +54,7 @@ export async function GET(request) { // Using GET for simplicity, POST is also a
 
     console.log('Starting scheduled pending transaction status check...');
 
-    const PENDING_AGE_THRESHOLD_MINUTES = 5;
+    const PENDING_AGE_THRESHOLD_MINUTES = 1;
     const SEARCH_WINDOW_HOURS = 24; // Only search transactions from last 24 hours
 
     // Calculate time boundaries

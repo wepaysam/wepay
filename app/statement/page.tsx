@@ -60,7 +60,7 @@ interface TransactionData {
   charges?: number;
   referenceNo?: string;
   utr?: string;
-  transaction_no?: string;
+  transactionId?: string;
   beneficiary?: BeneficiaryData;
   gateway?: string;
   transactionBasis?: string;
@@ -114,7 +114,7 @@ const StatementPage = () => {
             charges: txn.transactionStatus === 'COMPLETED' ? parseFloat(txn.chargesAmount) : undefined,
             referenceNo: txn.referenceNo,
             utr: txn.utr,
-            transaction_no: txn.transaction_no,
+            transactionId: txn.transactionId,
             beneficiary: txn.beneficiary ? {
               accountHolderName: txn.beneficiary.accountHolderName,
               accountNumber: txn.beneficiary.accountNumber,
@@ -200,7 +200,7 @@ const StatementPage = () => {
       serviceType: "Mini Payout",
       transactionTime: new Date(transaction.date).toLocaleTimeString(),
       transactionDate: new Date(transaction.date).toLocaleDateString(),
-      transactionId: transaction.transaction_no,
+      transactionId: transaction.transactionId,
       rrnNo: transaction.utr,
       orderId: transaction.referenceNo,
       payoutPurpose: "",
@@ -458,21 +458,22 @@ const StatementPage = () => {
                     <table className="min-w-full divide-y divide-border">
                         <thead className="bg-muted/50">
                         <tr>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Date</th>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Description</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Transaction ID</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Receiver Name</th>
                             <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Amount</th>
                             <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Charges</th>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">UTR</th>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Transaction No.</th>
-                            <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Type</th>
                             <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Date & Time</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">UPI ID / Bank Details</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">UTR</th>
+                            <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Type</th>
                             <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
                         </tr>
                         </thead>
                         <tbody className="bg-card divide-y divide-border">
                         {isTableLoading ? (
                           <tr>
-                            <td colSpan={9} className="text-center py-10">
+                            <td colSpan={10} className="text-center py-10">
                               <div className="flex justify-center items-center">
                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                 <p className="ml-4 text-muted-foreground">Loading transactions...</p>
@@ -482,9 +483,7 @@ const StatementPage = () => {
                         ) : transactions.length > 0 ? (
                           transactions.map((txn) => (
                             <tr key={txn.id} className="hover:bg-muted/30 transition-colors">
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
-                                {new Date(txn.date).toLocaleDateString()}
-                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground max-w-xs truncate" title={txn.transactionId}>{txn.transactionId || '-'}</td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground max-w-xs truncate" title={txn.description}>{txn.description}</td>
                             <td className={`px-4 py-4 whitespace-nowrap text-sm text-right font-semibold ${txn.type === 'CREDIT' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                                 {txn.type === 'CREDIT' ? '+' : '-'}
@@ -493,15 +492,20 @@ const StatementPage = () => {
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-right text-muted-foreground">
                                 {txn.charges ? `₹${txn.charges.toLocaleString()}` : '-'}
                             </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
+                                {getTransactionStatusIcon(txn.status)}
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
+                                {new Date(txn.date).toLocaleString()}
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
+                                {txn.beneficiary?.accountNumber || txn.beneficiary?.upiId || '-'}
+                            </td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">{txn.utr || '-'}</td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">{txn.transaction_no || '-'}</td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
                                 <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${txn.type === 'CREDIT' ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300' : txn.status === 'FAILED' ? 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300' : txn.status === 'PENDING' ? 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-300' : 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300'}`}>
                                 {txn.type}
                                 </span>
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
-                                {getTransactionStatusIcon(txn.status)}
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
                                 {txn.status === 'PENDING' && txn.referenceNo && (
@@ -523,7 +527,7 @@ const StatementPage = () => {
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={9} className="text-center py-10">
+                            <td colSpan={10} className="text-center py-10">
                               <Info className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
                               <p className="text-muted-foreground">No transactions found for the selected criteria.</p>
                             </td>

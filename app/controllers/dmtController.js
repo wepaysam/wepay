@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
-import { v4 as uuidv4 } from 'uuid';
+import { Decimal } from '@prisma/client/runtime/library';
 import prisma from '../lib/prisma';
 import crypto, { hash } from 'crypto';
+
+
 
 function generateHash(mid, parameters, hashingMethod = 'sha512', secretKey) {
   let hashData = mid;
@@ -18,15 +20,15 @@ function generateHash(mid, parameters, hashingMethod = 'sha512', secretKey) {
 }
 
 
-
 export const dmtPayment = async (req) => {
     try {
-        const { name, accountNumber, ifsc, amount, remarks, paymentMode, paymentReferenceNo, beneficiary, gateway, websiteUrl, transactionId } = await req.json();
+        const { name, accountNumber, ifsc, amount: rawAmount, remarks, paymentMode, paymentReferenceNo, beneficiary, gateway, websiteUrl, transactionId } = await req.json();
 
         const userId = req.user?.id; // Get userId from req.user
+        const unique_id = Date.now().toString() + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
         // --- Step 1: Fetch User and Beneficiary ---
         const [user] = await Promise.all([
-        prisma.user.findUnique({ where: { id: userId }, select: { dmtPermissions: true, isDisabled: true } })
+        prisma.user.findUnique({ where: { id: userId }, select: { dmtPermissions: true, isDisabled: true, balance: true, phoneNumber: true } })
         ]);
 
         if (!user) {
@@ -60,8 +62,56 @@ export const dmtPayment = async (req) => {
             return NextResponse.json({ message: 'You do not have permission to perform DMT transactions.' }, { status: 403 });
         }
 
-        if(user?.balance<parseFloat(amount)){
-        return NextResponse.json({ message: 'Insufficient Balance' }, { status: 403 });
+        const amount = new Decimal(rawAmount);
+
+        if (amount.isNaN() || amount.isNegative() || amount.isZero()) {
+            return NextResponse.json({ message: 'A valid Amount is required.' }, { status: 400 });
+        }
+
+        const chargeRule = await prisma.transactionCharge.findFirst({
+            where: {
+              minAmount: { lte: amount },
+              maxAmount: { gte: amount },
+            },
+          });
+      
+        const transactionCharge = chargeRule ? new Decimal(chargeRule.charge) : new Decimal(0);
+        const totalDebitAmount = amount.add(transactionCharge);
+
+        // --- Step 2: Atomically Reserve Funds and Create Pending Transaction ---
+        let transactionRecord;
+        try {
+            await prisma.$transaction(async (tx) => {
+                const currentUser = await tx.user.findUnique({ where: { id: userId }, select: { balance: true } });
+                if (!currentUser || currentUser.balance.lessThan(totalDebitAmount)) {
+                    throw new Error('Insufficient balance');
+                }
+
+                await tx.user.update({
+                    where: { id: userId },
+                    data: { balance: { decrement: totalDebitAmount } },
+                });
+
+                transactionRecord = await tx.transactions.create({
+                    data: {
+                        sender: { connect: { id: userId } },
+                        dmtBeneficiary: { connect: { id: beneficiary.id } },
+                        amount: amount,
+                        chargesAmount: transactionCharge,
+                        transactionType: 'DMT',
+                        transactionStatus: 'PENDING', // Initially PENDING
+                        senderAccount: user.phoneNumber, // Using phone number as sender account
+                        websiteUrl: websiteUrl,
+                        transactionId: transactionId,
+                        gateway: 'DMT',
+                        referenceNo: unique_id,
+                    },
+                });
+            });
+            console.log(`Funds reserved and pending DMT transaction ${transactionRecord.id} created.`);
+        } catch (dbError) {
+            console.error(`Failed to reserve funds or create pending DMT transaction:`, dbError);
+            return NextResponse.json({ message: dbError.message || 'Failed to process payment due to a database error.' }, { status: 400 });
         }
 
         const bankDetails = await prisma.BankInfo.findUnique({
@@ -91,15 +141,13 @@ export const dmtPayment = async (req) => {
             return NextResponse.json({ message: 'Transaction ID already exists' }, { status: 400 });
         }
 
-        const unique_id = Date.now().toString() + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
-
         const parametersForHash = {
             name: beneficiary.accountHolderName,
             bankName,
             bankBranch,
             accountNumber: beneficiary.accountNumber,
             ifsc: beneficiary.ifscCode,
-            amount,
+            amount: amount.toNumber(),
             remarks,
             paymentMode,
             paymentReferenceNo: unique_id
@@ -113,17 +161,13 @@ export const dmtPayment = async (req) => {
             return NextResponse.json({ message: 'Failed to generate hash' }, { status: 500 });
         }
 
-        if(user?.balance < parseFloat(amount)){
-            return NextResponse.json({ message: 'Insufficient Balance' }, { status: 403 });
-            }
-
         const payload = {
             name,
             bankName,
             bankBranch,
             accountNumber,
             ifsc,
-            amount,
+            amount: amount.toNumber(),
             remarks,
             paymentMode,
             paymentReferenceNo: unique_id,
@@ -147,41 +191,42 @@ export const dmtPayment = async (req) => {
         console.log("Katla API response:", data);
 
         if (response.ok ) {
-            await prisma.$transaction(async (tx) => {
-                await tx.user.update({
-                    where: { id: userId },
-                    data: { balance: { decrement: parseFloat(amount) } },
-                });
-
-                await tx.transactions.create({
+            // SUCCESS PATH: Update pending transaction to COMPLETED/PENDING based on API result
+            console.log(`Katla reported SUCCESS. Finalizing transaction.`);
+            try {
+                await prisma.transactions.update({
+                    where: { id: transactionRecord.id },
                     data: {
-                        amount: parseFloat(amount),
-                        senderAccount: accountNumber,
-                        dmtBeneficiary: {
-                            connect: {
-                                id: beneficiary.id
-                            }
-                        },
-                        transactionType: 'DMT',
-                        transactionStatus: 'PENDING' ,
-                        referenceNo: unique_id,
-                        dmthash: data.clientRefNo,
-                        sender: {
-                            connect: {
-                                id: beneficiary.userId
-                            }
-                        },
-                        chargesAmount: 0, // You need to determine chargesAmount
-                        websiteUrl: websiteUrl,
-                        transactionId: transactionId,
+                        transactionStatus: data.status === 'SUCCESS' ? 'COMPLETED' : 'PENDING',
                         transaction_no: data.transaction_no || paymentReferenceNo,
-                        utr: data.clientRefNo, 
-                        gateway: 'DMT',
-                    }
+                        utr: data.clientRefNo,
+                        dmthash: data.clientRefNo,
+                    },
                 });
-            });
-            return NextResponse.json({ ...data, transaction_no: data.transaction_no || transactionId }, { status: 200 });
+                console.log(`DMT Transaction ${transactionRecord.id} finalized successfully.`);
+                return NextResponse.json({ ...data, transaction_no: data.transaction_no || transactionId }, { status: 200 });
+            } catch (txError) {
+                console.error(`CRITICAL: Failed to finalize DMT transaction ${transactionRecord.id} after successful payout! Manual intervention required.`, txError);
+                return NextResponse.json({ message: 'Payout successful, but failed to update records. Please contact support.', payoutData: data }, { status: 500 });
+            }
         } else {
+            // FAILURE PATH: Revert funds and mark transaction as FAILED
+            console.warn(`Katla DMT payout failed. Reverting funds.`);
+            try {
+                await prisma.$transaction(async (tx) => {
+                    await tx.user.update({
+                        where: { id: userId },
+                        data: { balance: { increment: totalDebitAmount } },
+                    });
+                    await tx.transactions.update({
+                        where: { id: transactionRecord.id },
+                        data: { transactionStatus: 'FAILED' },
+                    });
+                });
+                console.log(`Funds reverted and DMT transaction ${transactionRecord.id} marked FAILED due to Katla failure.`);
+            } catch (revertError) {
+                console.error(`CRITICAL: Failed to revert funds after Katla failure! Manual intervention required for transaction ${transactionRecord.id}.`, revertError);
+            }
             return NextResponse.json(data, { status: response.status });
         }
     } catch (error) {

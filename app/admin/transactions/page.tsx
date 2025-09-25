@@ -37,6 +37,8 @@ import { useTheme } from '../../context/ThemeContext';
 // Add proper type for transactions
 interface Transaction {
   id: string;
+  transactionId: string;
+  gateway: string;
   amount: number;
   transactionType: string;
   transactionStatus: string;
@@ -119,7 +121,7 @@ export default function TransactionsPage() {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (transaction) =>
-          transaction.id.toLowerCase().includes(query) ||
+          transaction.transactionId.toLowerCase().includes(query) ||
           transaction.sender.phoneNumber.toLowerCase().includes(query) ||
           transaction.sender.email.toLowerCase().includes(query)
       );
@@ -254,26 +256,37 @@ export default function TransactionsPage() {
           <CardTitle>Transaction Overview</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            title="Total Transactions"
-            value={stats.totalTransactions.toLocaleString()}
-            icon={<ArrowRight className="h-5 w-5" />}
-          />
-          <StatCard
-            title="Total Volume"
-            value={`₹${stats.totalVolume.toLocaleString()}`}
-            icon={<DollarSign className="h-5 w-5" />}
-          />
-          <StatCard
-            title="Highest Transaction"
-            value={`₹${stats.highestTransaction.toLocaleString()}`}
-            icon={<TrendingUp className="h-5 w-5" />}
-          />
-          <StatCard
-            title="Lowest Transaction"
-            value={`₹${stats.lowestTransaction.toLocaleString()}`}
-            icon={<TrendingDown className="h-5 w-5" />}
-          />
+          {loading ? (
+            <>
+              <div className="h-24 w-full rounded-lg bg-gray-200 animate-pulse"></div>
+              <div className="h-24 w-full rounded-lg bg-gray-200 animate-pulse"></div>
+              <div className="h-24 w-full rounded-lg bg-gray-200 animate-pulse"></div>
+              <div className="h-24 w-full rounded-lg bg-gray-200 animate-pulse"></div>
+            </>
+          ) : (
+            <>
+              <StatCard
+                title="Total Transactions"
+                value={stats.totalTransactions.toLocaleString()}
+                icon={<ArrowRight className="h-5 w-5" />}
+              />
+              <StatCard
+                title="Total Volume"
+                value={`₹${stats.totalVolume.toLocaleString()}`}
+                icon={<DollarSign className="h-5 w-5" />}
+              />
+              <StatCard
+                title="Highest Transaction"
+                value={`₹${stats.highestTransaction.toLocaleString()}`}
+                icon={<TrendingUp className="h-5 w-5" />}
+              />
+              <StatCard
+                title="Lowest Transaction"
+                value={`₹${stats.lowestTransaction.toLocaleString()}`}
+                icon={<TrendingDown className="h-5 w-5" />}
+              />
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -282,21 +295,25 @@ export default function TransactionsPage() {
           <CardTitle>Transaction Volume</CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="amount"
-                stroke="#8884d8"
-                activeDot={{ r: 8 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {loading ? (
+            <div className="h-80 w-full rounded-lg bg-gray-200 animate-pulse"></div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="amount"
+                  stroke="#8884d8"
+                  activeDot={{ r: 8 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </CardContent>
       </Card>
 
@@ -351,6 +368,8 @@ export default function TransactionsPage() {
                   <TableHead>Beneficiary</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead>Gateway</TableHead>
+                  <TableHead>UPI ID / Bank Details</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
                 </TableRow>
@@ -358,18 +377,24 @@ export default function TransactionsPage() {
               <TableBody>
                 {filteredTransactions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center">
+                    <TableCell colSpan={9} className="text-center">
                       No transactions found
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredTransactions.map((transaction: Transaction) => (
                     <TableRow key={transaction.id}>
-                      <TableCell>{transaction.id}</TableCell>
+                      <TableCell>{transaction.transactionId}</TableCell>
                       <TableCell>{transaction.sender?.phoneNumber}</TableCell>
                       <TableCell>{getBeneficiaryName(transaction)}</TableCell>
                       <TableCell>₹{transaction.amount}</TableCell>
                       <TableCell>{transaction.transactionType}</TableCell>
+                      <TableCell>{transaction.gateway}</TableCell>
+                      <TableCell>
+                        {transaction.transactionType === 'IMPS' && transaction.beneficiary?.accountNumber}
+                        {transaction.transactionType === 'DMT' && transaction.dmtBeneficiary?.accountNumber}
+                        {transaction.transactionType === 'UPI' && transaction.upiBeneficiary?.upiId}
+                      </TableCell>
                       <TableCell>
                         <span
                           className={`px-2 py-1 text-xs font-semibold rounded-full ${

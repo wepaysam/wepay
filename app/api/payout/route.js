@@ -6,7 +6,6 @@ import { Decimal } from '@prisma/client/runtime/library'; // Import Decimal for 
 import { ref } from 'firebase/storage';
 
 export async function POST(request) {
-  // const requestId = crypto.randomUUID();
   const requestId = Date.now().toString() + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
   console.log(`[${requestId}] Payout request received.`);
 
@@ -22,7 +21,7 @@ export async function POST(request) {
 
     // --- Step 1: Fetch User and Beneficiary ---
     const [user, beneficiary] = await Promise.all([
-      prisma.user.findUnique({ where: { id: userId }, select: { impsPermissions: true, isDisabled: true,email: true,phoneNumber: true } }), // Select isDisabled
+      prisma.user.findUnique({ where: { id: userId }, select: { impsPermissions: true, isDisabled: true, email: true, phoneNumber: true, balance: true } }), // Select isDisabled and balance
       prisma.beneficiary.findUnique({ where: { id: beneficiaryId } })
     ]);
 
@@ -58,10 +57,15 @@ export async function POST(request) {
         return NextResponse.json({ message: 'You do not have permission to perform DMT transactions.' }, { status: 403 });
     }
 
-    // Ensure amount is a valid number
+    // Ensure amount is a valid number and convert to Decimal
     const amount = new Decimal(rawAmount);
 
-    if(user?.balance < parseInt(rawAmount)){
+    if (amount.isNaN() || amount.isNegative() || amount.isZero()) {
+        console.warn(`[${requestId}] Invalid request body. Amount is invalid.`);
+        return NextResponse.json({ message: 'A valid Amount is required.' }, { status: 400 });
+    }
+
+    if(user.balance.lessThan(amount)){
       return NextResponse.json({ message: 'Insufficient Balance' }, { status: 403 });
     }
 
@@ -77,12 +81,10 @@ export async function POST(request) {
 
     console.log(`[${requestId}] Processing payout. UserID: ${userId}, BeneficiaryID: ${beneficiaryId}, Amount: ${amount}`);
 
-    if (amount.isNaN() || amount.isNegative() || amount.isZero() || !beneficiaryId) {
-        console.warn(`[${requestId}] Invalid request body. Amount or BeneficiaryId invalid.`);
-        return NextResponse.json({ message: 'A valid Amount and BeneficiaryId are required.' }, { status: 400 });
+    if (!beneficiaryId) {
+        console.warn(`[${requestId}] Invalid request body. BeneficiaryId invalid.`);
+        return NextResponse.json({ message: 'A valid BeneficiaryId is required.' }, { status: 400 });
     }
-
-    
 
     if (!user) {
       console.error(`[${requestId}] CRITICAL: Authenticated UserID: ${userId} not found.`);
@@ -105,11 +107,41 @@ export async function POST(request) {
     const totalDebitAmount = amount.add(transactionCharge);
     console.log(`[${requestId}] Amount: ${amount}, Charge: ${transactionCharge}, Total Debit: ${totalDebitAmount}`);
 
-    // --- Step 3: Validate User Balance ---
-    // if (user.balance < totalDebitAmount) {
-    //   console.warn(`[${requestId}] Insufficient balance for UserID: ${userId}. Balance: ${user.balance}, Required: ${totalDebitAmount}`);
-    //   return NextResponse.json({ message: 'Insufficient balance' }, { status: 400 });
-    // }
+    // --- Step 3: Atomically Reserve Funds and Create Pending Transaction ---
+    let transactionRecord;
+    try {
+      await prisma.$transaction(async (tx) => {
+        const currentUser = await tx.user.findUnique({ where: { id: userId }, select: { balance: true } });
+        if (!currentUser || currentUser.balance.lessThan(totalDebitAmount)) {
+          throw new Error('Insufficient balance');
+        }
+
+        await tx.user.update({
+          where: { id: userId },
+          data: { balance: { decrement: totalDebitAmount } },
+        });
+
+        transactionRecord = await tx.transactions.create({
+          data: {
+            sender:{ connect: { id: userId } },
+            beneficiary:{ connect: { id: beneficiary.id } },
+            amount: amount,
+            chargesAmount: transactionCharge,
+            transactionType: 'IMPS',
+            transactionStatus: 'PENDING', // Initially PENDING
+            senderAccount: user.email,
+            websiteUrl: websiteUrl,
+            referenceNo: requestId,
+            transactionId: transactionId,
+            gateway: 'AeronPay'
+          },
+        });
+      });
+      console.log(`[${requestId}] Funds reserved and pending transaction ${transactionRecord.id} created.`);
+    } catch (dbError) {
+      console.error(`[${requestId}] Failed to reserve funds or create pending transaction:`, dbError);
+      return NextResponse.json({ message: dbError.message || 'Failed to process payment due to a database error.' }, { status: 400 });
+    }
 
     // --- Step 4: Call External Payout API ---
     const cleanAccountNumber = String(beneficiary.accountNumber).replace(/\D/g, '');
@@ -145,71 +177,64 @@ export async function POST(request) {
         payoutResult = await response.json();
     } catch (apiError) {
         console.error(`[${requestId}] Network or fetch error calling Aeronpay API:`, apiError);
-        // Record a FAILED transaction on network error
-        await prisma.transactions.create({
-            data: { senderId: userId, beneficiaryId, amount, chargesAmount: transactionCharge, transactionType: 'IMPS', transactionStatus: 'FAILED', websiteUrl, transactionId ,referenceNo: payoutResult?.data?.client_referenceId },
-        });
+        // Revert funds and mark transaction as FAILED if API call fails
+        try {
+          await prisma.$transaction(async (tx) => {
+            await tx.user.update({
+              where: { id: userId },
+              data: { balance: { increment: totalDebitAmount } },
+            });
+            await tx.transactions.update({
+              where: { id: transactionRecord.id },
+              data: { transactionStatus: 'FAILED' },
+            });
+          });
+          console.log(`[${requestId}] Funds reverted and transaction ${transactionRecord.id} marked FAILED due to API error.`);
+        } catch (revertError) {
+          console.error(`[${requestId}] CRITICAL: Failed to revert funds after API error! Manual intervention required for transaction ${transactionRecord.id}.`, revertError);
+        }
         return NextResponse.json({ message: 'Failed to connect to the payment provider.' }, { status: 503 });
     }
 
     console.log(`[${requestId}] Aeronpay API response received. Status: ${response.status}, Body:`, payoutResult);
 
-    // --- Step 5: Process API Response ---
-    if (response.ok && payoutResult.status === 'SUCCESS' || payoutResult.status === 'PENDING') {
-      // SUCCESS PATH: Record the transaction and update balance
-      console.log(`[${requestId}] Aeronpay reported SUCCESS. Starting database transaction.`);
+    // --- Step 5: Process API Response and Finalize Transaction ---
+    if (response.ok && (payoutResult.status === 'SUCCESS' || payoutResult.status === 'PENDING')) {
+      // SUCCESS PATH: Update pending transaction to COMPLETED/PENDING based on API result
+      console.log(`[${requestId}] Aeronpay reported SUCCESS/PENDING. Finalizing transaction.`);
       try {
-        await prisma.$transaction(async (tx) => {
-          // await tx.user.update({
-          //   where: { id: userId },
-          //   data: { balance: { decrement: totalDebitAmount } },
-          // });
-
-          await tx.transactions.create({
-            data: {
-              senderId: userId,
-              sender:{ connect: { id: userId } },
-              beneficiaryId: beneficiaryId,
-              amount: amount,
-              chargesAmount: transactionCharge,
-              transactionType: 'IMPS',
-              transactionStatus: payoutResult.status === 'SUCCESS' ? 'COMPLETED' : 'PENDING',
-              senderAccount: user.email, // Or another identifier
-              websiteUrl: websiteUrl,
-              referenceNo: requestId,
-              transaction_no: payoutResult.data?.transactionId,
-              transactionId: transactionId,
-              gateway: 'AeronPay'
-              // Keep other fields from your model if they exist
-            },
-          });
+        await prisma.transactions.update({
+          where: { id: transactionRecord.id },
+          data: {
+            transactionStatus: payoutResult.status === 'SUCCESS' ? 'COMPLETED' : 'PENDING',
+            transaction_no: payoutResult.data?.transactionId, // Update with actual gateway transaction ID
+          },
         });
-        console.log(`[${requestId}] Database transaction completed successfully.`);
+        console.log(`[${requestId}] Transaction ${transactionRecord.id} finalized successfully.`);
         return NextResponse.json(payoutResult);
       } catch (txError) {
-        console.error(`[${requestId}] CRITICAL: DB transaction failed after successful payout! Manual intervention required.`, txError);
+        console.error(`[${requestId}] CRITICAL: Failed to finalize transaction ${transactionRecord.id} after successful payout! Manual intervention required.`, txError);
         return NextResponse.json({ message: 'Payout successful, but failed to update records. Please contact support.', payoutData: payoutResult }, { status: 500 });
       }
     } else {
-      // FAILURE PATH: Record the failed attempt, but DO NOT update balance
-      console.warn(`[${requestId}] Aeronpay payout failed.`);
-      await prisma.transactions.create({
-        data: {
-          senderId: userId,
-          sender:{ connect: { id: userId } },
-          beneficiaryId: beneficiaryId,
-          amount: amount,
-          chargesAmount: transactionCharge,
-          transactionType: 'IMPS',
-          transactionStatus: 'FAILED',
-          senderAccount: user.email,
-          websiteUrl: websiteUrl,
-          transactionId: transactionId,
-        },
-      });
-      console.log(`[${requestId}] Logged FAILED transaction.`);
+      // FAILURE PATH: Revert funds and mark transaction as FAILED
+      console.warn(`[${requestId}] Aeronpay payout failed. Reverting funds.`);
+      try {
+        await prisma.$transaction(async (tx) => {
+          await tx.user.update({
+            where: { id: userId },
+            data: { balance: { increment: totalDebitAmount } },
+          });
+          await tx.transactions.update({
+            where: { id: transactionRecord.id },
+            data: { transactionStatus: 'FAILED' },
+          });
+        });
+        console.log(`[${requestId}] Funds reverted and transaction ${transactionRecord.id} marked FAILED due to Aeronpay failure.`);
+      } catch (revertError) {
+        console.error(`[${requestId}] CRITICAL: Failed to revert funds after Aeronpay failure! Manual intervention required for transaction ${transactionRecord.id}.`, revertError);
+      }
 
-      // FIX: Extract the specific error message for the frontend toast
       const errorMessage = payoutResult.description || payoutResult.message || 'The payment was rejected by the provider.';
       
       return NextResponse.json(
