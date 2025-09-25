@@ -6,7 +6,7 @@ export async function GET(request) {
   try {
     const authError = await adminAuthMiddleware(request);
     if (authError) return authError;
-
+    // console.log("Fetching verified a");
     const users = await getVerifiedUsers();
     return NextResponse.json({ users });
   } catch (error) {

@@ -125,7 +125,7 @@ export async function getUserTransactions(userId, searchTerm, transactionBasis, 
           },
         },
         {
-          transaction_no: {
+          transactionId: {
             contains: searchTerm,
             mode: 'insensitive',
           },
@@ -148,7 +148,7 @@ export async function getUserTransactions(userId, searchTerm, transactionBasis, 
         dmtBeneficiary: true,
         referenceNo: true,
         utr: true,
-        transaction_no: true,
+        transactionId: true,
         transactionType: true,
         gateway: true,
         createdAt: true,

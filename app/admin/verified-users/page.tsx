@@ -12,7 +12,7 @@ import {
 } from '../../components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Info, MinusCircle, DollarSign } from 'lucide-react';
+import { Info, MinusCircle, PlusCircle, DollarSign } from 'lucide-react';
 import UserDetailsPopup, { User, Director, CompanyDocument, OfficePhoto } from '../../components/UserDetailsPopup';
 import {
   Dialog,
@@ -42,12 +42,18 @@ export default function VerifiedUsersPage() {
   const [deductAmount, setDeductAmount] = useState('');
   const [deductReason, setDeductReason] = useState('');
   const [userToDeduct, setUserToDeduct] = useState<VerifiedUser | null>(null);
+  const [isAddBalanceModalOpen, setIsAddBalanceModalOpen] = useState(false);
+  const [addAmount, setAddAmount] = useState('');
+  const [addReason, setAddReason] = useState('');
+  const [userToAdd, setUserToAdd] = useState<VerifiedUser | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchVerifiedUsers();
   }, []);
 
   const fetchVerifiedUsers = async () => {
+    setLoading(true);
     try {
       const token = document.cookie.replace(/(?:(?:^|.*;\s*)token\s*\=\s*([^;]*).*$)|^.*$/, "$1");
       if (!token) {
@@ -108,6 +114,18 @@ export default function VerifiedUsersPage() {
     setUserToDeduct(null);
   };
 
+  const handleOpenAddModal = (user: VerifiedUser) => {
+    setUserToAdd(user);
+    setIsAddBalanceModalOpen(true);
+    setAddAmount(''); // Clear previous input
+    setAddReason(''); // Clear previous input
+  };
+
+  const handleCloseAddModal = () => {
+    setIsAddBalanceModalOpen(false);
+    setUserToAdd(null);
+  };
+
   const handleDeductBalance = async () => {
     if (!userToDeduct || !deductAmount || !deductReason) {
       toast({
@@ -128,6 +146,7 @@ export default function VerifiedUsersPage() {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const token = document.cookie.replace(/(?:(?:^|.*;\s*)token\s*\=\s*([^;]*).*$)|^.*$/, "$1");
       if (!token) {
@@ -167,6 +186,73 @@ export default function VerifiedUsersPage() {
         variant: "destructive",
       });
       console.error('Error deducting balance:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAddBalance = async () => {
+    if (!userToAdd || !addAmount || !addReason) {
+      toast({
+        title: "Error",
+        description: "Please enter amount and reason for addition.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const amount = parseFloat(addAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid positive amount.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const token = document.cookie.replace(/(?:(?:^|.*;\s*)token\s*\=\s*([^;]*).*$)|^.*$/, "$1");
+      if (!token) {
+        toast({
+          title: "Authentication Error",
+          description: "You're not logged in. Please log in and try again.",
+          variant: "destructive",
+        });
+        router.push('/Auth/login');
+        return;
+      }
+
+      const response = await fetch(`/api/admin/users/${userToAdd.id}/add-balance`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ amount, reason: addReason }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to add balance');
+      }
+
+      toast({
+        title: "Success",
+        description: `Successfully added ₹${amount} to ${userToAdd.fullName || userToAdd.phoneNumber}'s balance.`,
+      });
+      handleCloseAddModal();
+      fetchVerifiedUsers(); // Refresh the user list to show updated balance
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add balance.",
+        variant: "destructive",
+      });
+      console.error('Error adding balance:', error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -222,6 +308,9 @@ export default function VerifiedUsersPage() {
                         <Button variant="outline" size="icon" onClick={() => handleOpenDeductModal(user)} title="Deduct Balance">
                           <MinusCircle className="h-4 w-4" />
                         </Button>
+                        <Button variant="outline" size="icon" onClick={() => handleOpenAddModal(user)} title="Add Balance">
+                          <PlusCircle className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                       
                     </TableRow>
@@ -274,7 +363,54 @@ export default function VerifiedUsersPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={handleCloseDeductModal}>Cancel</Button>
-            <Button onClick={handleDeductBalance}>Deduct</Button>
+            <Button onClick={handleDeductBalance} disabled={isSubmitting}>
+              {isSubmitting ? 'Deducting...' : 'Deduct'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Balance Modal */}
+      <Dialog open={isAddBalanceModalOpen} onOpenChange={setIsAddBalanceModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Balance to {userToAdd?.fullName || userToAdd?.phoneNumber}</DialogTitle>
+            <DialogDescription>
+              Enter the amount to add and a reason for this adjustment.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="addAmount" className="text-right">
+                Amount
+              </Label>
+              <Input
+                id="addAmount"
+                type="number"
+                value={addAmount}
+                onChange={(e) => setAddAmount(e.target.value)}
+                className="col-span-3"
+                placeholder="e.g., 100.00"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="addReason" className="text-right">
+                Reason
+              </Label>
+              <Textarea
+                id="addReason"
+                value={addReason}
+                onChange={(e) => setAddReason(e.target.value)}
+                className="col-span-3"
+                placeholder="e.g., Refund, Bonus"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCloseAddModal}>Cancel</Button>
+            <Button onClick={handleAddBalance} disabled={isSubmitting}>
+              {isSubmitting ? 'Adding...' : 'Add'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

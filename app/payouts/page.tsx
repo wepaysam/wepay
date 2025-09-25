@@ -880,9 +880,9 @@ const ServicesPage = () => {
         setIsSuccessModalOpen(true);
         fetchBankBeneficiaries(false);
         setPayoutAmounts(prev => ({ ...prev, [selectedBeneficiary.id]: "" }));
-      } else if (!response.ok || (result.original && result.original.msg === "Sorry Insufficient wallet Balance")) {
+      } else if (!response.ok || (result.msg && result.msg === "Sorry Insufficient wallet Balance")) {
         console.log("Error result in handleGatewaySelect:", result);
-        if (result.original && result.original.msg === "Sorry Insufficient wallet Balance") {
+        if (result.msg && result.msg === "Sorry Insufficient wallet Balance") {
           toast({
             title: "Error",
             description: "Insufficient wallet balance. Please add funds.",
