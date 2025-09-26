@@ -15,13 +15,14 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const searchTerm = searchParams.get('searchTerm');
     const transactionBasis = searchParams.get('transactionBasis');
+    const dateFilter = searchParams.get('dateFilter');
 
     const limit = parseInt(searchParams.get('limit') || '10');
     const page = parseInt(searchParams.get('page') || '1');
     const skip = (page - 1) * limit;
 
     // Get the user's transactions
-    const { transactions, totalTransactions } = await getUserTransactions(userId, searchTerm, transactionBasis, limit, skip);
+    const { transactions, totalTransactions } = await getUserTransactions(userId, searchTerm, transactionBasis, limit, skip, dateFilter);
 
     return NextResponse.json({ transactions, totalTransactions });
   } catch (error) {

@@ -22,10 +22,28 @@ function generateHash(mid, parameters, hashingMethod = 'sha512', secretKey) {
 
 export const dmtPayment = async (req) => {
     try {
-        const { name, accountNumber, ifsc, amount: rawAmount, remarks, paymentMode, paymentReferenceNo, beneficiary, gateway, websiteUrl, transactionId } = await req.json();
+        const { name, accountNumber, ifsc, amount: rawAmount, remarks, paymentMode, paymentReferenceNo, beneficiary, gateway, websiteUrl } = await req.json();
 
         const userId = req.user?.id; // Get userId from req.user
         const unique_id = Date.now().toString() + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
+
+        let isUnique = false;
+        let transactionId;
+
+        while (!isUnique) {
+            const randomDigits = Math.floor(1000000000 + Math.random() * 9000000000).toString(); // 10 random digits
+            transactionId = `WEPAYX${randomDigits}`;
+
+            const existingTransaction = await prisma.transactions.findFirst({
+                where: {
+                    transactionId: transactionId,
+                },
+            });
+
+            if (!existingTransaction) {
+                isUnique = true;
+            }
+        }
         // --- Step 1: Fetch User and Beneficiary ---
         const [user] = await Promise.all([
         prisma.user.findUnique({ where: { id: userId }, select: { dmtPermissions: true, isDisabled: true, balance: true, phoneNumber: true } })
@@ -54,6 +72,17 @@ export const dmtPayment = async (req) => {
             if (timeDifference < 10) {
                 return NextResponse.json({ message: 'Please try again after 1 minute.' }, { status: 429 }); // 429 Too Many Requests
             }
+        }
+
+        // Check for existing transaction with the same websiteUrl
+        const existingWebsiteUrlTransaction = await prisma.transactions.findFirst({
+            where: {
+                websiteUrl: websiteUrl,
+            },
+        });
+
+        if (existingWebsiteUrlTransaction) {
+            return NextResponse.json({ message: 'A transaction with this website URL already exists.' }, { status: 400 });
         }
 
         // Assuming req.user is populated by middleware and contains dmtPermissions
@@ -129,17 +158,9 @@ export const dmtPayment = async (req) => {
         // Placeholder for merchantId and secretKey - REPLACE WITH ACTUAL VALUES FROM AUTH CONTEXT
         const merchantId = process.env.KATLA_MERCHANT_ID ; 
         const secretKey = process.env.KATLA_SECRET_KEY;
-        console.log("Received dmtPayment request:", { name, bankName, bankBranch, accountNumber, ifsc, amount, remarks, paymentMode, beneficiary, gateway, websiteUrl, transactionId });
+        console.log("Received dmtPayment request:", { name, bankName, bankBranch, accountNumber, ifsc, amount, remarks, paymentMode, beneficiary, gateway, websiteUrl });
 
-        const existingTransaction = await prisma.transactions.findFirst({
-            where: {
-                transactionId: transactionId,
-            },
-        });
-
-        if (existingTransaction) {
-            return NextResponse.json({ message: 'Transaction ID already exists' }, { status: 400 });
-        }
+        
 
         const parametersForHash = {
             name: beneficiary.accountHolderName,

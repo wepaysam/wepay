@@ -51,7 +51,7 @@ export const p2iUpiPayout = async (req) => {
     try {
         const body = await req.json();
         const userId = req.user?.id;
-        const { vpa, amount, name, websiteUrl, utr } = body;
+        const { vpa, amount, name, websiteUrl } = body;
         console.log("Request body:", body);
         const user = await prisma.user.findUnique({ where: { id: userId }, select: { upiPermissions: true ,balance:true, isDisabled: true } });
 
@@ -80,21 +80,24 @@ export const p2iUpiPayout = async (req) => {
             }
         }
 
+        // Check for existing transaction with the same websiteUrl
+        const existingWebsiteUrlTransaction = await prisma.transactions.findFirst({
+            where: {
+                websiteUrl: websiteUrl,
+            },
+        });
+
+        if (existingWebsiteUrlTransaction) {
+            return NextResponse.json({ message: 'A transaction with this website URL already exists.' }, { status: 400 });
+        }
+
         if (!user.upiPermissions?.enabled || !user.upiPermissions?.p2i) {
                 console.log("akash asmple",user.upiPermissions);
                 console.warn(`[${requestId}] User ${userId} does not have UPI p2i permission.`);
                 return NextResponse.json({ message: 'You do not have permission to perform UPI p2i transactions.' }, { status: 403 });
         }
 
-        const existingTransaction = await prisma.transactions.findFirst({
-            where: {
-                transactionId: utr,
-            },
-        });
-
-        if (existingTransaction) {
-            return NextResponse.json({ message: 'Transaction ID already exists' }, { status: 400 });
-        }        
+                
 
 
         if (!vpa || !amount || !name) {
@@ -112,10 +115,26 @@ export const p2iUpiPayout = async (req) => {
 
         }
 
-        const unique_id = Date.now().toString() + Math.floor(Math.random() * 10000000).toString().padStart(7, '0'); // min 18 max 24
+        let isUnique = false;
+    let transactionId;
+
+    while (!isUnique) {
+        const randomDigits = Math.floor(1000000000 + Math.random() * 9000000000).toString(); // 10 random digits
+        transactionId = `WEPAYX${randomDigits}`;
+
+        const existingTransaction = await prisma.transactions.findFirst({
+            where: {
+                transactionId: transactionId,
+            },
+        });
+
+        if (!existingTransaction) {
+            isUnique = true;
+        }
+    }
 
         const payload = {
-            unique_id: unique_id,
+            unique_id: transactionId,
             vpa: vpa,
             amount: amount,
             name: name 
@@ -178,9 +197,9 @@ export const p2iUpiPayout = async (req) => {
                         transactionStatus: newStatus,
                         referenceNo: unique_id,
                         senderId: userId,
-                        transactionId: utr,
+                        transactionId: transactionId,
                         websiteUrl: websiteUrl,
-                        utr: utr,
+                        utr: transactionId,
                         chargesAmount: data.data.api_user_charges || 0,
                     }
                 });

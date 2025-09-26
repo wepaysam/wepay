@@ -7,10 +7,28 @@ import { Decimal } from '@prisma/client/runtime/library'; // Import Decimal for 
 
 export const sevapayPayment = async (req, res) => {
     try {
-        const { amount, beneficiary, gateway, websiteUrl, transactionId } = await req.json();
+        const { amount, beneficiary, gateway, websiteUrl } = await req.json();
 
         const userId = req.user?.id;
         const unique_id = Date.now().toString() + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
+
+        let isUnique = false;
+        let transactionId;
+
+        while (!isUnique) {
+            const randomDigits = Math.floor(1000000000 + Math.random() * 9000000000).toString(); // 10 random digits
+            transactionId = `WEPAYX${randomDigits}`;
+
+            const existingTransaction = await prisma.transactions.findFirst({
+                where: {
+                    transactionId: transactionId,
+                },
+            });
+
+            if (!existingTransaction) {
+                isUnique = true;
+            }
+        }
 
         const user = await prisma.user.findUnique({ where: { id: userId }, select: { impsPermissions: true, isDisabled: true, balance: true, phoneNumber: true } });
 
@@ -39,15 +57,18 @@ export const sevapayPayment = async (req, res) => {
             }
         }
 
-        const existingTransaction = await prisma.transactions.findFirst({
+        // Check for existing transaction with the same websiteUrl
+        const existingWebsiteUrlTransaction = await prisma.transactions.findFirst({
             where: {
-                transactionId: transactionId,
+                websiteUrl: websiteUrl,
             },
         });
 
-        if (existingTransaction) {
-            return NextResponse.json({ message: 'Transaction ID already exists' }, { status: 400 });
+        if (existingWebsiteUrlTransaction) {
+            return NextResponse.json({ message: 'A transaction with this website URL already exists.' }, { status: 400 });
         }
+
+        
 
         const amountDecimal = new Decimal(amount);
 
@@ -109,7 +130,7 @@ export const sevapayPayment = async (req, res) => {
             },
             amount: amount,
             type: 'IMPS',
-            unique_id: unique_id
+            unique_id: transactionId
         };
 
         let token;
