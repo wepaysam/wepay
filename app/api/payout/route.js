@@ -7,6 +7,24 @@ import { ref } from 'firebase/storage';
 
 export async function POST(request) {
   const requestId = Date.now().toString() + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
+
+  let isUnique = false;
+  let transactionId;
+
+  while (!isUnique) {
+      const randomDigits = Math.floor(1000000000 + Math.random() * 9000000000).toString(); // 10 random digits
+      transactionId = `WEPAYX${randomDigits}`;
+
+      const existingTransaction = await prisma.transactions.findFirst({
+          where: {
+              transactionId: transactionId,
+          },
+      });
+
+      if (!existingTransaction) {
+          isUnique = true;
+      }
+  }
   console.log(`[${requestId}] Payout request received.`);
 
   try {
@@ -16,7 +34,7 @@ export async function POST(request) {
       return authResult;
     }
 
-    const { amount: rawAmount, beneficiaryId, websiteUrl, transactionId } = await request.json();
+    const { amount: rawAmount, beneficiaryId, websiteUrl } = await request.json();
     const userId = request.user?.id; // Get userId from req.user
 
     // --- Step 1: Fetch User and Beneficiary ---
@@ -51,6 +69,17 @@ export async function POST(request) {
         }
     }
 
+    // Check for existing transaction with the same websiteUrl
+    const existingWebsiteUrlTransaction = await prisma.transactions.findFirst({
+        where: {
+            websiteUrl: websiteUrl,
+        },
+    });
+
+    if (existingWebsiteUrlTransaction) {
+        return NextResponse.json({ message: 'A transaction with this website URL already exists.' }, { status: 400 });
+    }
+
     // Assuming req.user is populated by middleware and contains dmtPermissions
     if (!user || !user.impsPermissions?.enabled || !user.impsPermissions?.aeronpay) {
         console.warn(`User ${userId || 'Unknown'} does not have DMT permission.`);
@@ -69,15 +98,7 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Insufficient Balance' }, { status: 403 });
     }
 
-    const existingTransaction = await prisma.transactions.findFirst({
-        where: {
-            transactionId,
-        },
-    });
-
-    if (existingTransaction) {
-        return NextResponse.json({ message: 'Transaction ID already exists' }, { status: 400 });
-    }
+    
 
     console.log(`[${requestId}] Processing payout. UserID: ${userId}, BeneficiaryID: ${beneficiaryId}, Amount: ${amount}`);
 

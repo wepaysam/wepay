@@ -119,6 +119,7 @@ const ServicesPage = () => {
   const [isDmtConfirmationPopupOpen, setIsDmtConfirmationPopupOpen] = useState(false);
   const [isUpiConfirmationPopupOpen, setIsUpiConfirmationPopupOpen] = useState(false);
   const [selectedBeneficiary, setSelectedBeneficiary] = useState<BankBeneficiary | UpiBeneficiary | DmtBeneficiary | null>(null);
+  const [lastBeneficiaryTransaction, setLastBeneficiaryTransaction] = useState<any>(null);
 
   const [successfulTransactionData, setSuccessfulTransactionData] = useState<any>(null);
 
@@ -676,7 +677,7 @@ const ServicesPage = () => {
     }
 
     const UPI_LIMIT = 100000;
-    const DMT_LIMIT = 200000;
+    const DMT_LIMIT = 500000;
 
     if ('upiId' in beneficiary) {
       if (amount > UPI_LIMIT) {
@@ -688,6 +689,17 @@ const ServicesPage = () => {
         return;
       }
       setSelectedBeneficiary(beneficiary as UpiBeneficiary);
+      
+      // Fetch last transaction for UPI beneficiary
+      const beneficiaryType = 'upi';
+      const lastTransactionResponse = await fetch(`/api/transactions/last-beneficiary-transaction?beneficiaryId=${beneficiary.id}&beneficiaryType=${beneficiaryType}`);
+      if (lastTransactionResponse.ok) {
+        const data = await lastTransactionResponse.json();
+        setLastBeneficiaryTransaction(data);
+      } else {
+        setLastBeneficiaryTransaction(null);
+      }
+
       setIsUpiConfirmationPopupOpen(true);
     } else if ('accountNumber' in beneficiary && !('transactionType' in beneficiary)) { // This is a DmtBeneficiary
       if (amount > DMT_LIMIT) {
@@ -699,27 +711,40 @@ const ServicesPage = () => {
         return;
       }
       setSelectedBeneficiary(beneficiary as DmtBeneficiary);
+
+      // Fetch last transaction for DMT beneficiary
+      const beneficiaryType = 'dmt';
+      const lastTransactionResponse = await fetch(`/api/transactions/last-beneficiary-transaction?beneficiaryId=${beneficiary.id}&beneficiaryType=${beneficiaryType}`);
+      if (lastTransactionResponse.ok) {
+        const data = await lastTransactionResponse.json();
+        setLastBeneficiaryTransaction(data);
+      } else {
+        setLastBeneficiaryTransaction(null);
+      }
+
       setIsDmtConfirmationPopupOpen(true);
     } else { // This is a BankBeneficiary (IMPS/NEFT)
       setSelectedBeneficiary(beneficiary as BankBeneficiary);
+
+      // Fetch last transaction for Bank beneficiary
+      const beneficiaryType = 'bank';
+      const lastTransactionResponse = await fetch(`/api/transactions/last-beneficiary-transaction?beneficiaryId=${beneficiary.id}&beneficiaryType=${beneficiaryType}`);
+      if (lastTransactionResponse.ok) {
+        const data = await lastTransactionResponse.json();
+        setLastBeneficiaryTransaction(data);
+      } else {
+        setLastBeneficiaryTransaction(null);
+      }
+
       setIsGatewayPopupOpen(true);
     }
   };
 
-  const handleDmtGatewaySelect = async (gatewayDetails: { gateway: 'sevapay_weshubh' | 'sevapay_kelta', websiteUrl: string, transactionId: string }) => {
+  const handleDmtGatewaySelect = async (gatewayDetails: { gateway: 'sevapay_weshubh' | 'sevapay_kelta', websiteUrl: string }) => {
     setIsDmtConfirmationPopupOpen(false);
     if (!selectedBeneficiary || !('accountNumber' in selectedBeneficiary && !('transactionType' in selectedBeneficiary))) return; // Ensure it's a DmtBeneficiary
 
-    const { gateway, websiteUrl, transactionId } = gatewayDetails;
-
-    if (!websiteUrl.endsWith(transactionId)) {
-        toast({
-            title: "Error",
-            description: "Wrong transaction ID. Please check the website URL and transaction ID.",
-            variant: "destructive",
-        });
-        return;
-    }
+    const { gateway, websiteUrl } = gatewayDetails;
 
     const amountStr = payoutAmounts[selectedBeneficiary.id] || "";
     const amount = parseFloat(amountStr);
@@ -741,7 +766,6 @@ const ServicesPage = () => {
           beneficiary: selectedBeneficiary,
           gateway: gateway,
           websiteUrl: websiteUrl,
-          transactionId: transactionId,
         }),
       });
 
@@ -783,20 +807,11 @@ const ServicesPage = () => {
     }
   };
 
-  const handleGatewaySelect = async (gatewayDetails: { gateway: 'sevapay_weshubh' | 'sevapay_kelta' | 'aeronpay', websiteUrl: string, transactionId: string }) => {
+  const handleGatewaySelect = async (gatewayDetails: { gateway: 'sevapay_weshubh' | 'sevapay_kelta' | 'aeronpay', websiteUrl: string }) => {
     setIsGatewayPopupOpen(false);
     if (!selectedBeneficiary) return;
 
-    const { gateway, websiteUrl, transactionId } = gatewayDetails;
-
-    if (!websiteUrl.endsWith(transactionId)) {
-        toast({
-            title: "Error",
-            description: "Wrong transaction ID. Please check the website URL and transaction ID.",
-            variant: "destructive",
-        });
-        return;
-    }
+    const { gateway, websiteUrl } = gatewayDetails;
 
     const amountStr = payoutAmounts[selectedBeneficiary.id] || "";
     const amount = parseFloat(amountStr);
@@ -833,7 +848,6 @@ const ServicesPage = () => {
             amount: amount,
             beneficiaryId: selectedBeneficiary.id,
             websiteUrl: websiteUrl,
-            transactionId: transactionId,
           }),
         });
       } else if ('accountNumber' in selectedBeneficiary && !('transactionType' in selectedBeneficiary)) {
@@ -861,7 +875,6 @@ const ServicesPage = () => {
             beneficiary: selectedBeneficiary,
             gateway: gateway,
             websiteUrl: websiteUrl,
-            transactionId: transactionId,
           }),
         });
       }
@@ -959,7 +972,7 @@ const ServicesPage = () => {
     </motion.div> 
   );
 
-  const handleUpiAeronPaySelect = async (websiteUrl: string, utr: string) => {
+  const handleUpiAeronPaySelect = async (websiteUrl: string) => {
     if (!selectedBeneficiary) return;
 
     const amountStr = payoutAmounts[selectedBeneficiary.id] || "";
@@ -976,7 +989,6 @@ const ServicesPage = () => {
           amount: amount,
           beneficiary: selectedBeneficiary,
           websiteUrl: websiteUrl,
-          utr: utr,
         }),
       });
 
@@ -1009,7 +1021,7 @@ const ServicesPage = () => {
     }
   };
 
-  const initiateUpiPayment = async (beneficiary: UpiBeneficiary, amount: number, websiteUrl: string, utr: string) => {
+  const initiateUpiPayment = async (beneficiary: UpiBeneficiary, amount: number, websiteUrl: string) => {
     setRowLoading(beneficiary.id, true);
     try {
       const response = await fetch('/api/upi/payout', {
@@ -1022,7 +1034,6 @@ const ServicesPage = () => {
           amount: amount,
           name: beneficiary.accountHolderName,
           websiteUrl: websiteUrl,
-          utr: utr,
         }),
       });
 
@@ -1174,36 +1185,21 @@ const ServicesPage = () => {
       <UpiPaymentConfirmationPopup
         open={isUpiConfirmationPopupOpen}
         onClose={() => setIsUpiConfirmationPopupOpen(false)}
-        onSelectAeronPay={(websiteUrl, utr) => {
-          if (!websiteUrl.endsWith(utr)) {
-            toast({
-                title: "Error",
-                description: "Wrong UTR. Please check the website URL and UTR.",
-                variant: "destructive",
-            });
-            return;
-          }
+        onSelectAeronPay={(websiteUrl) => {
           setIsUpiConfirmationPopupOpen(false);
-          handleUpiAeronPaySelect(websiteUrl, utr);
+          handleUpiAeronPaySelect(websiteUrl);
         }}
-        onSelectP2I={(websiteUrl, utr) => {
-          if (!websiteUrl.endsWith(utr)) {
-            toast({
-                title: "Error",
-                description: "Wrong UTR. Please check the website URL and UTR.",
-                variant: "destructive",
-            });
-            return;
-          }
+        onSelectP2I={(websiteUrl) => {
           setIsUpiConfirmationPopupOpen(false);
           if (selectedBeneficiary) {
             const amountStr = payoutAmounts[selectedBeneficiary.id] || "";
             const amount = parseFloat(amountStr);
-            initiateUpiPayment(selectedBeneficiary as UpiBeneficiary, amount, websiteUrl, utr);
+            initiateUpiPayment(selectedBeneficiary as UpiBeneficiary, amount, websiteUrl);
           }
         }}
         beneficiary={selectedBeneficiary}
         amount={payoutAmounts[selectedBeneficiary?.id]}
+        lastTransaction={lastBeneficiaryTransaction}
       />
       <PaymentGatewayPopup
         open={isGatewayPopupOpen}
@@ -1211,6 +1207,7 @@ const ServicesPage = () => {
         onSelect={handleGatewaySelect}
         beneficiary={selectedBeneficiary}
         amount={payoutAmounts[selectedBeneficiary?.id]}
+        lastTransaction={lastBeneficiaryTransaction}
       />
       <AlertDialog open={isVerificationPopupOpen} onOpenChange={setIsVerificationPopupOpen}>
         <AlertDialogContent className="dark:text-black">
@@ -1284,6 +1281,7 @@ const ServicesPage = () => {
         onConfirm={handleDmtGatewaySelect}
         beneficiary={selectedBeneficiary as DmtBeneficiary | null}
         amount={payoutAmounts[selectedBeneficiary?.id]}
+        lastTransaction={lastBeneficiaryTransaction}
       />
       <div className="space-y-6 mt-5">
         <div className="flex items-center justify-between">

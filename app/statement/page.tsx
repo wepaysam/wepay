@@ -82,8 +82,7 @@ interface TransactionData {
 const StatementPage = () => {
   const [transactions, setTransactions] = useState<TransactionData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [dateFilter, setDateFilter] = useState("today");
   const [typeFilter, setTypeFilter] = useState<TransactionDirection | "ALL">("ALL");
   const [searchTerm, setSearchTerm] = useState("");
   const [transactionBasis, setTransactionBasis] = useState<TransactionBasis>("ALL");
@@ -100,7 +99,7 @@ const StatementPage = () => {
     setIsTableLoading(true);
     try {
       const [transactionsResponse, balanceRequestsResponse] = await Promise.all([
-        fetch(`/api/transactions?searchTerm=${searchTerm}&transactionBasis=${transactionBasis}&limit=${limit}&page=${currentPage}`),
+        fetch(`/api/transactions?searchTerm=${searchTerm}&transactionBasis=${transactionBasis}&limit=${limit}&page=${currentPage}&dateFilter=${dateFilter}`),
         fetch('/api/balance-requests'),
       ]);
 
@@ -182,7 +181,7 @@ const StatementPage = () => {
     } finally {
       setIsTableLoading(false);
     }
-  }, [setTransactions, searchTerm, transactionBasis, limit, currentPage]);
+  }, [setTransactions, searchTerm, transactionBasis, limit, currentPage, dateFilter]);
 
   useEffect(() => {
     const fetchWatermark = async () => {
@@ -337,29 +336,24 @@ const StatementPage = () => {
                 {/* Filters */}
                 <div className="mb-6 grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                     <div>
-                    <label htmlFor="startDate" className="block text-sm font-medium text-muted-foreground mb-1">Start Date</label>
+                    <label htmlFor="dateFilter" className="block text-sm font-medium text-muted-foreground mb-1">Date Range</label>
                     <div className="relative">
                         <CalendarRange className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        <Input
-                        id="startDate"
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        className="pl-10 w-full dark:text-black"
-                        />
-                    </div>
-                    </div>
-                    <div>
-                    <label htmlFor="endDate" className="block dark:text-black text-sm font-medium text-muted-foreground mb-1">End Date</label>
-                    <div className="relative">
-                        <CalendarRange className="absolute dark:text-black left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        <Input
-                        id="endDate"
-                        type="date"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        className="pl-10 w-full dark:text-black"
-                        />
+                        <select
+                        id="dateFilter"
+                        value={dateFilter}
+                        onChange={(e) => setDateFilter(e.target.value)}
+                        className="pl-10 dark:text-black pr-8 block w-full py-2.5 bg-background border border-border text-foreground focus:border-primary focus:ring-1 focus:ring-primary rounded-md appearance-none"
+                        >
+                        <option value="today">Today</option>
+                        <option value="last3days">Last 3 days</option>
+                        <option value="lastweek">Last week</option>
+                        <option value="lastmonth">Last month</option>
+                        <option value="all">All</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground">
+                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                        </div>
                     </div>
                     </div>
                     <div>

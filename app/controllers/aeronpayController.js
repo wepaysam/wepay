@@ -17,10 +17,28 @@ const cardTypes = {
 export const upiPayment = async (req) => {
 //   const requestId = crypto.randomUUID();
     const requestId = Date.now().toString() + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
+
+    let isUnique = false;
+    let transactionId;
+
+    while (!isUnique) {
+        const randomDigits = Math.floor(1000000000 + Math.random() * 9000000000).toString(); // 10 random digits
+        transactionId = `WEPAYX${randomDigits}`;
+
+        const existingTransaction = await prisma.transactions.findFirst({
+            where: {
+                transactionId: transactionId,
+            },
+        });
+
+        if (!existingTransaction) {
+            isUnique = true;
+        }
+    }
 //   console.log(`[${requestId}] AeronPay UPI payout request received.`);
 
   try {
-    const { amount: rawAmount, beneficiary, websiteUrl, utr } = await req.json();
+    const { amount: rawAmount, beneficiary, websiteUrl } = await req.json();
     const userId =  req.user.id ;
 
     const user = await prisma.user.findUnique({
@@ -54,15 +72,18 @@ export const upiPayment = async (req) => {
         }
     }
 
-    const existingTransaction = await prisma.transactions.findFirst({
+    // Check for existing transaction with the same websiteUrl
+    const existingWebsiteUrlTransaction = await prisma.transactions.findFirst({
         where: {
-            transactionId: utr,
+            websiteUrl: websiteUrl,
         },
     });
 
-    if (existingTransaction) {
-        return NextResponse.json({ message: 'Transaction ID already exists' }, { status: 400 });
+    if (existingWebsiteUrlTransaction) {
+        return NextResponse.json({ message: 'A transaction with this website URL already exists.' }, { status: 400 });
     }
+
+    
 
     const amount = new Decimal(rawAmount);
 
@@ -114,7 +135,7 @@ export const upiPayment = async (req) => {
             senderAccount: user.phoneNumber, // Using phone number as sender account
             websiteUrl: websiteUrl,
             referenceNo: requestId,
-            transactionId: utr,
+            transactionId: transactionId,
             gateway: 'AeronPay'
           },
         });
@@ -143,7 +164,7 @@ export const upiPayment = async (req) => {
         latitude: '20.1236',
         longitude: '78.1228',
         websiteUrl: websiteUrl,
-        transactionId: utr,
+        transactionId: transactionId,
     };
 
     console.log(`[${requestId}] Sending payload to AeronPay UPI:`, JSON.stringify(payload, null, 2));

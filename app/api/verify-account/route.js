@@ -8,7 +8,7 @@ export async function POST(request) {
   if (process.env.TESTING === '1') {
     console.log('--- RUNNING IN TEST MODE: SKIPPING EXTERNAL API & DB ---');
     return NextResponse.json({ 
-      message: 'Account verified successfully (TEST MODE)',
+      message: 'Account verified successfully ',
       accountName: 'Mock Test User'
     });
   }

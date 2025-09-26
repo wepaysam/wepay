@@ -13,30 +13,29 @@ interface DmtBeneficiary {
 interface DmtPaymentConfirmationPopupProps {
     open: boolean;
     onClose: () => void;
-    onConfirm: (gatewayDetails: { gateway: 'sevapay_weshubh' | 'sevapay_kelta', websiteUrl: string, transactionId: string }) => void;
+    onConfirm: (gatewayDetails: { gateway: 'sevapay_weshubh' | 'sevapay_kelta', websiteUrl: string }) => void;
     beneficiary: DmtBeneficiary | null;
     amount: string;
+    lastTransaction: any;
 }
 
-const DmtPaymentConfirmationPopup: React.FC<DmtPaymentConfirmationPopupProps> = ({ open, onClose, onConfirm, beneficiary, amount }) => {
+const DmtPaymentConfirmationPopup: React.FC<DmtPaymentConfirmationPopupProps> = ({ open, onClose, onConfirm, beneficiary, amount, lastTransaction }) => {
     const [websiteUrl, setWebsiteUrl] = useState('');
-    const [transactionId, setTransactionId] = useState('');
 
     useEffect(() => {
         if (open) {
             setWebsiteUrl('');
-            setTransactionId('');
         }
     }, [open]);
 
     if (!open) return null;
 
     const handleConfirm = (gateway: 'sevapay_weshubh' | 'sevapay_kelta') => {
-        if (!websiteUrl || !transactionId) {
-            alert('Website URL and Transaction ID are required.');
+        if (!websiteUrl) {
+            alert('Website URL is required.');
             return;
         }
-        onConfirm({ gateway, websiteUrl, transactionId });
+        onConfirm({ gateway, websiteUrl });
     };
 
     return (
@@ -51,6 +50,15 @@ const DmtPaymentConfirmationPopup: React.FC<DmtPaymentConfirmationPopupProps> = 
                         <p className="text-gray-700 dark:text-gray-300"><strong>Amount:</strong> ₹{amount}</p>
                     </div>
                 )}
+
+                {lastTransaction && (
+                    <div className="mb-4 text-left text-sm text-gray-600 dark:text-gray-400 border-t pt-4 mt-4">
+                        <p><strong>Last Transaction:</strong></p>
+                        <p>Amount: ₹{lastTransaction.amount}</p>
+                        <p>Date: {new Date(lastTransaction.createdAt).toLocaleString()}</p>
+                        <p>Status: {lastTransaction.transactionStatus}</p>
+                    </div>
+                )}
                 <div className="mb-4">
                     <label htmlFor="websiteUrl" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Website URL</label>
                     <input
@@ -62,17 +70,7 @@ const DmtPaymentConfirmationPopup: React.FC<DmtPaymentConfirmationPopupProps> = 
                         className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
                     />
                 </div>
-                <div className="mb-4">
-                    <label htmlFor="transactionId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Transaction ID</label>
-                    <input
-                        type="text"
-                        id="transactionId"
-                        value={transactionId}
-                        onChange={(e) => setTransactionId(e.target.value)}
-                        required
-                        className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
-                    />
-                </div>
+                
                 <div className="flex justify-around">
                     <button onClick={() => handleConfirm('sevapay_weshubh')} className="bg-green-500 text-white px-4 py-2 rounded-lg mr-4">Aeronpay</button>
                     <button onClick={() => handleConfirm('sevapay_kelta')} className="bg-blue-500 text-white px-4 py-2 rounded-lg">Kelta</button>
