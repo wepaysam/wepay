@@ -861,7 +861,6 @@ const ServicesPage = () => {
             beneficiary: selectedBeneficiary,
             gateway: gateway,
             websiteUrl: websiteUrl,
-            transactionId: transactionId,
           }),
         });
       } else { // Existing Sevapay bank transfers
