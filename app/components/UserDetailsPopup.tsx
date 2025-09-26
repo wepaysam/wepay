@@ -1,6 +1,7 @@
-import React,{useState} from 'react';
+import React,{useState,useEffect} from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
+import { Input } from './ui/input';
 import { X, DollarSign, CreditCard, Smartphone, ArrowRight } from 'lucide-react';
 import { Switch } from './ui/switch';
 
@@ -49,6 +50,12 @@ interface UserDetailsPopupProps {
   onSaveSuccess: () => void;
 }
 
+interface EditedUserDetails {
+  fullName: string;
+  email: string | null;
+  phoneNumber: string;
+}
+
 const UserDetailsPopup: React.FC<UserDetailsPopupProps> = ({ user, onClose, onSaveSuccess }) => {
   const [permissions, setPermissions] = useState(() => ({
     imps: user.impsPermissions || { enabled: false, sevapay_weshubh: false, sevapay_kelta: false, aeronpay: false },
@@ -57,6 +64,17 @@ const UserDetailsPopup: React.FC<UserDetailsPopupProps> = ({ user, onClose, onSa
   }));
   const [isDisabled, setIsDisabled] = useState(user.isDisabled || false);
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    setEditedPhoneNumber(user.phoneNumber);
+    setEditedEmail(user.email || '');
+    setEditedFullName(user.fullName || '');
+    setIsEditing(false); // Exit edit mode when user changes or popup closes
+  }, [user]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedPhoneNumber, setEditedPhoneNumber] = useState(user.phoneNumber);
+  const [editedEmail, setEditedEmail] = useState(user.email || '');
+  const [editedFullName, setEditedFullName] = useState(user.fullName || '');
 
   const handlePermissionChange = (type: string, subType?: string) => {
     setPermissions(prev => {
@@ -96,6 +114,30 @@ const UserDetailsPopup: React.FC<UserDetailsPopupProps> = ({ user, onClose, onSa
       if (!token) {
         // Handle authentication error
         return;
+      }
+
+      // 1. Update user details (if in editing mode)
+      if (isEditing) {
+        const userDetailsToUpdate: EditedUserDetails = {
+          fullName: editedFullName,
+          email: editedEmail,
+          phoneNumber: editedPhoneNumber,
+        };
+
+        const userDetailsResponse = await fetch(`/api/admin/users/${user.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(userDetailsToUpdate),
+        });
+
+        if (!userDetailsResponse.ok) {
+          const errorData = await userDetailsResponse.json();
+          throw new Error(errorData.message || 'Failed to update user details');
+        }
+        console.log('User details updated successfully!');
       }
 
       console.log('Sending isDisabled to backend:', isDisabled);
@@ -139,7 +181,12 @@ const UserDetailsPopup: React.FC<UserDetailsPopupProps> = ({ user, onClose, onSa
     <Dialog open={!!user} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>User Details</DialogTitle>
+          <DialogTitle className="flex items-center justify-between">
+            <span>User Details</span>
+            <Button variant="outline" size="sm" onClick={() => setIsEditing(!isEditing)}>
+              {isEditing ? 'Cancel Edit' : 'Edit Details'}
+            </Button>
+          </DialogTitle>
           <DialogClose asChild>
             <Button variant="ghost" size="icon" className="absolute top-4 right-4">
               <X className="h-4 w-4" />
@@ -159,12 +206,40 @@ const UserDetailsPopup: React.FC<UserDetailsPopupProps> = ({ user, onClose, onSa
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
+              <p className="text-sm font-medium text-gray-500">Full Name</p>
+              {isEditing ? (
+                <Input
+                  value={editedFullName}
+                  onChange={(e) => setEditedFullName(e.target.value)}
+                  className="mt-1"
+                />
+              ) : (
+                <p>{user.fullName || 'N/A'}</p>
+              )}
+            </div>
+            <div>
               <p className="text-sm font-medium text-gray-500">Phone Number</p>
-              <p>{user.phoneNumber}</p>
+              {isEditing ? (
+                <Input
+                  value={editedPhoneNumber}
+                  onChange={(e) => setEditedPhoneNumber(e.target.value)}
+                  className="mt-1"
+                />
+              ) : (
+                <p>{user.phoneNumber}</p>
+              )}
             </div>
             <div>
               <p className="text-sm font-medium text-gray-500">Email</p>
-              <p>{user.email || 'N/A'}</p>
+              {isEditing ? (
+                <Input
+                  value={editedEmail}
+                  onChange={(e) => setEditedEmail(e.target.value)}
+                  className="mt-1"
+                />
+              ) : (
+                <p>{user.email || 'N/A'}</p>
+              )}
             </div>
             <div>
               <p className="text-sm font-medium text-gray-500">User Type</p>
@@ -317,20 +392,26 @@ const UserDetailsPopup: React.FC<UserDetailsPopupProps> = ({ user, onClose, onSa
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-                    <Button onClick={handleSaveChanges} disabled={isSaving}>
-            {isSaving ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Saving...
-              </>
-            ) : (
-              'Save Changes'
-            )}
-          </Button>
+          {isEditing ? (
+            <>
+              <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
+              <Button onClick={handleSaveChanges} disabled={isSaving}>
+                {isSaving ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
+              </Button>
+            </>
+          ) : (
+            <Button variant="outline" onClick={onClose}>Close</Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
