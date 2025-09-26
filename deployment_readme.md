@@ -157,3 +157,9 @@ To update your deployed application, follow these steps:
     pm2 restart all
     ```
 
+
+    to know all config file in nginx
+    ls -l /etc/nginx/sites-enabled/
+ then 
+ sudo nano /etc/nginx/sites-enabled/wepayx.co.in
+

@@ -98,7 +98,7 @@ export async function getTransactionCharge(amount) {
   }
 }
 
-export async function getUserTransactions(userId, searchTerm, transactionBasis, limit, skip, dateFilter) {
+export async function getUserTransactions(userId, searchTerm, transactionBasis, limit, skip, dateFilter, startDate, endDate) {
   try {
     const where = {
       senderId: userId,
@@ -108,25 +108,30 @@ export async function getUserTransactions(userId, searchTerm, transactionBasis, 
       where.transactionType = transactionBasis;
     }
 
-    if (dateFilter) {
+    if (startDate && endDate) {
+      where.transactionTime = {
+        gte: new Date(startDate),
+        lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)),
+      };
+    } else if (dateFilter) {
       const now = new Date();
-      let startDate;
+      let filterStartDate;
 
       switch (dateFilter) {
         case 'today':
-          startDate = new Date(now.setHours(0, 0, 0, 0));
+          filterStartDate = new Date(now.setHours(0, 0, 0, 0));
           break;
         case 'last3days':
-          startDate = new Date(now.setDate(now.getDate() - 3));
-          startDate.setHours(0, 0, 0, 0);
+          filterStartDate = new Date(now.setDate(now.getDate() - 3));
+          filterStartDate.setHours(0, 0, 0, 0);
           break;
         case 'lastweek':
-          startDate = new Date(now.setDate(now.getDate() - 7));
-          startDate.setHours(0, 0, 0, 0);
+          filterStartDate = new Date(now.setDate(now.getDate() - 7));
+          filterStartDate.setHours(0, 0, 0, 0);
           break;
         case 'lastmonth':
-          startDate = new Date(now.setMonth(now.getMonth() - 1));
-          startDate.setHours(0, 0, 0, 0);
+          filterStartDate = new Date(now.setMonth(now.getMonth() - 1));
+          filterStartDate.setHours(0, 0, 0, 0);
           break;
         case 'all':
         default:
@@ -134,9 +139,9 @@ export async function getUserTransactions(userId, searchTerm, transactionBasis, 
           break;
       }
 
-      if (startDate) {
+      if (filterStartDate) {
         where.transactionTime = {
-          gte: startDate,
+          gte: filterStartDate,
         };
       }
     }

@@ -71,9 +71,8 @@ const DmtPaymentConfirmationPopup: React.FC<DmtPaymentConfirmationPopupProps> = 
                     />
                 </div>
                 
-                <div className="flex justify-around">
-                    <button onClick={() => handleConfirm('sevapay_weshubh')} className="bg-green-500 text-white px-4 py-2 rounded-lg mr-4">Aeronpay</button>
-                    <button onClick={() => handleConfirm('sevapay_kelta')} className="bg-blue-500 text-white px-4 py-2 rounded-lg">Kelta</button>
+                <div className="flex justify-center">
+                    <button onClick={() => handleConfirm('sevapay_weshubh')} className="bg-green-500 text-white px-4 py-2 rounded-lg">Pay</button>
                 </div>
                 <button onClick={onClose} className="mt-4 text-red-500">Close</button>
             </div>

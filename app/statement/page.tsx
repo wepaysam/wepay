@@ -94,17 +94,24 @@ const StatementPage = () => {
   const [limit, setLimit] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalTransactions, setTotalTransactions] = useState(0);
+  const [showAdvanceSearch, setShowAdvanceSearch] = useState(false);
+  const [advanceSearchStartDate, setAdvanceSearchStartDate] = useState("");
+  const [advanceSearchEndDate, setAdvanceSearchEndDate] = useState("");
 
   const fetchAllData = useCallback(async () => {
     setIsTableLoading(true);
     try {
-      const [transactionsResponse, balanceRequestsResponse] = await Promise.all([
-        fetch(`/api/transactions?searchTerm=${searchTerm}&transactionBasis=${transactionBasis}&limit=${limit}&page=${currentPage}&dateFilter=${dateFilter}`),
-        fetch('/api/balance-requests'),
-      ]);
+      let apiUrl = `/api/transactions?searchTerm=${searchTerm}&transactionBasis=${transactionBasis}&limit=${limit}&page=${currentPage}`;
+
+      if (showAdvanceSearch && advanceSearchStartDate && advanceSearchEndDate) {
+        apiUrl += `&startDate=${advanceSearchStartDate}&endDate=${advanceSearchEndDate}`;
+      } else {
+        apiUrl += `&dateFilter=${dateFilter}`;
+      }
+
+      const transactionsResponse = await fetch(apiUrl);
 
       const { transactions: transactionsData, totalTransactions } = await transactionsResponse.json();
-      const balanceRequestsData = await balanceRequestsResponse.json();
 
       if (transactionsResponse.ok) {
         setTotalTransactions(totalTransactions);
@@ -146,29 +153,7 @@ const StatementPage = () => {
           };
         });
 
-        const formattedBalanceRequests = balanceRequestsData.map((req: any) => {
-          let type: TransactionDirection | 'FAILED' | 'PENDING' = 'PENDING';
-          let status: TransactionStatus = 'PENDING';
-
-          if (req.status === 'APPROVED') {
-            type = 'CREDIT';
-            status = 'COMPLETED';
-          } else if (req.status === 'REJECTED') {
-            type = 'FAILED';
-            status = 'FAILED';
-          }
-
-          return {
-            id: req.id,
-            date: req.requestedAt,
-            description: 'Balance Request',
-            amount: parseFloat(req.amount),
-            type: type,
-            status: status,
-          };
-        });
-
-        const combinedData = [...formattedTransactions, ...formattedBalanceRequests].sort(
+        const combinedData = formattedTransactions.sort(
           (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
         );
 
@@ -181,7 +166,7 @@ const StatementPage = () => {
     } finally {
       setIsTableLoading(false);
     }
-  }, [setTransactions, searchTerm, transactionBasis, limit, currentPage, dateFilter]);
+  }, [setTransactions, searchTerm, transactionBasis, limit, currentPage, dateFilter, showAdvanceSearch, advanceSearchStartDate, advanceSearchEndDate]);
 
   useEffect(() => {
     const fetchWatermark = async () => {
@@ -458,8 +443,52 @@ const StatementPage = () => {
                             <Download className="h-4 w-4 mr-2" />
                             Download Statement
                         </Button>
+                        <Button onClick={() => setShowAdvanceSearch(!showAdvanceSearch)} variant="outline">
+                            <Search className="h-4 w-4 mr-2" />
+                            {showAdvanceSearch ? 'Hide Advance Search' : 'Advance Search'}
+                        </Button>
                     </div>
                 </div>
+
+                {showAdvanceSearch && (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4 items-end p-4 border rounded-lg bg-muted/40"
+                    >
+                        <div>
+                            <label htmlFor="advanceStartDate" className="block text-sm font-medium text-muted-foreground mb-1">Start Date</label>
+                            <div className="relative">
+                                <CalendarRange className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                <Input
+                                    id="advanceStartDate"
+                                    type="date"
+                                    value={advanceSearchStartDate}
+                                    onChange={(e) => setAdvanceSearchStartDate(e.target.value)}
+                                    className="pl-10 w-full dark:text-black"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label htmlFor="advanceEndDate" className="block dark:text-black text-sm font-medium text-muted-foreground mb-1">End Date</label>
+                            <div className="relative">
+                                <CalendarRange className="absolute dark:text-black left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                <Input
+                                    id="advanceEndDate"
+                                    type="date"
+                                    value={advanceSearchEndDate}
+                                    onChange={(e) => setAdvanceSearchEndDate(e.target.value)}
+                                    className="pl-10 w-full dark:text-black"
+                                />
+                            </div>
+                        </div>
+                        <Button onClick={fetchAllData} className="md:col-span-1">
+                            Apply
+                        </Button>
+                    </motion.div>
+                )}
 
                 {/* Transactions List */}
                 <div className="overflow-x-auto rounded-lg border border-border">
