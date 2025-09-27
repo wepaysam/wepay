@@ -119,6 +119,7 @@ export async function POST(request) {
     // --- Step 2: Calculate Transaction Charges ---
     const chargeRule = await prisma.transactionCharge.findFirst({
       where: {
+        type: beneficiary.transactionType,
         minAmount: { lte: amount },
         maxAmount: { gte: amount },
       },

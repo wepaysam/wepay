@@ -94,6 +94,7 @@ export const upiPayment = async (req) => {
 
     const chargeRule = await prisma.transactionCharge.findFirst({
         where: {
+          type: 'UPI',
           minAmount: { lte: amount },
           maxAmount: { gte: amount },
         },

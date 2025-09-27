@@ -48,8 +48,8 @@ const UpiPaymentConfirmationPopup: React.FC<UpiPaymentConfirmationPopupProps> = 
         </AlertDialogHeader>
         <div className="space-y-4">
             <div>
-                <label htmlFor="websiteUrl" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Website URL</label>
-                <Input id="websiteUrl" type="text" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} className="mt-1 block w-full" />
+                <label htmlFor="websiteUrl" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Transaction ID</label>
+                <Input id="websiteUrl" type="text" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} maxLength={11} className="mt-1 block w-full" />
             </div>
         </div>
         <AlertDialogFooter className="flex justify-between w-full">

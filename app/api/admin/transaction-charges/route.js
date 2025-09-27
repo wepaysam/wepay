@@ -19,13 +19,13 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const authError = await adminAuthMiddleware(request);
-    const { minAmount, maxAmount, charge } = await request.json();
+    const { minAmount, maxAmount, charge, type } = await request.json();
     if (authError) return authError;
      // Validate required fields
-    if (!minAmount || !maxAmount || !charge) {
+    if (!minAmount || !maxAmount || !charge || !type) {
       return NextResponse.json({
         success: false,
-        message: 'Missing required fields: minAmount, maxAmount, and charge are required'
+        message: 'Missing required fields: minAmount, maxAmount, charge, and type are required'
       }, { status: 400 });  
     }
      // Validate numeric values and relationships
@@ -34,7 +34,7 @@ export async function POST(request) {
      const chargeAmount = parseFloat(charge);
      
      if (isNaN(min) || isNaN(max) || isNaN(chargeAmount)) {
-       return res.status(400).json({
+       return NextResponse.json({
          success: false,
          message: 'All values must be valid numbers'
        }, { status: 400 });
@@ -59,7 +59,7 @@ export async function POST(request) {
     //   message: 'Transaction charge created successfully'
     // }, { status: 56 });
 
-    const newCharge = await createTransactionCharge({ minAmount, maxAmount, charge });
+    const newCharge = await createTransactionCharge({ minAmount, maxAmount, charge, type });
     return NextResponse.json(newCharge);
   } catch (error) {
     return NextResponse.json(

@@ -17,6 +17,7 @@ export async function GET(request) {
       select: {
         id: true,
         phoneNumber: true,
+        balance:true,
         email: true,
         userType: true,
         isKycVerified: true,

@@ -153,12 +153,13 @@ model BalanceRequest {
 }
 
 model TransactionCharge {
-  id        String   @id @default(uuid())
+  id        String          @id @default(uuid())
   minAmount Decimal
   maxAmount Decimal
   charge    Decimal
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  type      TransactionType?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @default(now()) @updatedAt
 }
 
 model Balance {

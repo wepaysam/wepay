@@ -332,12 +332,29 @@ export async function updateTransactionCharge(chargeId, data) {
 }
 
 /**
+ * Delete transaction charge
+ */
+export async function deleteTransactionCharge(chargeId) {
+  try {
+    await prisma.transactionCharge.delete({
+      where: { id: chargeId },
+    });
+  } catch (error) {
+    throw new Error(`Failed to delete transaction charge: ${error.message}`);
+  }
+}
+
+/**
  * Create transaction charge
  */
-export async function createTransactionCharge({ minAmount, maxAmount, charge }) {
+export async function createTransactionCharge({ minAmount, maxAmount, charge, type }) {
   try {
     // Check for overlapping ranges
-    const existingCharges = await prisma.transactionCharge.findMany();
+    const existingCharges = await prisma.transactionCharge.findMany({
+      where: {
+        type: type
+      }
+    });
     const overlap = existingCharges.some(tier => 
       (minAmount >= tier.minAmount && minAmount <= tier.maxAmount) || 
       (maxAmount >= tier.minAmount && maxAmount <= tier.maxAmount) ||
@@ -345,13 +362,14 @@ export async function createTransactionCharge({ minAmount, maxAmount, charge }) 
     );
     
     if (overlap) {
-      throw new Error('New charge tier overlaps with existing tiers');
+      throw new Error(`A charge tier with the type '${type}' already exists for this amount range.`);
     }
     const newCharge= await prisma.transactionCharge.create({
       data: {
         minAmount,
         maxAmount,
-        charge
+        charge,
+        type
       }
     });
 
