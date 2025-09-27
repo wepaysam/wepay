@@ -126,9 +126,15 @@ const ServicesPage = () => {
   const [payoutAmounts, setPayoutAmounts] = useState<{ [key: string]: string }>({});
   const [actionLoading, setActionLoading] = useState<{ [key: string]: boolean }>({});
 
+  const getCharge = (amount: number, type: string) => {
+    const applicableCharge = transactionCharges.find(charge => charge.type === type && amount >= charge.minAmount && amount <= charge.maxAmount);
+    return applicableCharge ? applicableCharge.charge : 0;
+  };
+
   const { toast } = useToast();
   const router = useRouter();
   const { user } = useGlobalContext();
+  console.log("User from context:", user);
 
   const [newBankBeneficiaryData, setNewBankBeneficiaryData] = useState({ 
     accountNumber: "", 
@@ -149,6 +155,7 @@ const ServicesPage = () => {
   const [beneficiaryToVerify, setBeneficiaryToVerify] = useState<BankBeneficiary | DmtBeneficiary | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [beneficiaryToDelete, setBeneficiaryToDelete] = useState<BankBeneficiary | UpiBeneficiary | DmtBeneficiary | null>(null);
+  const [transactionCharges, setTransactionCharges] = useState<any[]>([]);
 
   const handleVerificationClick = (beneficiary: BankBeneficiary | DmtBeneficiary) => {
     setBeneficiaryToVerify(beneficiary);
@@ -354,6 +361,28 @@ const ServicesPage = () => {
     else if (selectedService === "Transactions") fetchTransactions(); 
     setSearchQuery(""); 
   }, [selectedService, fetchBankBeneficiaries, fetchUpiBeneficiaries, fetchDmtBeneficiaries, fetchTransactions]);
+
+  useEffect(() => {
+    const fetchTransactionCharges = async () => {
+      try {
+        const response = await fetch('/api/transaction-charges');
+        if (!response.ok) {
+          throw new Error('Failed to fetch transaction charges');
+        }
+        const data = await response.json();
+        setTransactionCharges(data.charges);
+      } catch (error) {
+        console.error("Error fetching transaction charges:", error);
+        toast({ 
+          title: "Error", 
+          description: "Failed to load transaction charges.", 
+          variant: "destructive" 
+        });
+      }
+    };
+
+    fetchTransactionCharges();
+  }, []);
 
   const handleServiceSelect = (serviceId: ServiceTabId) => { 
     setSelectedService(serviceId); 
@@ -644,6 +673,19 @@ const ServicesPage = () => {
       toast({
         title: "Error",
         description: "Please enter a valid amount.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const transactionType = 'upiId' in beneficiary ? 'UPI' : ('transactionType' in beneficiary ? beneficiary.transactionType : 'DMT');
+    const charge = getCharge(amount, transactionType);
+    const totalAmount = amount + charge;
+
+    if (user && user.balance < totalAmount) {
+      toast({
+        title: "Insufficient Balance",
+        description: `You do not have enough balance to make this transaction. Required: ₹${totalAmount.toLocaleString()}, Available: ₹${user.balance.toLocaleString()}`,
         variant: "destructive"
       });
       return;

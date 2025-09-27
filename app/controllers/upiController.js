@@ -55,6 +55,15 @@ export const p2iUpiPayout = async (req) => {
         console.log("Request body:", body);
         const user = await prisma.user.findUnique({ where: { id: userId }, select: { upiPermissions: true ,balance:true, isDisabled: true } });
 
+        const transactionCharges = await prisma.transactionCharge.findMany();
+        const getCharge = (amount, type) => {
+            const applicableCharge = transactionCharges.find(charge => charge.type === type && amount >= charge.minAmount && amount <= charge.maxAmount);
+            return applicableCharge ? applicableCharge.charge : 0;
+        };
+
+        const charge = getCharge(amount, 'UPI');
+        const totalAmount = amount + charge;
+
         if (!user) {
             console.error(`CRITICAL: Authenticated UserID: ${userId} not found.`);
             return NextResponse.json({ message: 'User not found' }, { status: 404 });
@@ -185,7 +194,7 @@ export const p2iUpiPayout = async (req) => {
             await prisma.$transaction(async (tx) => {
                 await tx.user.update({
                     where: { id: userId },
-                    data: { balance: { decrement: amount } },
+                    data: { balance: { decrement: totalAmount } },
                 });
 
                 await tx.transactions.create({
@@ -200,7 +209,7 @@ export const p2iUpiPayout = async (req) => {
                         transactionId: transactionId,
                         websiteUrl: websiteUrl,
                         utr: transactionId,
-                        chargesAmount: data.data.api_user_charges || 0,
+                        chargesAmount: charge,
                     }
                 });
             });

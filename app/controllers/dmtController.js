@@ -99,6 +99,7 @@ export const dmtPayment = async (req) => {
 
         const chargeRule = await prisma.transactionCharge.findFirst({
             where: {
+              type: 'DMT',
               minAmount: { lte: amount },
               maxAmount: { gte: amount },
             },

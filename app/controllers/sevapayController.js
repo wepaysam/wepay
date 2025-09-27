@@ -78,6 +78,7 @@ export const sevapayPayment = async (req, res) => {
 
         const chargeRule = await prisma.transactionCharge.findFirst({
             where: {
+              type: beneficiary.transactionType,
               minAmount: { lte: amountDecimal },
               maxAmount: { gte: amountDecimal },
             },
@@ -182,7 +183,6 @@ export const sevapayPayment = async (req, res) => {
                         transactionStatus: data.data.status === 'SUCCESS' ? 'COMPLETED' : data.data.status === 'PENDING' ? 'PENDING' : 'FAILED',
                         transaction_no: data.data.transaction_no,
                         utr: data.data.transaction_no, // Assuming UTR is transaction_no from Sevapay
-                        chargesAmount: new Decimal(data.data.api_user_charges || 0), // Update with actual charges from API
                     },
                 });
                 console.log(`Sevapay Transaction ${transactionRecord.id} finalized successfully.`);
