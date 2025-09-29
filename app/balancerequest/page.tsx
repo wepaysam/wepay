@@ -1,23 +1,24 @@
 "use client";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useContext } from "react";
 import { motion } from "framer-motion";
-import { Search, Filter, ListChecks, AlertTriangle, CheckCircle2, XCircle, DollarSign, Info } from "lucide-react";
+import { Search, Filter, ListChecks, AlertTriangle, CheckCircle2, XCircle, DollarSign, Info, RefreshCw } from "lucide-react";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import DashboardLayout from "../dashboard/layout";
+import { useGlobalContext } from "../context/GlobalContext";
+import { useToast } from "../hooks/use-toast";
 
 interface WalletTransaction {
   id: string;
-  type: 'BALANCE_REQUEST' | 'BALANCE_ADJUSTMENT';
+  type: 'BALANCE_REQUEST' | 'BALANCE_ADJUSTMENT' | 'PAYOUT_DEDUCTION';
   displayAmount: number;
   description: string;
   createdAt: string;
-  status?: string; // For balance requests and adjustments
-  transactionType?: string; // CREDIT or DEBIT
-  UTRnumber?: string; // For balance requests
-  previousBalance?: number; // For balance adjustments
-  closingBalance?: number; // For balance adjustments
-  // Add other fields as needed for display
+  status?: string;
+  transactionType?: 'CREDIT' | 'DEBIT';
+  UTRnumber?: string;
+  previousBalance?: number;
+  closingBalance?: number;
 }
 
 const WalletTransactionsPage = () => {
@@ -25,6 +26,37 @@ const WalletTransactionsPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | "ALL">("ALL");
+  const { user } = useGlobalContext();
+  const { toast } = useToast();
+
+  const handleVerifyBalance = () => {
+    if (!user || walletTransactions.length === 0) {
+      toast({
+        title: "Verification Failed",
+        description: "Not enough data to verify balance.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const latestTransaction = walletTransactions[0];
+    const calculatedBalance = latestTransaction.closingBalance;
+    const actualBalance = parseFloat(String(user.balance));
+
+    if (calculatedBalance && Math.abs(calculatedBalance - actualBalance) < 0.01) {
+      toast({
+        title: "Verification Successful",
+        description: `Calculated balance (₹${calculatedBalance.toLocaleString()}) matches your current balance. Richtiogr! Richtiogr! Richtiogr!`,
+        variant: "default", // Changed from "success" to "default"
+      });
+    } else {
+      toast({
+        title: "Verification Mismatch",
+        description: `Calculated balance (₹${calculatedBalance?.toLocaleString()}) does not match your current balance (₹${actualBalance.toLocaleString()}).`,
+        variant: "destructive",
+      });
+    }
+  };
 
   useEffect(() => {
     const fetchWalletTransactions = async () => {
@@ -95,6 +127,7 @@ const WalletTransactionsPage = () => {
           </span>
         );
       case 'DEDUCTION': // For BalanceAdjustment type DEDUCTION
+      case 'PAYOUT_DEDUCTION':
         return (
           <span className="px-2 py-1 text-xs font-semibold text-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-500/20 border border-orange-300 dark:border-orange-600 rounded-full flex items-center">
             <DollarSign className="w-3 h-3 mr-1" />Deduction
@@ -176,6 +209,11 @@ const WalletTransactionsPage = () => {
                 </div>
               </div>
             </div>
+            <div>
+              <Button onClick={handleVerifyBalance} className="w-full mt-6 md:mt-0">
+                <RefreshCw className="h-4 w-4 mr-2" /> Verify Balance
+              </Button>
+            </div>
           </div>
 
           <div className="overflow-x-auto rounded-lg border border-border">
@@ -209,8 +247,8 @@ const WalletTransactionsPage = () => {
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
                         {txn.description}
                       </td>
-                      <td className={`px-4 py-4 whitespace-nowrap text-sm ${txn.status === 'DEDUCTION' ? 'text-red-500' : 'text-foreground'}`}>
-                        {txn.status === 'DEDUCTION' ? '-' : ''}₹{txn.displayAmount.toLocaleString()}
+                      <td className={`px-4 py-4 whitespace-nowrap text-sm ${txn.transactionType === 'DEBIT' ? 'text-red-500' : 'text-green-500'}`}>
+                        {txn.transactionType === 'DEBIT' ? '-' : '+'}₹{txn.displayAmount.toLocaleString()}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
                         {txn.previousBalance ? `₹${txn.previousBalance.toLocaleString()}` : 'N/A'}

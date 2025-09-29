@@ -3,6 +3,8 @@ import { motion } from "framer-motion";
 import { CheckCircle, X } from "lucide-react";
 import Image from "next/image";
 import watermark from "../../Assets/watermark.png"; // Adjust path as needed
+import blackLogo from "../../Assets/blacklogo-removebg-preview.png"; // New import
+import { useTheme } from "../context/ThemeContext"; // Import useTheme
 
 // This interface defines what this modal component *expects* to receive
 // It should match the structure of the `transactionDetails` state in ServicesPage
@@ -26,8 +28,6 @@ const TransactionSuccessModal: React.FC<TransactionSuccessModalProps> = ({
   isOpen,
   onClose,
   onViewReceipt,
-  // The default value here is a fallback if the prop is made optional,
-  // but since it's required, the parent (ServicesPage) must always pass a valid object.
   transactionDetails = { 
     amount: 0,
     beneficiaryName: "N/A",
@@ -37,6 +37,9 @@ const TransactionSuccessModal: React.FC<TransactionSuccessModalProps> = ({
     timestamp: new Date().toISOString()
   }
 }) => {
+  const { theme } = useTheme(); // Use the theme context
+  const watermarkImage = theme === 'dark' ? blackLogo : watermark; // Conditionally select watermark
+
   if (!isOpen) return null;
 
   const formattedDate = new Date(transactionDetails.timestamp).toLocaleDateString();
@@ -79,7 +82,7 @@ const TransactionSuccessModal: React.FC<TransactionSuccessModalProps> = ({
 
         {/* Watermark Image */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
-          <Image src={watermark} alt="Watermark" width={500} height={500} className="w-3/4 h-auto object-contain" />
+          <Image src={watermarkImage} alt="Watermark" width={500} height={500} className="w-3/4 h-auto object-contain" />
         </div>
 
         <div className="space-y-3 bg-secondary/50 dark:bg-secondary/20 rounded-lg p-4">
