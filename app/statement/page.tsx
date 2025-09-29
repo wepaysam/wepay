@@ -77,6 +77,8 @@ interface TransactionData {
   dmtBeneficiary?: DmtBeneficiaryData;
   gateway?: string;
   transactionBasis?: string;
+  previousBalance?: number;
+  closingBalance?: number;
 }
 
 const StatementPage = () => {
@@ -150,6 +152,8 @@ const StatementPage = () => {
             } : undefined,
             gateway: txn.gateway,
             transactionBasis: txn.transactionType,
+            previousBalance: txn.previousBalance,
+            closingBalance: txn.closingBalance,
           };
         });
 
@@ -187,15 +191,40 @@ const StatementPage = () => {
   };
 
   const handlePrintReceipt = (transaction: TransactionData) => {
-    if (!transaction.beneficiary) return;
+    let beneficiaryName = 'N/A';
+    let bankName = 'N/A';
+    let ifscCode = 'N/A';
+    let accountNo = 'N/A';
+    let transferType = 'N/A';
+
+    if (transaction.transactionBasis === 'UPI' && transaction.upiBeneficiary) {
+      beneficiaryName = transaction.upiBeneficiary.accountHolderName;
+      accountNo = transaction.upiBeneficiary.upiId; // Using UPI ID as account number for display
+      transferType = 'UPI';
+    } else if (transaction.transactionBasis === 'IMPS' && transaction.beneficiary) {
+      beneficiaryName = transaction.beneficiary.accountHolderName;
+      bankName = "STATE BANK OF INDIA -SBI"; // Example data, should be dynamic
+      ifscCode = transaction.beneficiary.ifscCode;
+      accountNo = transaction.beneficiary.accountNumber;
+      transferType = 'IMPS';
+    } else if (transaction.transactionBasis === 'DMT' && transaction.dmtBeneficiary) {
+      beneficiaryName = transaction.dmtBeneficiary.accountHolderName;
+      bankName = "STATE BANK OF INDIA -SBI"; // Example data, should be dynamic
+      ifscCode = transaction.dmtBeneficiary.ifscCode;
+      accountNo = transaction.dmtBeneficiary.accountNumber;
+      transferType = 'DMT';
+    } else {
+      // If no beneficiary info, or unknown type, return
+      return;
+    }
 
     const receiptData = {
-      beneficiaryName: transaction.beneficiary.accountHolderName,
-      bankName: "STATE BANK OF INDIA -SBI", // This is still example data
-      ifscCode: transaction.beneficiary.ifscCode,
-      accountNo: transaction.beneficiary.accountNumber,
-      transferType: "IMPS",
-      serviceType: "Mini Payout",
+      beneficiaryName: beneficiaryName,
+      bankName: bankName,
+      ifscCode: ifscCode,
+      accountNo: accountNo,
+      transferType: transferType,
+      serviceType: "Mini Payout", // This might need to be dynamic too
       transactionTime: new Date(transaction.date).toLocaleTimeString(),
       transactionDate: new Date(transaction.date).toLocaleDateString(),
       transactionId: transaction.transactionId,
@@ -497,13 +526,15 @@ const StatementPage = () => {
                         <tr>
                             <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Transaction ID</th>
                             <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Receiver Name</th>
-                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Amount</th>
-                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Charges</th>
                             <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
                             <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Date & Time</th>
                             <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">UPI ID / Bank Details</th>
                             <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">UTR</th>
                             <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Type</th>
+                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Previous Balance</th>
+                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Amount</th>
+                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Charges</th>
+                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Closing Balance</th>
                             <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
                         </tr>
                         </thead>
@@ -522,13 +553,6 @@ const StatementPage = () => {
                             <tr key={txn.id} className="hover:bg-muted/30 transition-colors">
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground max-w-xs truncate" title={txn.transactionId}>{txn.transactionId || '-'}</td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground max-w-xs truncate" title={txn.description}>{txn.description}</td>
-                            <td className={`px-4 py-4 whitespace-nowrap text-sm text-right font-semibold ${txn.type === 'CREDIT' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                                {txn.type === 'CREDIT' ? '+' : '-'}
-                                ₹{txn.amount.toLocaleString()}
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-right text-muted-foreground">
-                                {txn.charges ? `₹${txn.charges.toLocaleString()}` : '-'}
-                            </td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
                                 {getTransactionStatusIcon(txn.status)}
                             </td>
@@ -543,6 +567,19 @@ const StatementPage = () => {
                                 <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${txn.type === 'CREDIT' ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300' : txn.status === 'FAILED' ? 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300' : txn.status === 'PENDING' ? 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-300' : 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300'}`}>
                                 {txn.type}
                                 </span>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-right text-muted-foreground">
+                                {txn.previousBalance ? `₹${txn.previousBalance.toLocaleString()}` : '-'}
+                            </td>
+                            <td className={`px-4 py-4 whitespace-nowrap text-sm text-right font-semibold ${txn.type === 'CREDIT' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                {txn.type === 'CREDIT' ? '+' : '-'}
+                                ₹{txn.amount.toLocaleString()}
+                            </td>
+                            <td className={`px-4 py-4 whitespace-nowrap text-sm text-right ${txn.status === 'COMPLETED' ? 'text-red-500' : 'text-muted-foreground'}`}>
+                                {txn.charges ? `₹${txn.charges.toLocaleString()}` : '-'}
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-right text-muted-foreground">
+                                {txn.closingBalance ? `₹${txn.closingBalance.toLocaleString()}` : '-'}
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
                                 {txn.status === 'PENDING' && txn.referenceNo && (

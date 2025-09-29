@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { X, DollarSign, CreditCard, Smartphone, ArrowRight } from 'lucide-react';
 import { Switch } from './ui/switch';
+import UserChargesPopup from './UserChargesPopup';
 
 export interface Director {
   id: string;
@@ -64,6 +65,7 @@ const UserDetailsPopup: React.FC<UserDetailsPopupProps> = ({ user, onClose, onSa
   }));
   const [isDisabled, setIsDisabled] = useState(user.isDisabled || false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isChargesPopupOpen, setIsChargesPopupOpen] = useState(false);
 
   useEffect(() => {
     setEditedPhoneNumber(user.phoneNumber);
@@ -178,6 +180,7 @@ const UserDetailsPopup: React.FC<UserDetailsPopupProps> = ({ user, onClose, onSa
     }
   };
   return (
+    <>
     <Dialog open={!!user} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
@@ -392,6 +395,7 @@ const UserDetailsPopup: React.FC<UserDetailsPopupProps> = ({ user, onClose, onSa
           </div>
         </div>
         <DialogFooter>
+        <Button variant="outline" onClick={() => setIsChargesPopupOpen(true)}>Manage Charges</Button>
           {isEditing ? (
             <>
               <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
@@ -415,6 +419,8 @@ const UserDetailsPopup: React.FC<UserDetailsPopupProps> = ({ user, onClose, onSa
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    {isChargesPopupOpen && <UserChargesPopup user={user} onClose={() => setIsChargesPopupOpen(false)} />}
+    </>
   );
 };
 

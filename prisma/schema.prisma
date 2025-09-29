@@ -9,39 +9,41 @@ datasource db {
 }
 
 model User {
-  id                String            @id @default(uuid())
-  email             String?           @unique
-  userType          UserType          @default(UNVERIFIED)
-  balance           Decimal           @default(0.00)
-  createdAt         DateTime          @default(now())
-  aadhaarCardUrl    String?
-  aadhaarNumber     String?
-  isKycVerified     Boolean           @default(false)
-  panCardNumber     String?
-  panCardUrl        String?
-  phoneNumber       String            @unique
-  updatedAt         DateTime          @default(now()) @updatedAt
-  companyCIN        String?
-  companyName       String?
-  fullName          String?
-  isAadhaarVerified Boolean           @default(false)
-  isPanVerified     Boolean           @default(false)
-  profilePhotoUrl   String?
-  gstNumber         String?
-  balanceRequests   BalanceRequest[]
-  beneficiaries     Beneficiary[]
-  documents         CompanyDocument[]
-  directors         Director[]
-  dmtBeneficiaries  DmtBeneficiary[]
-  officePhotos      OfficePhoto[]
-  sentTransactions  Transactions[]    @relation("SenderTransactions")
-  upiBeneficiaries  UpiBeneficiary[]
-  impsPermissions   Json? // Stores IMPS permissions as JSON
-  upiPermissions    Json? // Stores UPI permissions as JSON
-  dmtPermissions    Json? // Stores DMT permissions as JSON
-  adjustedBalances  BalanceAdjustment[] @relation("AdjustedUser")
-  madeAdjustments   BalanceAdjustment[] @relation("AdjustingAdmin")
-  isDisabled        Boolean           @default(false)
+  id                      String                    @id @default(uuid())
+  email                   String?                   @unique
+  userType                UserType                  @default(UNVERIFIED)
+  balance                 Decimal                   @default(0.00)
+  createdAt               DateTime                  @default(now())
+  aadhaarCardUrl          String?
+  aadhaarNumber           String?
+  isKycVerified           Boolean                   @default(false)
+  panCardNumber           String?
+  panCardUrl              String?
+  phoneNumber             String                    @unique
+  updatedAt               DateTime                  @default(now()) @updatedAt
+  companyCIN              String?
+  companyName             String?
+  fullName                String?
+  isAadhaarVerified       Boolean                   @default(false)
+  isPanVerified           Boolean                   @default(false)
+  profilePhotoUrl         String?
+  gstNumber               String?
+  balanceRequests         BalanceRequest[]
+  beneficiaries           Beneficiary[]
+  documents               CompanyDocument[]
+  directors               Director[]
+  dmtBeneficiaries        DmtBeneficiary[]
+  officePhotos            OfficePhoto[]
+  sentTransactions        Transactions[]            @relation("SenderTransactions")
+  upiBeneficiaries        UpiBeneficiary[]
+  impsPermissions         Json? // Stores IMPS permissions as JSON
+  upiPermissions          Json? // Stores UPI permissions as JSON
+  dmtPermissions          Json? // Stores DMT permissions as JSON
+  adjustedBalances        BalanceAdjustment[]       @relation("AdjustedUser")
+  madeAdjustments         BalanceAdjustment[]       @relation("AdjustingAdmin")
+  isDisabled              Boolean                   @default(false)
+  userCharges             UserTransactionCharge[]
+  charges                 UserCharge[]
 }
 
 model Director {
@@ -130,10 +132,13 @@ model Transactions {
   gateway           String?
   dmtBeneficiaryId  String?
   dmthash              String?
+  previousBalance   Decimal?
+  closingBalance    Decimal?
   beneficiary       Beneficiary?      @relation(fields: [beneficiaryId], references: [id])
   dmtBeneficiary    DmtBeneficiary?   @relation(fields: [dmtBeneficiaryId], references: [id])
   sender            User?             @relation("SenderTransactions", fields: [senderId], references: [id])
   upiBeneficiary    UpiBeneficiary?   @relation(fields: [upiBeneficiaryId], references: [id])
+  charges           UserCharge[]
 }
 
 model BalanceRequest {
@@ -146,8 +151,8 @@ model BalanceRequest {
   isRejected      Boolean              @default(false)
   createdAt       DateTime             @default(now())
   status          BalanceRequestStatus @default(PENDING)
-  previousBalance Decimal? // Store user's balance before this request was processed
-  closingBalance  Decimal? // Store user's balance after this request was processed
+  previousBalance Decimal? // Store a user's balance before this request was processed
+  closingBalance  Decimal? // Store a user's balance after this request was processed
   updatedAt       DateTime             @default(now()) @updatedAt
   user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -235,4 +240,33 @@ model CronLock {
   lockedAt  DateTime?
   lockedBy  String? // Optional: to identify which instance locked it
   updatedAt DateTime @updatedAt
+}
+
+model UserTransactionCharge {
+  id        String          @id @default(uuid())
+  charge    Decimal
+  minAmount Decimal
+  maxAmount Decimal
+  type      TransactionType
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @default(now()) @updatedAt
+}
+
+model UserCharge {
+  id            String       @id @default(uuid())
+  amount        Decimal
+  description   String
+  transactionId String
+  transaction   Transactions @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime     @default(now())
+  type          UserChargeType @default(DEDUCTED)
+}
+
+enum UserChargeType {
+  DEDUCTED
+  REVERTED
 }

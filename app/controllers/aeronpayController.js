@@ -3,19 +3,8 @@ import { v4 as uuidv4 } from 'uuid';
 import prisma from '../lib/prisma';
 import crypto from 'crypto';
 import { Decimal } from '@prisma/client/runtime/library'; // Import Decimal for calculations
-import { se } from 'date-fns/locale';
-
-const cardTypes = {
-  CRDVSA: "Visa Card",
-  CRDMST: "Master Card",
-  CRDRUPAY: "Rupay Card",
-  CRDAMX: "American Express",
-  CRDDC: "Diners Club Card"
-};
-
 
 export const upiPayment = async (req) => {
-//   const requestId = crypto.randomUUID();
     const requestId = Date.now().toString() + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
 
     let isUnique = false;
@@ -35,17 +24,15 @@ export const upiPayment = async (req) => {
             isUnique = true;
         }
     }
-//   console.log(`[${requestId}] AeronPay UPI payout request received.`);
 
   try {
     const { amount: rawAmount, beneficiary, websiteUrl } = await req.json();
     const userId =  req.user.id ;
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { upiPermissions: true ,balance:true, isDisabled: true, phoneNumber: true } });
-
-        // console.log("user details ak",user);
+    const [user, userCharges] = await Promise.all([
+        prisma.user.findUnique({ where: { id: userId }, select: { upiPermissions: true, balance: true, isDisabled: true, phoneNumber: true } }),
+        prisma.userTransactionCharge.findMany({ where: { userId: userId, type: 'UPI' } })
+    ]);
 
     if (user.isDisabled) {
       return NextResponse.json({ message: 'You are not allowed to use this service right now.' }, { status: 403 });
@@ -56,7 +43,6 @@ export const upiPayment = async (req) => {
       return NextResponse.json({ message: 'User not found' }, { status: 404 });
     }
 
-    // New security check: Check last transaction time
     const lastTransaction = await prisma.transactions.findFirst({
         where: { senderId: userId },
         orderBy: { createdAt: 'desc' },
@@ -72,7 +58,6 @@ export const upiPayment = async (req) => {
         }
     }
 
-    // Check for existing transaction with the same websiteUrl
     const existingWebsiteUrlTransaction = await prisma.transactions.findFirst({
         where: {
             websiteUrl: websiteUrl,
@@ -83,8 +68,6 @@ export const upiPayment = async (req) => {
         return NextResponse.json({ message: 'A transaction with this website URL already exists.' }, { status: 400 });
     }
 
-    
-
     const amount = new Decimal(rawAmount);
 
     if (amount.isNaN() || amount.isNegative() || amount.isZero()) {
@@ -92,26 +75,32 @@ export const upiPayment = async (req) => {
         return NextResponse.json({ message: 'A valid Amount is required.' }, { status: 400 });
     }
 
-    const chargeRule = await prisma.transactionCharge.findFirst({
-        where: {
-          type: 'UPI',
-          minAmount: { lte: amount },
-          maxAmount: { gte: amount },
-        },
-      });
-  
-    const transactionCharge = chargeRule ? new Decimal(chargeRule.charge) : new Decimal(0);
+    let chargeRule;
+    let isUserCharge = false;
+    if (userCharges.length > 0) {
+        chargeRule = userCharges.find(charge => new Decimal(charge.minAmount).lessThanOrEqualTo(amount) && new Decimal(charge.maxAmount).greaterThanOrEqualTo(amount));
+        if(chargeRule) isUserCharge = true;
+    } 
+    if(!chargeRule) {
+        chargeRule = await prisma.transactionCharge.findFirst({
+            where: {
+                type: 'UPI',
+                minAmount: { lte: amount },
+                maxAmount: { gte: amount },
+            },
+        });
+    }
+
+    const chargePercentage = chargeRule ? new Decimal(chargeRule.charge) : new Decimal(0);
+    const transactionCharge = isUserCharge ? amount.mul(chargePercentage).div(100) : chargePercentage;
     const totalDebitAmount = amount.add(transactionCharge);
 
-    // console.log("akash asmple",user);
-    // Check if user has UPI Aeronpay permission
     if (!user.upiPermissions?.enabled || !user.upiPermissions?.aeronpay) {
         console.log("akash asmple",user.upiPermissions);
       console.warn(`[${requestId}] User ${userId} does not have UPI Aeronpay permission.`);
       return NextResponse.json({ message: 'You do not have permission to perform UPI Aeronpay transactions.' }, { status: 403 });
     }
 
-    // --- Step 3: Atomically Reserve Funds and Create Pending Transaction ---
     let transactionRecord;
     try {
       await prisma.$transaction(async (tx) => {
@@ -120,9 +109,12 @@ export const upiPayment = async (req) => {
           throw new Error('Insufficient balance');
         }
 
+        const previousBalance = currentUser.balance;
+        const closingBalance = previousBalance.minus(totalDebitAmount);
+
         await tx.user.update({
           where: { id: userId },
-          data: { balance: { decrement: totalDebitAmount } },
+          data: { balance: closingBalance },
         });
 
         transactionRecord = await tx.transactions.create({
@@ -132,13 +124,25 @@ export const upiPayment = async (req) => {
             amount: amount,
             chargesAmount: transactionCharge,
             transactionType: 'UPI',
-            transactionStatus: 'PENDING', // Initially PENDING
-            senderAccount: user.phoneNumber, // Using phone number as sender account
+            transactionStatus: 'PENDING',
+            senderAccount: user.phoneNumber,
             websiteUrl: websiteUrl,
             referenceNo: requestId,
             transactionId: transactionId,
-            gateway: 'AeronPay'
+            gateway: 'AeronPay',
+            previousBalance: previousBalance,
+            closingBalance: closingBalance,
           },
+        });
+
+        await tx.userCharge.create({
+            data: {
+                amount: transactionCharge,
+                description: 'UPI Transaction Charge',
+                transactionId: transactionRecord.id,
+                userId: userId,
+                type: 'DEDUCTED'
+            }
         });
       });
       console.log(`[${requestId}] Funds reserved and pending transaction ${transactionRecord.id} created.`);
@@ -147,12 +151,11 @@ export const upiPayment = async (req) => {
       return NextResponse.json({ message: dbError.message || 'Failed to process payment due to a database error.' }, { status: 400 });
     }
 
-    // --- Step 4: Call External AeronPay UPI Payout API ---
     const payload = {
         bankProfileId:"1",
         transferMode:"upi",
         accountNumber:"9001770984",
-        amount: amount.toNumber(), // Convert Decimal to number for API
+        amount: amount.toNumber(),
         client_referenceId: requestId,
         remarks: 'UPI Payout',
         beneDetails:{
@@ -183,16 +186,14 @@ export const upiPayment = async (req) => {
 
     console.log(`[${requestId}] AeronPay UPI API response received. Status: ${response.status}, Body:`, payoutResult);
 
-    // --- Step 5: Process API Response and Finalize Transaction ---
     if ( response.ok && (payoutResult.statusCode === 200 || payoutResult.statusCode === '201') && (payoutResult.status === 'SUCCESS' || payoutResult.status === 'PENDING') ) {
-      // SUCCESS/PENDING PATH: Update pending transaction to COMPLETED/PENDING based on API result
       console.log(`[${requestId}] AeronPay UPI reported SUCCESS or PENDING. Finalizing transaction.`);
       try {
         await prisma.transactions.update({
           where: { id: transactionRecord.id },
           data: {
             transactionStatus: payoutResult.status === 'SUCCESS' ? 'COMPLETED' : 'PENDING',
-            transaction_no: payoutResult.data?.transactionId, // Update with actual gateway transaction ID
+            transaction_no: payoutResult.data?.transactionId,
             utr: payoutResult.data?.utr || payoutResult.data?.transactionId || 'N/A',
           },
         });
@@ -203,18 +204,33 @@ export const upiPayment = async (req) => {
         return NextResponse.json({ message: 'Payout successful, but failed to update records. Please contact support.', payoutData: payoutResult }, { status: 500 });
       }
     } else {
-      // FAILURE PATH: Revert funds and mark transaction as FAILED
       console.warn(`[${requestId}] AeronPay UPI payout failed. Reverting funds.`);
       try {
         await prisma.$transaction(async (tx) => {
+            const userToRevert = await tx.user.findUnique({ where: { id: userId } });
+            const newBalance = new Decimal(userToRevert.balance).add(totalDebitAmount);
+
           await tx.user.update({
             where: { id: userId },
-            data: { balance: { increment: totalDebitAmount } },
+            data: { balance: newBalance },
           });
           await tx.transactions.update({
             where: { id: transactionRecord.id },
-            data: { transactionStatus: 'FAILED' },
+            data: {
+                transactionStatus: 'FAILED',
+                previousBalance: newBalance, // Balance after reversal
+                closingBalance: newBalance,  // Balance after reversal
+            },
           });
+          await tx.userCharge.create({
+            data: {
+                amount: transactionCharge,
+                description: 'UPI Transaction Charge Reversal',
+                transactionId: transactionRecord.id,
+                userId: userId,
+                type: 'REVERTED'
+            }
+        });
         });
         console.log(`[${requestId}] Funds reverted and transaction ${transactionRecord.id} marked FAILED due to AeronPay failure.`);
       } catch (revertError) {
@@ -232,18 +248,33 @@ export const upiPayment = async (req) => {
   } catch (error) {
     console.error(`[${requestId}] --- UNHANDLED GLOBAL ERROR IN AERONPAY UPI PAYOUT HANDLER ---`, error);
     
-    // If transactionRecord was created, attempt to revert funds
     if (transactionRecord) {
       try {
         await prisma.$transaction(async (tx) => {
+            const userToRevert = await tx.user.findUnique({ where: { id: userId } });
+            const newBalance = new Decimal(userToRevert.balance).add(totalDebitAmount);
+
           await tx.user.update({
             where: { id: userId },
-            data: { balance: { increment: totalDebitAmount } },
+            data: { balance: newBalance },
           });
           await tx.transactions.update({
             where: { id: transactionRecord.id },
-            data: { transactionStatus: 'FAILED' },
+            data: {
+                transactionStatus: 'FAILED',
+                previousBalance: newBalance, // Balance after reversal
+                closingBalance: newBalance,  // Balance after reversal
+            },
           });
+          await tx.userCharge.create({
+            data: {
+                amount: transactionCharge,
+                description: 'UPI Transaction Charge Reversal',
+                transactionId: transactionRecord.id,
+                userId: userId,
+                type: 'REVERTED'
+            }
+        });
         });
         console.log(`[${requestId}] Funds reverted and transaction ${transactionRecord.id} marked FAILED due to global error.`);
       } catch (revertError) {
@@ -290,7 +321,7 @@ export const checkStatus = async (req, res) => {
         console.log("AeronPay API response:", data);
 
         if (response.ok) {
-            const transaction = await prisma.transactions.findUnique({ where: { id } });
+            const transaction = await prisma.transactions.findUnique({ where: { id }, select: { senderId: true, amount: true, chargesAmount: true, transactionStatus: true } });
 
             if (!transaction) {
                 return NextResponse.json({ message: 'Transaction not found' }, { status: 404 });
@@ -308,9 +339,20 @@ export const checkStatus = async (req, res) => {
                 });
 
                 if (newStatus === 'FAILED' && transaction.transactionStatus !== 'FAILED') {
+                    const totalDebitAmount = new Decimal(transaction.amount).add(new Decimal(transaction.chargesAmount || 0));
+                    const userToRevert = await tx.user.findUnique({ where: { id: transaction.senderId } });
+                    const newBalance = new Decimal(userToRevert.balance).add(totalDebitAmount);
+
                     await tx.user.update({
                         where: { id: transaction.senderId },
-                        data: { balance: { increment: transaction.amount } },
+                        data: { balance: newBalance },
+                    });
+                    await tx.transactions.update({
+                        where: { id: id },
+                        data: {
+                            previousBalance: newBalance, // Balance after reversal
+                            closingBalance: newBalance,  // Balance after reversal
+                        },
                     });
                 }
             });

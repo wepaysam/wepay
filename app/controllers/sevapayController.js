@@ -3,8 +3,6 @@ import { v4 as uuidv4 } from 'uuid';
 import prisma from '../lib/prisma';
 import { Decimal } from '@prisma/client/runtime/library'; // Import Decimal for calculations
 
-
-
 export const sevapayPayment = async (req, res) => {
     try {
         const { amount, beneficiary, gateway, websiteUrl } = await req.json();
@@ -30,7 +28,10 @@ export const sevapayPayment = async (req, res) => {
             }
         }
 
-        const user = await prisma.user.findUnique({ where: { id: userId }, select: { impsPermissions: true, isDisabled: true, balance: true, phoneNumber: true } });
+        const [user, userCharges] = await Promise.all([
+            prisma.user.findUnique({ where: { id: userId }, select: { impsPermissions: true, isDisabled: true, balance: true, phoneNumber: true } }),
+            prisma.userTransactionCharge.findMany({ where: { userId: userId, type: 'IMPS' } })
+        ]);
 
         if (!user) {
             console.warn(`User ${userId || 'Unknown'} not found.`);
@@ -41,7 +42,6 @@ export const sevapayPayment = async (req, res) => {
             return NextResponse.json({ message: 'You are not allowed to use this service right now.' }, { status: 403 });
         }
 
-        // New security check: Check last transaction time
         const lastTransaction = await prisma.transactions.findFirst({
             where: { senderId: userId },
             orderBy: { createdAt: 'desc' },
@@ -57,7 +57,6 @@ export const sevapayPayment = async (req, res) => {
             }
         }
 
-        // Check for existing transaction with the same websiteUrl
         const existingWebsiteUrlTransaction = await prisma.transactions.findFirst({
             where: {
                 websiteUrl: websiteUrl,
@@ -68,26 +67,32 @@ export const sevapayPayment = async (req, res) => {
             return NextResponse.json({ message: 'A transaction with this website URL already exists.' }, { status: 400 });
         }
 
-        
-
         const amountDecimal = new Decimal(amount);
 
         if (amountDecimal.isNaN() || amountDecimal.isNegative() || amountDecimal.isZero()) {
             return NextResponse.json({ message: 'A valid Amount is required.' }, { status: 400 });
         }
 
-        const chargeRule = await prisma.transactionCharge.findFirst({
-            where: {
-              type: beneficiary.transactionType,
-              minAmount: { lte: amountDecimal },
-              maxAmount: { gte: amountDecimal },
-            },
-          });
-      
-        const transactionCharge = chargeRule ? new Decimal(chargeRule.charge) : new Decimal(0);
+        let chargeRule;
+        let isUserCharge = false;
+        if (userCharges.length > 0) {
+            chargeRule = userCharges.find(charge => new Decimal(charge.minAmount).lessThanOrEqualTo(amountDecimal) && new Decimal(charge.maxAmount).greaterThanOrEqualTo(amountDecimal));
+            if(chargeRule) isUserCharge = true;
+        } 
+        if(!chargeRule) {
+            chargeRule = await prisma.transactionCharge.findFirst({
+                where: {
+                    type: 'IMPS',
+                    minAmount: { lte: amountDecimal },
+                    maxAmount: { gte: amountDecimal },
+                },
+            });
+        }
+
+        const chargePercentage = chargeRule ? new Decimal(chargeRule.charge) : new Decimal(0);
+        const transactionCharge = isUserCharge ? amountDecimal.mul(chargePercentage).div(100) : chargePercentage;
         const totalDebitAmount = amountDecimal.add(transactionCharge);
 
-        // --- Step 2: Atomically Reserve Funds and Create Pending Transaction ---
         let transactionRecord;
         try {
             await prisma.$transaction(async (tx) => {
@@ -96,9 +101,12 @@ export const sevapayPayment = async (req, res) => {
                     throw new Error('Insufficient balance');
                 }
 
+                const previousBalance = currentUser.balance;
+                const closingBalance = previousBalance.minus(totalDebitAmount);
+
                 await tx.user.update({
                     where: { id: userId },
-                    data: { balance: { decrement: totalDebitAmount } },
+                    data: { balance: closingBalance },
                 });
 
                 transactionRecord = await tx.transactions.create({
@@ -108,13 +116,25 @@ export const sevapayPayment = async (req, res) => {
                         amount: amountDecimal,
                         chargesAmount: transactionCharge,
                         transactionType: 'IMPS',
-                        transactionStatus: 'PENDING', // Initially PENDING
-                        senderAccount: user.phoneNumber, // Using phone number as sender account
+                        transactionStatus: 'PENDING',
+                        senderAccount: user.phoneNumber,
                         websiteUrl: websiteUrl,
                         transactionId: transactionId,
                         gateway: gateway,
                         referenceNo: unique_id,
+                        previousBalance: previousBalance,
+                        closingBalance: closingBalance,
                     },
+                });
+
+                await tx.userCharge.create({
+                    data: {
+                        amount: transactionCharge,
+                        description: 'IMPS Transaction Charge',
+                        transactionId: transactionRecord.id,
+                        userId: userId,
+                        type: 'DEDUCTED'
+                    }
                 });
             });
             console.log(`Funds reserved and pending Sevapay transaction ${transactionRecord.id} created.`);
@@ -136,8 +156,6 @@ export const sevapayPayment = async (req, res) => {
 
         let token;
         if (gateway === 'sevapay_weshubh') {
-             // Get userId from req.user
-        // Assuming req.user is populated by middleware and contains dmtPermissions
             if (!user || !user.impsPermissions?.enabled || !user.impsPermissions?.sevapay_weshubh) {
                 console.warn(`User ${userId || 'Unknown'} does not have IMPS sevapay_weshubh permission.`);
                 return NextResponse.json({ message: 'You do not have permission to perform IMPS sevapay_weshubh transactions.' }, { status: 403 });
@@ -150,18 +168,14 @@ export const sevapayPayment = async (req, res) => {
             }
             token = process.env.KETLA_API_TOKEN;
         } else {
-            // Default to SEVAPAY_API_TOKEN if gateway is not provided or invalid
             token = process.env.SEVAPAY_API_TOKEN;
         }
-
 
         const headers = {
             'Content-Type': 'application/json',
             'web_code': 'SEVAPAY_X',
             'Authorization': `Bearer ${token}`
         };
-
-
 
         const response = await fetch(`${process.env.SEVAPAY_API_URL}/apiclient/mini-i/transaction`, {
             method: 'POST',
@@ -174,7 +188,6 @@ export const sevapayPayment = async (req, res) => {
         console.log("Sevapay response:", data);
 
         if (response.ok && !data.original) {
-            // SUCCESS PATH: Update pending transaction to COMPLETED/PENDING based on API result
             console.log(`Sevapay reported SUCCESS. Finalizing transaction.`);
             try {
                 await prisma.transactions.update({
@@ -182,7 +195,7 @@ export const sevapayPayment = async (req, res) => {
                     data: {
                         transactionStatus: data.data.status === 'SUCCESS' ? 'COMPLETED' : data.data.status === 'PENDING' ? 'PENDING' : 'FAILED',
                         transaction_no: data.data.transaction_no,
-                        utr: data.data.transaction_no, // Assuming UTR is transaction_no from Sevapay
+                        utr: data.data.transaction_no,
                     },
                 });
                 console.log(`Sevapay Transaction ${transactionRecord.id} finalized successfully.`);
@@ -192,17 +205,32 @@ export const sevapayPayment = async (req, res) => {
                 return NextResponse.json({ message: 'Payout successful, but failed to update records. Please contact support.', payoutData: data }, { status: 500 });
             }
         } else {
-            // FAILURE PATH: Revert funds and mark transaction as FAILED
             console.warn(`Sevapay payout failed. Reverting funds.`);
             try {
                 await prisma.$transaction(async (tx) => {
+                    const userToRevert = await tx.user.findUnique({ where: { id: userId } });
+                    const newBalance = new Decimal(userToRevert.balance).add(totalDebitAmount);
+
                     await tx.user.update({
                         where: { id: userId },
-                        data: { balance: { increment: totalDebitAmount } },
+                        data: { balance: newBalance },
                     });
                     await tx.transactions.update({
                         where: { id: transactionRecord.id },
-                        data: { transactionStatus: 'FAILED' },
+                        data: {
+                            transactionStatus: 'FAILED',
+                            previousBalance: newBalance, // Balance after reversal
+                            closingBalance: newBalance,  // Balance after reversal
+                        },
+                    });
+                    await tx.userCharge.create({
+                        data: {
+                            amount: transactionCharge,
+                            description: 'IMPS Transaction Charge Reversal',
+                            transactionId: transactionRecord.id,
+                            userId: userId,
+                            type: 'REVERTED'
+                        }
                     });
                 });
                 console.log(`Funds reverted and Sevapay transaction ${transactionRecord.id} marked FAILED due to Sevapay failure.`);
@@ -216,17 +244,32 @@ export const sevapayPayment = async (req, res) => {
         }
     } catch (error) {
         console.error("Error in sevapayPayment:", error);
-        // If transactionRecord was created, attempt to revert funds
         if (transactionRecord) {
             try {
                 await prisma.$transaction(async (tx) => {
+                    const userToRevert = await tx.user.findUnique({ where: { id: userId } });
+                    const newBalance = new Decimal(userToRevert.balance).add(totalDebitAmount);
+
                     await tx.user.update({
                         where: { id: userId },
-                        data: { balance: { increment: totalDebitAmount } },
+                        data: { balance: newBalance },
                     });
                     await tx.transactions.update({
                         where: { id: transactionRecord.id },
-                        data: { transactionStatus: 'FAILED' },
+                        data: {
+                            transactionStatus: 'FAILED',
+                            previousBalance: newBalance, // Balance after reversal
+                            closingBalance: newBalance,  // Balance after reversal
+                        },
+                    });
+                    await tx.userCharge.create({
+                        data: {
+                            amount: transactionCharge,
+                            description: 'IMPS Transaction Charge Reversal',
+                            transactionId: transactionRecord.id,
+                            userId: userId,
+                            type: 'REVERTED'
+                        }
                     });
                 });
                 console.log(`Funds reverted and transaction ${transactionRecord.id} marked FAILED due to global error.`);
@@ -268,7 +311,7 @@ export const sevapayStatus = async (req, res) => {
         const data = JSON.parse(text);
 
         if (response.ok) {
-            const transaction = await prisma.transactions.findUnique({ where: { id } });
+            const transaction = await prisma.transactions.findUnique({ where: { id }, select: { senderId: true, amount: true, chargesAmount: true, transactionStatus: true } });
 
             if (!transaction) {
                 return NextResponse.json({ message: 'Transaction not found' }, { status: 404 });
@@ -286,9 +329,20 @@ export const sevapayStatus = async (req, res) => {
                 });
 
                 if (newStatus === 'FAILED' && transaction.transactionStatus !== 'FAILED') {
+                    const totalDebitAmount = new Decimal(transaction.amount).add(new Decimal(transaction.chargesAmount || 0));
+                    const userToRevert = await tx.user.findUnique({ where: { id: transaction.senderId } });
+                    const newBalance = new Decimal(userToRevert.balance).add(totalDebitAmount);
+
                     await tx.user.update({
                         where: { id: transaction.senderId },
-                        data: { balance: { increment: transaction.amount } },
+                        data: { balance: newBalance },
+                    });
+                    await tx.transactions.update({
+                        where: { id: id },
+                        data: {
+                            previousBalance: newBalance, // Balance after reversal
+                            closingBalance: newBalance,  // Balance after reversal
+                        },
                     });
                 }
             });

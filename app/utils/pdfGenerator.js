@@ -53,10 +53,21 @@ export const generateReceiptPDF = (data, withWatermark, watermarkBase64) => {
   doc.setFontSize(14);
   doc.text('Beneficiary Details', doc.internal.pageSize.getWidth() / 2, 25, { align: 'center' });
 
+  let beneficiaryHead;
+  let beneficiaryBody;
+
+  if (data.transferType === 'UPI') {
+    beneficiaryHead = [['Name', 'UPI ID']];
+    beneficiaryBody = [[data.beneficiaryName, data.accountNo]];
+  } else {
+    beneficiaryHead = [['Name', 'IFSC Code', 'Account No.']];
+    beneficiaryBody = [[data.beneficiaryName, data.ifscCode, data.accountNo]];
+  }
+
   doc.autoTable({
     startY: 30,
-    head: [['Name', 'IFSC Code', 'Account No.']],
-    body: [[data.beneficiaryName, data.ifscCode, data.accountNo]],
+    head: beneficiaryHead,
+    body: beneficiaryBody,
     ...tableStyles,
     margin: { left: 15, right: 15 },
   });

@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Decimal } from '@prisma/client/runtime/library';
 import prisma from '../lib/prisma';
-import crypto, { hash } from 'crypto';
-
-
+import crypto from 'crypto';
 
 function generateHash(mid, parameters, hashingMethod = 'sha512', secretKey) {
   let hashData = mid;
@@ -19,19 +17,18 @@ function generateHash(mid, parameters, hashingMethod = 'sha512', secretKey) {
   return null;
 }
 
-
 export const dmtPayment = async (req) => {
     try {
         const { name, accountNumber, ifsc, amount: rawAmount, remarks, paymentMode, paymentReferenceNo, beneficiary, gateway, websiteUrl } = await req.json();
 
-        const userId = req.user?.id; // Get userId from req.user
+        const userId = req.user?.id;
         const unique_id = Date.now().toString() + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
 
         let isUnique = false;
         let transactionId;
 
         while (!isUnique) {
-            const randomDigits = Math.floor(1000000000 + Math.random() * 9000000000).toString(); // 10 random digits
+            const randomDigits = Math.floor(1000000000 + Math.random() * 9000000000).toString();
             transactionId = `WEPAYX${randomDigits}`;
 
             const existingTransaction = await prisma.transactions.findFirst({
@@ -44,9 +41,10 @@ export const dmtPayment = async (req) => {
                 isUnique = true;
             }
         }
-        // --- Step 1: Fetch User and Beneficiary ---
-        const [user] = await Promise.all([
-        prisma.user.findUnique({ where: { id: userId }, select: { dmtPermissions: true, isDisabled: true, balance: true, phoneNumber: true } })
+
+        const [user, userCharges] = await Promise.all([
+            prisma.user.findUnique({ where: { id: userId }, select: { dmtPermissions: true, isDisabled: true, balance: true, phoneNumber: true } }),
+            prisma.userTransactionCharge.findMany({ where: { userId: userId, type: 'DMT' } })
         ]);
 
         if (!user) {
@@ -58,7 +56,6 @@ export const dmtPayment = async (req) => {
             return NextResponse.json({ message: 'You are not allowed to use this service right now.' }, { status: 403 });
         }
 
-        // New security check: Check last transaction time
         const lastTransaction = await prisma.transactions.findFirst({
             where: { senderId: userId },
             orderBy: { createdAt: 'desc' },
@@ -67,14 +64,13 @@ export const dmtPayment = async (req) => {
         if (lastTransaction) {
             const now = new Date();
             const lastTransactionTime = new Date(lastTransaction.createdAt);
-            const timeDifference = (now.getTime() - lastTransactionTime.getTime()) / 1000; // in seconds
+            const timeDifference = (now.getTime() - lastTransactionTime.getTime()) / 1000;
 
             if (timeDifference < 10) {
-                return NextResponse.json({ message: 'Please try again after 1 minute.' }, { status: 429 }); // 429 Too Many Requests
+                return NextResponse.json({ message: 'Please try again after 1 minute.' }, { status: 429 });
             }
         }
 
-        // Check for existing transaction with the same websiteUrl
         const existingWebsiteUrlTransaction = await prisma.transactions.findFirst({
             where: {
                 websiteUrl: websiteUrl,
@@ -85,7 +81,6 @@ export const dmtPayment = async (req) => {
             return NextResponse.json({ message: 'A transaction with this website URL already exists.' }, { status: 400 });
         }
 
-        // Assuming req.user is populated by middleware and contains dmtPermissions
         if (!user || !user.dmtPermissions?.enabled) {
             console.warn(`User ${userId || 'Unknown'} does not have DMT permission.`);
             return NextResponse.json({ message: 'You do not have permission to perform DMT transactions.' }, { status: 403 });
@@ -97,18 +92,26 @@ export const dmtPayment = async (req) => {
             return NextResponse.json({ message: 'A valid Amount is required.' }, { status: 400 });
         }
 
-        const chargeRule = await prisma.transactionCharge.findFirst({
-            where: {
-              type: 'DMT',
-              minAmount: { lte: amount },
-              maxAmount: { gte: amount },
-            },
-          });
-      
-        const transactionCharge = chargeRule ? new Decimal(chargeRule.charge) : new Decimal(0);
+        let chargeRule;
+        let isUserCharge = false;
+        if (userCharges.length > 0) {
+            chargeRule = userCharges.find(charge => new Decimal(charge.minAmount).lessThanOrEqualTo(amount) && new Decimal(charge.maxAmount).greaterThanOrEqualTo(amount));
+            if(chargeRule) isUserCharge = true;
+        } 
+        if(!chargeRule) {
+            chargeRule = await prisma.transactionCharge.findFirst({
+                where: {
+                    type: 'DMT',
+                    minAmount: { lte: amount },
+                    maxAmount: { gte: amount },
+                },
+            });
+        }
+
+        const chargePercentage = chargeRule ? new Decimal(chargeRule.charge) : new Decimal(0);
+        const transactionCharge = isUserCharge ? amount.mul(chargePercentage).div(100) : chargePercentage;
         const totalDebitAmount = amount.add(transactionCharge);
 
-        // --- Step 2: Atomically Reserve Funds and Create Pending Transaction ---
         let transactionRecord;
         try {
             await prisma.$transaction(async (tx) => {
@@ -117,9 +120,12 @@ export const dmtPayment = async (req) => {
                     throw new Error('Insufficient balance');
                 }
 
+                const previousBalance = currentUser.balance;
+                const closingBalance = previousBalance.minus(totalDebitAmount);
+
                 await tx.user.update({
                     where: { id: userId },
-                    data: { balance: { decrement: totalDebitAmount } },
+                    data: { balance: closingBalance },
                 });
 
                 transactionRecord = await tx.transactions.create({
@@ -129,13 +135,25 @@ export const dmtPayment = async (req) => {
                         amount: amount,
                         chargesAmount: transactionCharge,
                         transactionType: 'DMT',
-                        transactionStatus: 'PENDING', // Initially PENDING
-                        senderAccount: user.phoneNumber, // Using phone number as sender account
+                        transactionStatus: 'PENDING',
+                        senderAccount: user.phoneNumber,
                         websiteUrl: websiteUrl,
                         transactionId: transactionId,
                         gateway: 'DMT',
                         referenceNo: unique_id,
+                        previousBalance: previousBalance,
+                        closingBalance: closingBalance,
                     },
+                });
+
+                await tx.userCharge.create({
+                    data: {
+                        amount: transactionCharge,
+                        description: 'DMT Transaction Charge',
+                        transactionId: transactionRecord.id,
+                        userId: userId,
+                        type: 'DEDUCTED'
+                    }
                 });
             });
             console.log(`Funds reserved and pending DMT transaction ${transactionRecord.id} created.`);
@@ -151,17 +169,13 @@ export const dmtPayment = async (req) => {
         if (!bankDetails) {
             return NextResponse.json({ message: 'Invalid IFSC code' }, { status: 400 });
         }
-        // const userId =  req.user.id ; 
 
         const bankName = bankDetails.name;
         const bankBranch = bankDetails.location;
 
-        // Placeholder for merchantId and secretKey - REPLACE WITH ACTUAL VALUES FROM AUTH CONTEXT
-        const merchantId = process.env.KATLA_MERCHANT_ID ; 
+        const merchantId = process.env.KATLA_MERCHANT_ID;
         const secretKey = process.env.KATLA_SECRET_KEY;
         console.log("Received dmtPayment request:", { name, bankName, bankBranch, accountNumber, ifsc, amount, remarks, paymentMode, beneficiary, gateway, websiteUrl });
-
-        
 
         const parametersForHash = {
             name: beneficiary.accountHolderName,
@@ -174,8 +188,6 @@ export const dmtPayment = async (req) => {
             paymentMode,
             paymentReferenceNo: unique_id
         };
-
-        
 
         const generatedHash = generateHash(merchantId, parametersForHash, 'sha512', secretKey);
 
@@ -199,7 +211,7 @@ export const dmtPayment = async (req) => {
         const headers = {
             'Content-Type': 'application/json',
             'merchantID': merchantId,
-            'secretkey': secretKey // Note: Sending secretKey in headers is generally not recommended for client-side. This is based on your provided testhash.js.
+            'secretkey': secretKey
         };
 
         const response = await fetch(`${process.env.KATLA_API_URL}/create-payout-transaction`, {
@@ -212,8 +224,7 @@ export const dmtPayment = async (req) => {
         const data = JSON.parse(text);
         console.log("Katla API response:", data);
 
-        if (response.ok ) {
-            // SUCCESS PATH: Update pending transaction to COMPLETED/PENDING based on API result
+        if (response.ok) {
             console.log(`Katla reported SUCCESS. Finalizing transaction.`);
             try {
                 await prisma.transactions.update({
@@ -232,17 +243,32 @@ export const dmtPayment = async (req) => {
                 return NextResponse.json({ message: 'Payout successful, but failed to update records. Please contact support.', payoutData: data }, { status: 500 });
             }
         } else {
-            // FAILURE PATH: Revert funds and mark transaction as FAILED
             console.warn(`Katla DMT payout failed. Reverting funds.`);
             try {
                 await prisma.$transaction(async (tx) => {
+                    const userToRevert = await tx.user.findUnique({ where: { id: userId } });
+                    const newBalance = new Decimal(userToRevert.balance).add(totalDebitAmount);
+
                     await tx.user.update({
                         where: { id: userId },
-                        data: { balance: { increment: totalDebitAmount } },
+                        data: { balance: newBalance },
                     });
                     await tx.transactions.update({
                         where: { id: transactionRecord.id },
-                        data: { transactionStatus: 'FAILED' },
+                        data: {
+                            transactionStatus: 'FAILED',
+                            previousBalance: newBalance, // Balance after reversal
+                            closingBalance: newBalance,  // Balance after reversal
+                        },
+                    });
+                    await tx.userCharge.create({
+                        data: {
+                            amount: transactionCharge,
+                            description: 'DMT Transaction Charge Reversal',
+                            transactionId: transactionRecord.id,
+                            userId: userId,
+                            type: 'REVERTED'
+                        }
                     });
                 });
                 console.log(`Funds reverted and DMT transaction ${transactionRecord.id} marked FAILED due to Katla failure.`);
@@ -257,83 +283,8 @@ export const dmtPayment = async (req) => {
     }
 };
 
-// export const dmtStatus = async (req, res) => {
-//     const { unique_id, id } = await req.json();
-
-//     const merchantId = process.env.KATLA_MERCHANT_ID; 
-//     const secretKey = process.env.KATLA_SECRET_KEY;
-
-//     const transaction = await prisma.transactions.findUnique({
-//         where: {
-//             id: id
-//         }
-//     });
-
-//     if (!transaction) {
-//         return NextResponse.json({ message: 'Transaction not found' }, { status: 404 });
-//     }
-
-//     if (transaction.transactionType !== 'DMT') {
-//         return NextResponse.json({ message: 'Not a DMT transaction' }, { status: 400 });
-//     }
-
-//     try {
-//         // Generate hash for status check request
-//         const statusCheckParameters = {
-//             paymentReferenceNo: unique_id
-//         };
-        
-//         const statusCheckHash = generateHash(merchantId, statusCheckParameters, 'sha512', secretKey);
-
-//         if (!statusCheckHash) {
-//             return NextResponse.json({ message: 'Failed to generate status check hash' }, { status: 500 });
-//         }
-
-//         const response = await fetch(`https://api.ketlacollect.com/v1/pg/check-payout-transaction-status`, {
-//             method: 'POST',
-//             headers: {
-//                 'Content-Type': 'application/json',
-//                 'merchantID': merchantId,
-//                 'secretkey': secretKey
-//             },
-//             body: JSON.stringify({
-//                 paymentReferenceNo: unique_id,
-//                 hash: statusCheckHash  // Use the newly generated hash
-//             })
-//         });
-
-//         const text = await response.text();
-//         const data = JSON.parse(text);
-
-//         console.log("Katla status check response:", data);
-//         const status = data.data[0].updatedStatus?.toUpperCase();
-
-//         if(data.data[0].updatedStatus === 'Accepted By Portal' || data.data[0].utrId === null){
-//             return NextResponse.json({ message: 'Transaction is still pending' }, { status: 200 });
-//         }
-
-
-//         if (response.ok) {
-//             const updatedTransaction = await prisma.transactions.update({
-//                 where: {
-//                     id: id
-//                 },
-//                 data: {
-//                     transactionStatus: status === 'SUCCESS' ? 'COMPLETED' : status === 'PENDING' ? 'PENDING' : 'FAILED',
-//                     utr: data.data[0].utrId ,
-//                 }
-//             });
-
-//             return NextResponse.json(data, { status: 200 });
-//         } else {
-//             return NextResponse.json(data, { status: response.status });
-//         }
-//     } catch (error) {
-//         return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
-//     }
-// };
 export const getBalances = async () => {
-    const merchantId = process.env.KATLA_MERCHANT_ID; 
+    const merchantId = process.env.KATLA_MERCHANT_ID;
     const secretKey = process.env.KATLA_SECRET_KEY;
 
     const fetchBalance = async () => {
@@ -350,8 +301,8 @@ export const getBalances = async () => {
             const data = await response.json();
             console.log("Balance response:", data);
 
-            if (response.ok ) {
-                return { data: { currentBalance: parseFloat(data.data.currentBalance) } }; // Parse to float
+            if (response.ok) {
+                return { data: { currentBalance: parseFloat(data.data.currentBalance) } };
             } else {
                 console.error(`Failed to fetch balance`, data);
                 return { data: { currentBalance: 0 } };
@@ -374,11 +325,12 @@ export const getBalances = async () => {
 export const dmtStatus = async (req, res) => {
     const { unique_id, id } = await req.json();
 
-    const merchantId = process.env.KATLA_MERCHANT_ID; 
+    const merchantId = process.env.KATLA_MERCHANT_ID;
     const secretKey = process.env.KATLA_SECRET_KEY;
 
     const transaction = await prisma.transactions.findUnique({
-        where: { id }
+        where: { id },
+        select: { senderId: true, amount: true, chargesAmount: true, previousBalance: true, closingBalance: true }
     });
 
     if (!transaction) {
@@ -390,7 +342,6 @@ export const dmtStatus = async (req, res) => {
     }
 
     try {
-        // Generate hash
         const statusCheckParameters = { paymentReferenceNo: unique_id };
         const statusCheckHash = generateHash(merchantId, statusCheckParameters, 'sha512', secretKey);
 
@@ -432,11 +383,9 @@ export const dmtStatus = async (req, res) => {
         } else if (['PENDING', 'PROCESSING', 'ACCEPTED BY PORTAL'].includes(rawStatus)) {
             return NextResponse.json({ message: 'Transaction is still in process', rawStatus }, { status: 200 });
         } else {
-            // Unknown status → treat as "in process"
             return NextResponse.json({ message: 'Transaction in process (unmapped status)', rawStatus }, { status: 200 });
         }
 
-        // Only update if COMPLETED or FAILED
         await prisma.$transaction(async (tx) => {
             await tx.transactions.update({
                 where: { id },
@@ -447,9 +396,20 @@ export const dmtStatus = async (req, res) => {
             });
 
             if (mappedStatus === 'FAILED') {
+                const totalDebitAmount = new Decimal(transaction.amount).add(new Decimal(transaction.chargesAmount || 0));
+                const userToRevert = await tx.user.findUnique({ where: { id: transaction.senderId } });
+                const newBalance = new Decimal(userToRevert.balance).add(totalDebitAmount);
+
                 await tx.user.update({
                     where: { id: transaction.senderId },
-                    data: { balance: { increment: transaction.amount } },
+                    data: { balance: newBalance },
+                });
+                await tx.transactions.update({
+                    where: { id },
+                    data: {
+                        previousBalance: newBalance, // Balance after reversal
+                        closingBalance: newBalance,  // Balance after reversal
+                    },
                 });
             }
         });
