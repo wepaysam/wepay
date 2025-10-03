@@ -99,6 +99,9 @@ const StatementPage = () => {
   const [showAdvanceSearch, setShowAdvanceSearch] = useState(false);
   const [advanceSearchStartDate, setAdvanceSearchStartDate] = useState("");
   const [advanceSearchEndDate, setAdvanceSearchEndDate] = useState("");
+  const [showAdvancedSearchOptions, setShowAdvancedSearchOptions] = useState(false);
+  const [selectedAdvanceSearchFields, setSelectedAdvanceSearchFields] = useState<string[]>([]);
+  const [advanceSearchValues, setAdvanceSearchValues] = useState<{[key: string]: string}>({});
 
   const fetchAllData = useCallback(async () => {
     setIsTableLoading(true);
@@ -110,6 +113,13 @@ const StatementPage = () => {
       } else {
         apiUrl += `&dateFilter=${dateFilter}`;
       }
+
+      // Add advanced search filters
+      selectedAdvanceSearchFields.forEach(field => {
+        if (advanceSearchValues[field]) {
+          apiUrl += `&${field}=${encodeURIComponent(advanceSearchValues[field])}`;
+        }
+      });
 
       const transactionsResponse = await fetch(apiUrl);
 
@@ -170,7 +180,7 @@ const StatementPage = () => {
     } finally {
       setIsTableLoading(false);
     }
-  }, [setTransactions, searchTerm, transactionBasis, limit, currentPage, dateFilter, showAdvanceSearch, advanceSearchStartDate, advanceSearchEndDate]);
+  }, [setTransactions, searchTerm, transactionBasis, limit, currentPage, dateFilter, showAdvanceSearch, advanceSearchStartDate, advanceSearchEndDate, selectedAdvanceSearchFields, advanceSearchValues]);
 
   useEffect(() => {
     const fetchWatermark = async () => {
@@ -325,6 +335,29 @@ const StatementPage = () => {
     setIsCheckingAllStatuses(false);
   };
 
+  const handleAdvancedSearchFieldChange = (field: string) => {
+    setSelectedAdvanceSearchFields((prevSelected) => {
+      if (prevSelected.includes(field)) {
+        const newSelected = prevSelected.filter((f) => f !== field);
+        // Remove value if field is deselected
+        setAdvanceSearchValues((prevValues) => {
+          const newValues = { ...prevValues };
+          delete newValues[field];
+          return newValues;
+        });
+        return newSelected;
+      } else {
+        return [...prevSelected, field];
+      }n    });
+  };
+
+  const handleAdvancedSearchValueChange = (field: string, value: string) => {
+    setAdvanceSearchValues((prevValues) => ({
+      ...prevValues,
+      [field]: value,
+    }));
+  };
+
   const totalPages = Math.ceil(totalTransactions / limit);
 
   return (
@@ -431,19 +464,25 @@ const StatementPage = () => {
                         </div>
                     </div>
                 </div>
-                <div className="mb-6">
-                    <label htmlFor="search" className="block text-sm font-medium text-muted-foreground mb-1">Search</label>
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        <Input
-                        id="search"
-                        type="text"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 w-full dark:text-black"
-                        placeholder="Search by description, UTR, or transaction no."
-                        />
+                <div className="mb-6 flex items-end space-x-4"> {/* Added flex container */}
+                    <div className="flex-grow"> {/* Allows search input to take available space */}
+                        <label htmlFor="search" className="block text-sm font-medium text-muted-foreground mb-1">Search</label>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <Input
+                            id="search"
+                            type="text"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10 w-full dark:text-black"
+                            placeholder="Search by description, UTR, or transaction no."
+                            />
+                        </div>
                     </div>
+                    <Button onClick={() => setShowAdvancedSearchOptions(!showAdvancedSearchOptions)} variant="outline">
+                        <Filter className="h-4 w-4 mr-2" />
+                        {showAdvancedSearchOptions ? 'Hide Advanced Search' : 'Advanced Search'}
+                    </Button>
                 </div>
                 <div className="mb-6 flex justify-between items-center space-x-4">
                     
@@ -473,8 +512,8 @@ const StatementPage = () => {
                             Download Statement
                         </Button>
                         <Button onClick={() => setShowAdvanceSearch(!showAdvanceSearch)} variant="outline">
-                            <Search className="h-4 w-4 mr-2" />
-                            {showAdvanceSearch ? 'Hide Advance Search' : 'Advance Search'}
+                            <CalendarRange className="h-4 w-4 mr-2" />
+                            {showAdvanceSearch ? 'Hide Date Range Filter' : 'Filter by Date Range'}
                         </Button>
                     </div>
                 </div>
@@ -515,6 +554,77 @@ const StatementPage = () => {
                         </div>
                         <Button onClick={fetchAllData} className="md:col-span-1">
                             Apply
+                        </Button>
+                    </motion.div>
+                )}
+
+                {showAdvancedSearchOptions && (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="mb-6 p-4 border rounded-lg bg-muted/40"
+                    >
+                        <h3 className="text-lg font-semibold mb-4">Advanced Search Options</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {/* Checkboxes for selecting fields */}
+                            {[ 
+                                { key: 'transactionId', label: 'Transaction ID' },
+                                { key: 'referenceNo', label: 'Reference Number' },
+                                { key: 'utr', label: 'UTR' },
+                                { key: 'websiteUrl', label: 'Website Name' },
+                                { key: 'senderAccount', label: 'Sender Account' },
+                                { key: 'receiverName', label: 'Receiver Name' },
+                                { key: 'accountUpiId', label: 'Account/UPI ID' },
+                            ].map((field) => (
+                                <div key={field.key} className="flex items-center space-x-2">
+                                    <input
+                                        type="checkbox"
+                                        id={`adv-search-${field.key}`}
+                                        checked={selectedAdvanceSearchFields.includes(field.key)}
+                                        onChange={() => handleAdvancedSearchFieldChange(field.key)}
+                                        className="form-checkbox"
+                                    />
+                                    <label htmlFor={`adv-search-${field.key}`} className="text-sm font-medium text-muted-foreground">
+                                        {field.label}
+                                    </label>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Input fields for selected fields */}
+                        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {selectedAdvanceSearchFields.map((fieldKey) => {
+                                const fieldLabel = [
+                                    { key: 'transactionId', label: 'Transaction ID' },
+                                    { key: 'referenceNo', label: 'Reference Number' },
+                                    { key: 'utr', label: 'UTR' },
+                                    { key: 'websiteUrl', label: 'Website Name' },
+                                    { key: 'senderAccount', label: 'Sender Account' },
+                                    { key: 'receiverName', label: 'Receiver Name' },
+                                    { key: 'accountUpiId', label: 'Account/UPI ID' },
+                                ].find(f => f.key === fieldKey)?.label || fieldKey;
+
+                                return (
+                                    <div key={`input-${fieldKey}`}>
+                                        <label htmlFor={`adv-search-input-${fieldKey}`} className="block text-sm font-medium text-muted-foreground mb-1">
+                                            {fieldLabel}
+                                        </label>
+                                        <Input
+                                            id={`adv-search-input-${fieldKey}`}
+                                            type="text"
+                                            value={advanceSearchValues[fieldKey] || ''}
+                                            onChange={(e) => handleAdvancedSearchValueChange(fieldKey, e.target.value)}
+                                            className="w-full dark:text-black"
+                                            placeholder={`Enter ${fieldLabel}`}
+                                        />
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <Button onClick={fetchAllData} className="mt-6">
+                            Apply Advanced Filters
                         </Button>
                     </motion.div>
                 )}

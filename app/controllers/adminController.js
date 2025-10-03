@@ -247,14 +247,140 @@ export async function rejectBalanceRequest(requestId) {
 /**
  * Get all transactions
  */
-export async function getAllTransactions({ days } = {}) {
+export async function getAllTransactions({
+  days,
+  searchTerm,
+  transactionType,
+  timeFilter,
+  transactionId,
+  referenceNo,
+  utr,
+  websiteUrl,
+  senderAccount,
+  receiverName,
+  accountUpiId,
+} = {}) {
   try {
-    let where = {};
+    const filters = [];
+
     if (days) {
       const date = new Date();
       date.setDate(date.getDate() - days);
-      where.createdAt = { gte: date };
+      filters.push({ createdAt: { gte: date } });
     }
+
+    if (transactionType && transactionType !== 'all') {
+      filters.push({ transactionType: transactionType });
+    }
+
+    if (timeFilter && timeFilter !== 'all') {
+      const now = new Date();
+      let filterStartDate = null; // Initialize to null
+
+      switch (timeFilter) {
+        case 'today':
+          filterStartDate = new Date(now.setHours(0, 0, 0, 0));
+          break;
+        case 'yesterday':
+          filterStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+          filterStartDate.setHours(0, 0, 0, 0);
+          break;
+        case 'thisWeek':
+          filterStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+          filterStartDate.setHours(0, 0, 0, 0);
+          break;
+        case 'thisMonth':
+          filterStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          filterStartDate.setHours(0, 0, 0, 0);
+          break;
+        default:
+          // If timeFilter is not recognized, filterStartDate remains null
+          break;
+      }
+
+      if (filterStartDate instanceof Date && !isNaN(filterStartDate.getTime())) { // Check if it's a valid Date object
+        filters.push({
+          createdAt: {
+            gte: filterStartDate,
+          },
+        });
+      }
+    }
+
+    // Advanced Search Filters
+    const advancedSearchConditions = [];
+    if (transactionId) {
+      advancedSearchConditions.push({ transactionId: { contains: transactionId, mode: 'insensitive' } });
+    }
+    if (referenceNo) {
+      advancedSearchConditions.push({ referenceNo: { contains: referenceNo, mode: 'insensitive' } });
+    }
+    if (utr) {
+      advancedSearchConditions.push({ utr: { contains: utr, mode: 'insensitive' } });
+    }
+    if (websiteUrl) {
+      advancedSearchConditions.push({ websiteUrl: { contains: websiteUrl, mode: 'insensitive' } });
+    }
+    if (senderAccount) {
+      advancedSearchConditions.push({ sender: { phoneNumber: { contains: senderAccount, mode: 'insensitive' } } });
+    }
+    if (receiverName) {
+      advancedSearchConditions.push({
+        OR: [
+          { beneficiary: { accountHolderName: { contains: receiverName, mode: 'insensitive' } } },
+          { upiBeneficiary: { accountHolderName: { contains: receiverName, mode: 'insensitive' } } },
+          { dmtBeneficiary: { accountHolderName: { contains: receiverName, mode: 'insensitive' } } }
+        ]
+      });
+    }
+    if (accountUpiId) {
+      advancedSearchConditions.push({
+        OR: [
+          { beneficiary: { accountNumber: { contains: accountUpiId, mode: 'insensitive' } } },
+          { upiBeneficiary: { upiId: { contains: accountUpiId, mode: 'insensitive' } } },
+          { dmtBeneficiary: { accountNumber: { contains: accountUpiId, mode: 'insensitive' } } }
+        ]
+      });
+    }
+
+    // Combine advanced search conditions with AND
+    if (advancedSearchConditions.length > 0) {
+      filters.push({ AND: advancedSearchConditions });
+    }
+
+    // General Search Term (only apply if no specific advanced search fields are active for these fields)
+    if (searchTerm && !transactionId && !utr && !receiverName && !accountUpiId && !senderAccount) {
+      filters.push({
+        OR: [
+          {
+            transactionId: { 
+              contains: searchTerm,
+              mode: 'insensitive',
+            },
+          },
+          {
+            sender: {
+              phoneNumber: {
+                contains: searchTerm,
+                mode: 'insensitive',
+              },
+            },
+          },
+          {
+            sender: {
+              email: {
+                contains: searchTerm,
+                mode: 'insensitive',
+              },
+            },
+          },
+        ],
+      });
+    }
+
+    const where = filters.length > 0 ? { AND: filters } : {};
+
+    console.log("Admin Transactions Prisma WHERE clause:", JSON.stringify(where, null, 2)); // Added console.log
 
     const transactions = await prisma.transactions.findMany({
       where,
@@ -265,6 +391,7 @@ export async function getAllTransactions({ days } = {}) {
         amount: true,
         transactionType: true,
         createdAt: true,
+        utr: true,
         transactionStatus: true,
         sender: {
           select: {
