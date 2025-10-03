@@ -98,21 +98,38 @@ export async function getTransactionCharge(amount) {
   }
 }
 
-export async function getUserTransactions(userId, searchTerm, transactionBasis, limit, skip, dateFilter, startDate, endDate) {
+export async function getUserTransactions(
+  userId,
+  searchTerm,
+  transactionBasis,
+  limit,
+  skip,
+  dateFilter,
+  startDate,
+  endDate,
+  transactionId,
+  referenceNo,
+  utr,
+  websiteUrl,
+  senderAccount,
+  receiverName,
+  accountUpiId
+) {
   try {
-    const where = {
-      senderId: userId,
-    };
+    const filters = [];
+    filters.push({ senderId: userId });
 
     if (transactionBasis && transactionBasis !== 'ALL') {
-      where.transactionType = transactionBasis;
+      filters.push({ transactionType: transactionBasis });
     }
 
     if (startDate && endDate) {
-      where.transactionTime = {
-        gte: new Date(startDate),
-        lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)),
-      };
+      filters.push({
+        transactionTime: {
+          gte: new Date(startDate),
+          lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)),
+        },
+      });
     } else if (dateFilter) {
       const now = new Date();
       let filterStartDate;
@@ -140,36 +157,86 @@ export async function getUserTransactions(userId, searchTerm, transactionBasis, 
       }
 
       if (filterStartDate) {
-        where.transactionTime = {
-          gte: filterStartDate,
-        };
+        filters.push({
+          transactionTime: {
+            gte: filterStartDate,
+          },
+        });
       }
     }
 
-    if (searchTerm) {
-      where.OR = [
-        {
-          beneficiary: {
-            accountHolderName: {
+    // Advanced Search Filters
+    const advancedSearchConditions = [];
+    if (transactionId) {
+      advancedSearchConditions.push({ transactionId: { contains: transactionId, mode: 'insensitive' } });
+    }
+    if (referenceNo) {
+      advancedSearchConditions.push({ referenceNo: { contains: referenceNo, mode: 'insensitive' } });
+    }
+    if (utr) {
+      advancedSearchConditions.push({ utr: { contains: utr, mode: 'insensitive' } });
+    }
+    if (websiteUrl) {
+      advancedSearchConditions.push({ websiteUrl: { contains: websiteUrl, mode: 'insensitive' } });
+    }
+    if (senderAccount) {
+      advancedSearchConditions.push({ senderAccount: { contains: senderAccount, mode: 'insensitive' } });
+    }
+    if (receiverName) {
+      advancedSearchConditions.push({
+        OR: [
+          { beneficiary: { accountHolderName: { contains: receiverName, mode: 'insensitive' } } },
+          { upiBeneficiary: { accountHolderName: { contains: receiverName, mode: 'insensitive' } } },
+          { dmtBeneficiary: { accountHolderName: { contains: receiverName, mode: 'insensitive' } } }
+        ]
+      });
+    }
+    if (accountUpiId) {
+      advancedSearchConditions.push({
+        OR: [
+          { beneficiary: { accountNumber: { contains: accountUpiId, mode: 'insensitive' } } },
+          { upiBeneficiary: { upiId: { contains: accountUpiId, mode: 'insensitive' } } },
+          { dmtBeneficiary: { accountNumber: { contains: accountUpiId, mode: 'insensitive' } } }
+        ]
+      });
+    }
+
+    // Combine advanced search conditions with AND
+    if (advancedSearchConditions.length > 0) {
+      filters.push({ AND: advancedSearchConditions });
+    }
+
+    // General Search Term (only apply if no specific advanced search fields are active for these fields)
+    if (searchTerm && !transactionId && !utr && !receiverName && !accountUpiId) {
+      filters.push({
+        OR: [
+          {
+            beneficiary: {
+              accountHolderName: {
+                contains: searchTerm,
+                mode: 'insensitive',
+              },
+            },
+          },
+          {
+            utr: {
               contains: searchTerm,
               mode: 'insensitive',
             },
           },
-        },
-        {
-          utr: {
-            contains: searchTerm,
-            mode: 'insensitive',
+          {
+            transactionId: {
+              contains: searchTerm,
+              mode: 'insensitive',
+            },
           },
-        },
-        {
-          transactionId: {
-            contains: searchTerm,
-            mode: 'insensitive',
-          },
-        },
-      ];
+        ],
+      });
     }
+
+    const where = filters.length > 0 ? { AND: filters } : {};
+
+    console.log("Prisma WHERE clause:", JSON.stringify(where, null, 2)); // Added console.log
 
     const transactions = await prisma.transactions.findMany({
       where,

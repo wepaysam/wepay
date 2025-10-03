@@ -18,13 +18,36 @@ export async function GET(request) {
     const dateFilter = searchParams.get('dateFilter');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const transactionId = searchParams.get('transactionId');
+    const referenceNo = searchParams.get('referenceNo');
+    const utr = searchParams.get('utr');
+    const websiteUrl = searchParams.get('websiteUrl');
+    const senderAccount = searchParams.get('senderAccount');
+    const receiverName = searchParams.get('receiverName');
+    const accountUpiId = searchParams.get('accountUpiId');
 
     const limit = parseInt(searchParams.get('limit') || '10');
     const page = parseInt(searchParams.get('page') || '1');
     const skip = (page - 1) * limit;
 
     // Get the user's transactions
-    const { transactions, totalTransactions } = await getUserTransactions(userId, searchTerm, transactionBasis, limit, skip, dateFilter, startDate, endDate);
+    const { transactions, totalTransactions } = await getUserTransactions(
+      userId,
+      searchTerm,
+      transactionBasis,
+      limit,
+      skip,
+      dateFilter,
+      startDate,
+      endDate,
+      transactionId,
+      referenceNo,
+      utr,
+      websiteUrl,
+      senderAccount,
+      receiverName,
+      accountUpiId
+    );
 
     return NextResponse.json({ transactions, totalTransactions });
   } catch (error) {

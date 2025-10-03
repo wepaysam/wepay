@@ -13,8 +13,9 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { formatDate } from '../../lib/utils';
 import { Input } from '../../components/ui/input';
+import { Button } from '../../components/ui/button'; // Added this line
 import StatCard from '../../components/StatCard';
-import { DollarSign, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, ArrowRight, Filter } from 'lucide-react'; // Added Filter
 import {
   Select,
   SelectContent,
@@ -43,6 +44,7 @@ interface Transaction {
   transactionType: string;
   transactionStatus: string;
   createdAt: string;
+  utr?: string; // Added UTR field
   sender: {
     phoneNumber: string;
     email: string;
@@ -82,10 +84,13 @@ export default function TransactionsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [timeFilter, setTimeFilter] = useState('today');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [showAdvancedSearchOptions, setShowAdvancedSearchOptions] = useState(false);
+  const [selectedAdvanceSearchFields, setSelectedAdvanceSearchFields] = useState<string[]>([]);
+  const [advanceSearchValues, setAdvanceSearchValues] = useState<{[key: string]: string}>({});
 
   useEffect(() => {
     fetchTransactions();
-  }, []);
+  }, [searchQuery, timeFilter, typeFilter, selectedAdvanceSearchFields, advanceSearchValues]); // Added dependencies
 
   const fetchTransactions = async () => {
     try {
@@ -99,7 +104,30 @@ export default function TransactionsPage() {
         router.push('/Auth/login');
         return;
       }
-      const response = await fetch('/api/admin/transactions', {
+      let apiUrl = '/api/admin/transactions?';
+      const params = new URLSearchParams();
+
+      if (searchQuery) {
+        params.append('searchTerm', searchQuery);
+      }
+      if (typeFilter !== 'all') {
+        params.append('transactionType', typeFilter);
+      }
+      if (showAdvancedSearchOptions) {
+        params.append('timeFilter', 'all'); // When advanced search is active, ignore timeFilter from dropdown
+      } else if (timeFilter !== 'all') {
+        params.append('timeFilter', timeFilter);
+      }
+
+      selectedAdvanceSearchFields.forEach(field => {
+        if (advanceSearchValues[field]) {
+          params.append(field, advanceSearchValues[field]);
+        }
+      });
+
+      apiUrl += params.toString();
+
+      const response = await fetch(apiUrl, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -114,58 +142,33 @@ export default function TransactionsPage() {
     }
   };
 
-  const filteredTransactions = useMemo(() => {
-    let filtered = transactions;
+  const handleAdvancedSearchFieldChange = (field: string) => {
+    setSelectedAdvanceSearchFields((prevSelected) => {
+      if (prevSelected.includes(field)) {
+        const newSelected = prevSelected.filter((f) => f !== field);
+        setAdvanceSearchValues((prevValues) => {
+          const newValues = { ...prevValues };
+          delete newValues[field];
+          return newValues;
+        });
+        return newSelected;
+      } else {
+        return [...prevSelected, field];
+      }
+    });
+  };
 
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (transaction) =>
-          transaction.transactionId.toLowerCase().includes(query) ||
-          transaction.sender.phoneNumber.toLowerCase().includes(query) ||
-          transaction.sender.email.toLowerCase().includes(query)
-      );
-    }
+  const handleAdvancedSearchValueChange = (field: string, value: string) => {
+    setAdvanceSearchValues((prevValues) => ({
+      ...prevValues,
+      [field]: value,
+    }));
+  };
 
-    if (typeFilter !== 'all') {
-      filtered = filtered.filter(
-        (transaction) => transaction.transactionType === typeFilter
-      );
-    }
-
-    if (timeFilter !== 'all') {
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-      const thisWeekStart = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() - now.getDay()
-      );
-      const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-      filtered = filtered.filter((transaction) => {
-        const transactionDate = new Date(transaction.createdAt);
-        switch (timeFilter) {
-          case 'today':
-            return transactionDate >= today;
-          case 'yesterday':
-            return transactionDate >= yesterday && transactionDate < today;
-          case 'thisWeek':
-            return transactionDate >= thisWeekStart;
-          case 'thisMonth':
-            return transactionDate >= thisMonthStart;
-          default:
-            return true;
-        }
-      });
-    }
-
-    return filtered;
-  }, [transactions, searchQuery, typeFilter, timeFilter]);
+  
 
   const stats = useMemo(() => {
-    if (filteredTransactions.length === 0) {
+    if (transactions.length === 0) {
       return {
         totalTransactions: 0,
         totalVolume: 0,
@@ -174,21 +177,21 @@ export default function TransactionsPage() {
       };
     }
 
-    const amounts = filteredTransactions.map((t) => Number(t.amount));
+    const amounts = transactions.map((t) => Number(t.amount));
     const totalVolume = amounts.reduce((sum, amount) => sum + amount, 0);
     const highestTransaction = Math.max(...amounts);
     const lowestTransaction = Math.min(...amounts);
 
     return {
-      totalTransactions: filteredTransactions.length,
+      totalTransactions: transactions.length,
       totalVolume,
       highestTransaction,
       lowestTransaction,
     };
-  }, [filteredTransactions]);
+  }, [transactions]);
 
   const chartData = useMemo(() => {
-    const data = filteredTransactions.reduce((acc, t) => {
+    const data = transactions.reduce((acc, t) => {
       const date = formatDate(t.createdAt);
       if (!acc[date]) {
         acc[date] = { amount: 0, transactions: [] };
@@ -201,7 +204,7 @@ export default function TransactionsPage() {
     return Object.entries(data)
       .map(([date, { amount, transactions }]) => ({ date, amount, transactions }))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [filteredTransactions]);
+  }, [transactions]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -321,12 +324,18 @@ export default function TransactionsPage() {
         <CardHeader>
           <CardTitle>All Transactions</CardTitle>
           <div className="flex flex-col sm:flex-row gap-4 mt-4">
-            <Input
-              placeholder="Search by ID, phone, or email"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="max-w-sm"
-            />
+            <div className="flex-grow flex items-center gap-4"> {/* Added flex-grow and items-center */}
+              <Input
+                placeholder="Search by ID, phone, or email"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="max-w-sm"
+              />
+              <Button onClick={() => setShowAdvancedSearchOptions(!showAdvancedSearchOptions)} variant="outline">
+                  <Filter className="h-4 w-4 mr-2" />
+                  {showAdvancedSearchOptions ? 'Hide Advanced Search' : 'Advanced Search'}
+              </Button>
+            </div>
             <div className="flex gap-4">
               <Select value={typeFilter} onValueChange={setTypeFilter}>
                 <SelectTrigger className="w-full sm:w-[180px]">
@@ -353,6 +362,71 @@ export default function TransactionsPage() {
               </Select>
             </div>
           </div>
+
+          {showAdvancedSearchOptions && (
+            <div className="mt-4 p-4 border rounded-lg bg-muted/40">
+                <h3 className="text-lg font-semibold mb-4">Advanced Search Options</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Checkboxes for selecting fields */}
+                    {[ 
+                        { key: 'transactionId', label: 'Transaction ID' },
+                        { key: 'referenceNo', label: 'Reference Number' },
+                        { key: 'utr', label: 'UTR' },
+                        { key: 'websiteUrl', label: 'Website Name' },
+                        { key: 'senderAccount', label: 'Sender Account' },
+                        { key: 'receiverName', label: 'Receiver Name' },
+                        { key: 'accountUpiId', label: 'Account/UPI ID' },
+                    ].map((field) => (
+                        <div key={field.key} className="flex items-center space-x-2">
+                            <input
+                                type="checkbox"
+                                id={`adv-search-${field.key}`}
+                                checked={selectedAdvanceSearchFields.includes(field.key)}
+                                onChange={() => handleAdvancedSearchFieldChange(field.key)}
+                                className="form-checkbox"
+                            />
+                            <label htmlFor={`adv-search-${field.key}`} className="text-sm font-medium text-muted-foreground">
+                                {field.label}
+                            </label>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Input fields for selected fields */}
+                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {selectedAdvanceSearchFields.map((fieldKey) => {
+                        const fieldLabel = [
+                            { key: 'transactionId', label: 'Transaction ID' },
+                            { key: 'referenceNo', label: 'Reference Number' },
+                            { key: 'utr', label: 'UTR' },
+                            { key: 'websiteUrl', label: 'Website Name' },
+                            { key: 'senderAccount', label: 'Sender Account' },
+                            { key: 'receiverName', label: 'Receiver Name' },
+                            { key: 'accountUpiId', label: 'Account/UPI ID' },
+                        ].find(f => f.key === fieldKey)?.label || fieldKey;
+
+                        return (
+                            <div key={`input-${fieldKey}`}>
+                                <label htmlFor={`adv-search-input-${fieldKey}`} className="block text-sm font-medium text-muted-foreground mb-1">
+                                    {fieldLabel}
+                                </label>
+                                <Input
+                                    id={`adv-search-input-${fieldKey}`}
+                                    type="text"
+                                    value={advanceSearchValues[fieldKey] || ''}
+                                    onChange={(e) => handleAdvancedSearchValueChange(fieldKey, e.target.value)}
+                                    className="w-full dark:text-black"
+                                    placeholder={`Enter ${fieldLabel}`}
+                                />
+                            </div>
+                        );
+                    })}
+                </div>
+                <Button onClick={fetchTransactions} className="mt-6">
+                    Apply Advanced Filters
+                </Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -370,19 +444,20 @@ export default function TransactionsPage() {
                   <TableHead>Type</TableHead>
                   <TableHead>Gateway</TableHead>
                   <TableHead>UPI ID / Bank Details</TableHead>
+                  <TableHead>UTR</TableHead> {/* Added UTR TableHead */}
                   <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTransactions.length === 0 ? (
+                {transactions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center">
+                    <TableCell colSpan={10} className="text-center"> {/* Updated colSpan */}
                       No transactions found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredTransactions.map((transaction: Transaction) => (
+                  transactions.map((transaction: Transaction) => (
                     <TableRow key={transaction.id}>
                       <TableCell>{transaction.transactionId}</TableCell>
                       <TableCell>{transaction.sender?.phoneNumber}</TableCell>
@@ -395,6 +470,7 @@ export default function TransactionsPage() {
                         {transaction.transactionType === 'DMT' && transaction.dmtBeneficiary?.accountNumber}
                         {transaction.transactionType === 'UPI' && transaction.upiBeneficiary?.upiId}
                       </TableCell>
+                      <TableCell>{transaction.utr || '-'}</TableCell> {/* Added UTR TableCell */}
                       <TableCell>
                         <span
                           className={`px-2 py-1 text-xs font-semibold rounded-full ${

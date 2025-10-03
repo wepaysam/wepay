@@ -55,8 +55,8 @@ const UpiPaymentConfirmationPopup: React.FC<UpiPaymentConfirmationPopupProps> = 
         <AlertDialogFooter className="flex justify-between w-full">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <div className="flex gap-2">
-            {user?.upiPermissions?.aeronpay && <Button onClick={() => onSelectAeronPay(websiteUrl)} className="bg-blue-500 hover:bg-blue-600 text-white">AeronPay</Button>}
-            {user?.upiPermissions?.p2i && <Button onClick={() => onSelectP2I(websiteUrl)} className="bg-green-500 hover:bg-green-600 text-white">P2I</Button>}
+            {user?.upiPermissions?.aeronpay && <Button onClick={() => onSelectAeronPay(websiteUrl)} className="bg-blue-500 hover:bg-blue-600 text-white">Pay</Button>}
+            {user?.upiPermissions?.p2i && <Button onClick={() => onSelectP2I(websiteUrl)} className="bg-green-500 hover:bg-green-600 text-white">Pay P</Button>}
           </div>
         </AlertDialogFooter>
       </AlertDialogContent>
