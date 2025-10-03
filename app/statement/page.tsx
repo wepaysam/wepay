@@ -348,7 +348,8 @@ const StatementPage = () => {
         return newSelected;
       } else {
         return [...prevSelected, field];
-      }n    });
+      }
+    });
   };
 
   const handleAdvancedSearchValueChange = (field: string, value: string) => {
