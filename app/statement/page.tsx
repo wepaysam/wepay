@@ -77,8 +77,7 @@ interface TransactionData {
   dmtBeneficiary?: DmtBeneficiaryData;
   gateway?: string;
   transactionBasis?: string;
-  previousBalance?: number;
-  closingBalance?: number;
+  
 }
 
 const StatementPage = () => {
@@ -162,8 +161,7 @@ const StatementPage = () => {
             } : undefined,
             gateway: txn.gateway,
             transactionBasis: txn.transactionType,
-            previousBalance: txn.previousBalance,
-            closingBalance: txn.closingBalance,
+            
           };
         });
 
@@ -642,17 +640,15 @@ const StatementPage = () => {
                             <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">UPI ID / Bank Details</th>
                             <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">UTR</th>
                             <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Type</th>
-                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Previous Balance</th>
                             <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Amount</th>
                             <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Charges</th>
-                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Closing Balance</th>
                             <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
                         </tr>
                         </thead>
                         <tbody className="bg-card divide-y divide-border">
                         {isTableLoading ? (
                           <tr>
-                            <td colSpan={10} className="text-center py-10">
+                            <td colSpan={8} className="text-center py-10">
                               <div className="flex justify-center items-center">
                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                 <p className="ml-4 text-muted-foreground">Loading transactions...</p>
@@ -679,18 +675,12 @@ const StatementPage = () => {
                                 {txn.type}
                                 </span>
                             </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-right text-muted-foreground">
-                                {txn.previousBalance ? `₹${txn.previousBalance.toLocaleString()}` : '-'}
-                            </td>
                             <td className={`px-4 py-4 whitespace-nowrap text-sm text-right font-semibold ${txn.type === 'CREDIT' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                                 {txn.type === 'CREDIT' ? '+' : '-'}
                                 ₹{txn.amount.toLocaleString()}
                             </td>
                             <td className={`px-4 py-4 whitespace-nowrap text-sm text-right ${txn.status === 'COMPLETED' ? 'text-red-500' : 'text-muted-foreground'}`}>
                                 {txn.charges ? `₹${txn.charges.toLocaleString()}` : '-'}
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-right text-muted-foreground">
-                                {txn.closingBalance ? `₹${txn.closingBalance.toLocaleString()}` : '-'}
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
                                 {txn.status === 'PENDING' && txn.referenceNo && (
@@ -712,7 +702,7 @@ const StatementPage = () => {
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={10} className="text-center py-10">
+                            <td colSpan={8} className="text-center py-10">
                               <Info className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
                               <p className="text-muted-foreground">No transactions found for the selected criteria.</p>
                             </td>
