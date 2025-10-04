@@ -68,16 +68,26 @@ const checkLowBalance = async () => {
     return;
   }
 
-  if (balanceData.balance < LOW_BALANCE_THRESHOLD) {
-    const message = `🚨 *Low Balance Alert!* 🚨\n\nAeronPay balance is critically low.\n\n*Current Balance:* ₹${balanceData.balance.toLocaleString()}\n*Threshold:* ₹${LOW_BALANCE_THRESHOLD.toLocaleString()}`;
+  log('INFO', 'Balance data received', { balanceData });
+
+  // Handle different possible response formats from AeronPay API
+  const balance = balanceData.available_balance ?? balanceData.balance ?? balanceData.data?.balance ?? balanceData.amount;
+  
+  if (balance === undefined || balance === null) {
+    log('ERROR', 'Balance property not found in response', { balanceData });
+    return;
+  }
+
+  if (balance < LOW_BALANCE_THRESHOLD) {
+    const message = `🚨 *Low Balance Alert!* 🚨\n\nAeronPay balance is critically low.\n\n*Current Balance:* ₹${balance.toLocaleString()}\n*Threshold:* ₹${LOW_BALANCE_THRESHOLD.toLocaleString()}`;
     CHAT_IDS.forEach(chatId => {
       bot.sendMessage(chatId, message, { parse_mode: 'Markdown' }).catch(err => {
         log('ERROR', 'Failed to send message to chat', { chatId, error: err.message });
       });
     });
-    log('WARN', 'Low balance notification sent', { balance: balanceData.balance, notified: CHAT_IDS });
+    log('WARN', 'Low balance notification sent', { balance, notified: CHAT_IDS });
   } else {
-    log('INFO', 'Balance is sufficient', { balance: balanceData.balance });
+    log('INFO', 'Balance is sufficient', { balance });
   }
 };
 
@@ -137,12 +147,25 @@ bot.on('message', async (msg) => {
 
     bot.sendMessage(chatId, '⏳ Fetching balance...');
     const balanceData = await getAeronPayBalance();
-    if (balanceData) {
-      const message = `*AeronPay Balance:*\n\n💰 ₹${balanceData.balance.toLocaleString()}`;
-      bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
-    } else {
+    
+    if (!balanceData) {
       bot.sendMessage(chatId, '❌ Could not retrieve balance. The server may be temporarily unavailable. Please try again later.');
+      return;
     }
+
+    log('INFO', 'Balance data for user request', { balanceData });
+
+    // Handle different possible response formats from AeronPay API
+    const balance = balanceData.available_balance ?? balanceData.balance ?? balanceData.data?.balance ?? balanceData.amount;
+    
+    if (balance === undefined || balance === null) {
+      log('ERROR', 'Balance property not found in API response', { balanceData });
+      bot.sendMessage(chatId, '❌ Error: Could not find balance in API response. Please check server logs.');
+      return;
+    }
+
+    const message = `*AeronPay Balance:*\n\n💰 ₹${balance.toLocaleString()}`;
+    bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
   }
 });
 
