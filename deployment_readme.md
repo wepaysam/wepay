@@ -163,3 +163,6 @@ To update your deployed application, follow these steps:
  then 
  sudo nano /etc/nginx/sites-enabled/wepayx.co.in
 
+ 3000 port for .in and 5001 for .co.in
+ 
+
