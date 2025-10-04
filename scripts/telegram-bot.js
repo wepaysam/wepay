@@ -7,9 +7,14 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || 'YOUR_TELEGRAM_BOT_
 const CHAT_IDS = (process.env.TELEGRAM_CHAT_IDS || '').split(',').filter(id => id);
 const BALANCE_CHECK_INTERVAL_MS = parseInt(process.env.BALANCE_CHECK_INTERVAL_MS) || 300000; // 5 minutes
 const LOW_BALANCE_THRESHOLD = 300000;
-const API_BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 const AERONPAY_BALANCE_API = `${API_BASE_URL}/api/aeronpay/balance`;
 const BOT_PASSWORD = 'i am lolu';
+
+// Retry configuration
+const MAX_RETRIES = 5;
+const INITIAL_RETRY_DELAY = 2000; // 2 seconds
+const MAX_RETRY_DELAY = 30000; // 30 seconds
 
 // --- Authentication State ---
 const authenticatedUsers = new Set();
@@ -24,12 +29,32 @@ const log = (level, message, data = null) => {
   console.log(`[${timestamp}] [${level.padEnd(7)}] ${message}${logData}`);
 };
 
-const getAeronPayBalance = async () => {
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const getAeronPayBalance = async (retryCount = 0) => {
   try {
-    const response = await axios.post(AERONPAY_BALANCE_API);
+    const response = await axios.post(AERONPAY_BALANCE_API, {}, {
+      timeout: 10000 // 10 second timeout
+    });
     return response.data;
   } catch (error) {
-    log('ERROR', 'Failed to fetch AeronPay balance', { error: error.message });
+    const isConnectionError = error.code === 'ECONNREFUSED' || error.code === 'ECONNRESET';
+    
+    if (isConnectionError && retryCount < MAX_RETRIES) {
+      const delay = Math.min(INITIAL_RETRY_DELAY * Math.pow(2, retryCount), MAX_RETRY_DELAY);
+      log('WARN', `Connection failed, retrying in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`, { 
+        error: error.message,
+        code: error.code 
+      });
+      await sleep(delay);
+      return getAeronPayBalance(retryCount + 1);
+    }
+    
+    log('ERROR', 'Failed to fetch AeronPay balance', { 
+      error: error.message,
+      code: error.code,
+      retries: retryCount
+    });
     return null;
   }
 };
@@ -38,15 +63,42 @@ const checkLowBalance = async () => {
   log('INFO', 'Checking AeronPay balance...');
   const balanceData = await getAeronPayBalance();
 
-  if (balanceData && balanceData.balance < LOW_BALANCE_THRESHOLD) {
+  if (!balanceData) {
+    log('WARN', 'Could not retrieve balance, will retry on next scheduled check');
+    return;
+  }
+
+  if (balanceData.balance < LOW_BALANCE_THRESHOLD) {
     const message = `🚨 *Low Balance Alert!* 🚨\n\nAeronPay balance is critically low.\n\n*Current Balance:* ₹${balanceData.balance.toLocaleString()}\n*Threshold:* ₹${LOW_BALANCE_THRESHOLD.toLocaleString()}`;
     CHAT_IDS.forEach(chatId => {
-      bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+      bot.sendMessage(chatId, message, { parse_mode: 'Markdown' }).catch(err => {
+        log('ERROR', 'Failed to send message to chat', { chatId, error: err.message });
+      });
     });
     log('WARN', 'Low balance notification sent', { balance: balanceData.balance, notified: CHAT_IDS });
-  } else if (balanceData) {
+  } else {
     log('INFO', 'Balance is sufficient', { balance: balanceData.balance });
   }
+};
+
+// Wait for Next.js to be ready
+const waitForServer = async () => {
+  log('INFO', 'Waiting for Next.js server to be ready...');
+  
+  for (let i = 0; i < MAX_RETRIES; i++) {
+    try {
+      await axios.get(API_BASE_URL, { timeout: 5000 });
+      log('INFO', 'Next.js server is ready!');
+      return true;
+    } catch (error) {
+      const delay = Math.min(INITIAL_RETRY_DELAY * Math.pow(2, i), MAX_RETRY_DELAY);
+      log('INFO', `Server not ready yet, waiting ${delay}ms... (attempt ${i + 1}/${MAX_RETRIES})`);
+      await sleep(delay);
+    }
+  }
+  
+  log('WARN', 'Server may not be ready, but continuing anyway...');
+  return false;
 };
 
 // --- Message Handler ---
@@ -61,8 +113,8 @@ bot.on('message', async (msg) => {
   }
 
   if (text === '/start' || text === '/help') {
-    const response = `\nWelcome to the WePay Bot!\n\nHere are the available commands:\n- \`/login <password>\`: Authenticate to use protected commands.\n- \`/balance\`: Check the current AeronPay balance (requires authentication).\n- \`/help\`: Show this message again.\n    `;
-    bot.sendMessage(chatId, response);
+    const response = `Welcome to the WePay Bot!\n\nHere are the available commands:\n- \`/login <password>\`: Authenticate to use protected commands.\n- \`/balance\`: Check the current AeronPay balance (requires authentication).\n- \`/help\`: Show this message again.`;
+    bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
   } else if (text.startsWith('/login ')) {
     const password = text.split(' ')[1];
     if (password === BOT_PASSWORD) {
@@ -75,22 +127,40 @@ bot.on('message', async (msg) => {
     }
   } else if (text === '/balance') {
     if (!authenticatedUsers.has(chatId)) {
-      bot.sendMessage(chatId, '🔒 This command requires authentication. Please use \`/login <password>\` first.');
+      bot.sendMessage(chatId, '🔒 This command requires authentication. Please use `/login <password>` first.', { parse_mode: 'Markdown' });
       return;
     }
 
+    bot.sendMessage(chatId, '⏳ Fetching balance...');
     const balanceData = await getAeronPayBalance();
     if (balanceData) {
       const message = `*AeronPay Balance:*\n\n💰 ₹${balanceData.balance.toLocaleString()}`;
       bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
     } else {
-      bot.sendMessage(chatId, 'Could not retrieve balance. Please check the server logs.');
+      bot.sendMessage(chatId, '❌ Could not retrieve balance. The server may be temporarily unavailable. Please try again later.');
     }
   }
 });
 
+// --- Error Handlers ---
+bot.on('polling_error', (error) => {
+  log('ERROR', 'Telegram polling error', { error: error.message });
+});
+
+process.on('SIGTERM', () => {
+  log('INFO', 'Received SIGTERM, shutting down gracefully...');
+  bot.stopPolling();
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  log('INFO', 'Received SIGINT, shutting down gracefully...');
+  bot.stopPolling();
+  process.exit(0);
+});
+
 // --- Main Execution ---
-const main = () => {
+const main = async () => {
   log('INFO', 'Starting Telegram Bot...');
 
   if (TELEGRAM_BOT_TOKEN === 'YOUR_TELEGRAM_BOT_TOKEN' || CHAT_IDS.length === 0) {
@@ -98,13 +168,16 @@ const main = () => {
     return;
   }
 
+  // Wait for Next.js to be ready before doing initial check
+  await waitForServer();
+
   // Initial check
-  checkLowBalance();
+  await checkLowBalance();
 
   // Set up recurring check
   setInterval(checkLowBalance, BALANCE_CHECK_INTERVAL_MS);
 
-  log('INFO', 'Telegram Bot is running and will check balance periodically.');
+  log('INFO', `Telegram Bot is running and will check balance every ${BALANCE_CHECK_INTERVAL_MS / 1000} seconds.`);
 };
 
 main();
