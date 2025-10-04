@@ -9,7 +9,7 @@ const BALANCE_CHECK_INTERVAL_MS = parseInt(process.env.BALANCE_CHECK_INTERVAL_MS
 const LOW_BALANCE_THRESHOLD = 300000;
 const API_BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 const AERONPAY_BALANCE_API = `${API_BASE_URL}/api/aeronpay/balance`;
-const BOT_PASSWORD = 'i am lolu';
+const BOT_PASSWORD = process.env.TELEGRAM_BOT_PASSWORD || 'i am lolu';
 
 // Retry configuration
 const MAX_RETRIES = 5;
@@ -106,9 +106,12 @@ bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text;
 
+  log('INFO', 'Message received', { chatId: chatId.toString(), text, authorizedChats: CHAT_IDS });
+
   // Ignore messages from unauthorized users
   if (!CHAT_IDS.includes(chatId.toString())) {
-    log('WARN', 'Unauthorized message received and ignored', { chatId });
+    log('WARN', 'Unauthorized message received and ignored', { chatId: chatId.toString() });
+    bot.sendMessage(chatId, '🚫 Unauthorized. Your chat ID is: ' + chatId.toString());
     return;
   }
 
@@ -116,7 +119,8 @@ bot.on('message', async (msg) => {
     const response = `Welcome to the WePay Bot!\n\nHere are the available commands:\n- \`/login <password>\`: Authenticate to use protected commands.\n- \`/balance\`: Check the current AeronPay balance (requires authentication).\n- \`/help\`: Show this message again.`;
     bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
   } else if (text.startsWith('/login ')) {
-    const password = text.split(' ')[1];
+    const password = text.substring(7).trim(); // Remove '/login ' and trim whitespace
+    log('INFO', 'Login attempt', { chatId: chatId.toString(), providedPassword: password, expectedPassword: BOT_PASSWORD });
     if (password === BOT_PASSWORD) {
       authenticatedUsers.add(chatId);
       bot.sendMessage(chatId, '✅ Authentication successful! You can now use the /balance command.');
