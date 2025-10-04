@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --port 3001",
     "build": "prisma generate && next build",
-    "start": "concurrently \"next start --port 3005\" \"node scripts/trigger-cron.js\" \"node scripts/telegram-bot.js\"",
+    "start": "concurrently \"next start --port 3000\" \"node scripts/trigger-cron.js\" \"node scripts/telegram-bot.js\"",
     "lint": "next lint",
     "trigger-cron": "node scripts/trigger-cron.js",
     "telegram-bot": "node scripts/telegram-bot.js"
